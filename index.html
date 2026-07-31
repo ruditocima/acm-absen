@@ -90,12 +90,146 @@
     sidebarOpen: true,
     notificationsOpen: false,
     userMenuOpen: false,
+    
+    // Modals Control State
     projectModal: false,
+    budgetModal: false,
+    journalModal: false,
+    invoiceModal: false,
     warehouseModal: false,
+    itemModal: false,
+    transactionModal: false,
+
     toastMessage: '',
     showToast(msg) {
         this.toastMessage = msg;
         setTimeout(() => { this.toastMessage = ''; }, 3500);
+    },
+
+    // Reactive Data Collections
+    projects: [
+        { periode: '2026-Q1', type: 'FTTH', region: 'Jabodetabek', code: 'PRJ-ALPHA-01', po: 'PO/2026/001', name: 'Project Alpha Tower', boq: 'Rp 24.500.000.000', poStatus: 'Approved', permit: 'Completed', snd: 'SND 1', projectStatus: 'On Progress (68%)', docStatus: 'Complete' },
+        { periode: '2026-Q2', type: 'FTTB', region: 'Jawa Barat', code: 'PRJ-BETA-02', po: 'PO/2026/042', name: 'Pembangunan Plaza Sudirman', boq: 'Rp 18.000.000.000', poStatus: 'Pending', permit: 'In Review', snd: 'SND 2', projectStatus: 'Planning', docStatus: 'Draft' },
+        { periode: '2026-Q1', type: 'Internal', region: 'DKI Jakarta', code: 'PRJ-GAMMA-03', po: 'PO/2026/015', name: 'Renovasi Kantor Pusat', boq: 'Rp 6.000.000.000', poStatus: 'Approved', permit: 'Completed', snd: 'SND 1', projectStatus: 'Finishing (92%)', docStatus: 'Complete' }
+    ],
+    newProject: { periode: '2026-Q2', type: 'FTTH', region: '', code: '', po: '', name: '', boq: '', poStatus: 'Approved', permit: 'In Review', snd: 'SND 1', projectStatus: 'Planning', docStatus: 'Draft' },
+    addProject() {
+        if(!this.newProject.code || !this.newProject.name) {
+            this.showToast('Kode dan Nama Project wajib diisi!');
+            return;
+        }
+        this.projects.push({...this.newProject});
+        this.projectModal = false;
+        this.showToast('Project baru berhasil ditambahkan!');
+        this.newProject = { periode: '2026-Q2', type: 'FTTH', region: '', code: '', po: '', name: '', boq: '', poStatus: 'Approved', permit: 'In Review', snd: 'SND 1', projectStatus: 'Planning', docStatus: 'Draft' };
+    },
+
+    budgets: [
+        { code: 'PRJ-ALPHA-01', name: 'Alpha Tower', total: 'Rp 24.500.000.000', percentage: 78, remaining: 'Rp 5.390.000.000', status: 'Aman' },
+        { code: 'PRJ-BETA-02', name: 'Plaza Sudirman', total: 'Rp 18.000.000.000', percentage: 35, remaining: 'Rp 11.700.000.000', status: 'Procurement' },
+        { code: 'PRJ-GAMMA-03', name: 'Renovasi Kantor', total: 'Rp 6.000.000.000', percentage: 95, remaining: 'Rp 300.000.000', status: 'Hampir Habis' }
+    ],
+    newBudget: { code: 'PRJ-DELTA-04', name: '', total: '', percentage: 10, remaining: 'Rp 5.000.000.000', status: 'Aman' },
+    addBudget() {
+        if(!this.newBudget.code || !this.newBudget.total) {
+            this.showToast('Kode Project dan Total Budget wajib diisi!');
+            return;
+        }
+        this.budgets.push({...this.newBudget});
+        this.budgetModal = false;
+        this.showToast('Alokasi budget baru berhasil ditambahkan!');
+        this.newBudget = { code: 'PRJ-DELTA-04', name: '', total: '', percentage: 10, remaining: 'Rp 5.000.000.000', status: 'Aman' };
+    },
+
+    journals: [
+        { no: '#JUR-2026-401', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: 'Pembelian Material Gudang Utama (Project Alpha) - Ref: PO-9921', debit: '45.000.000', credit: '-' },
+        { no: '#JUR-2026-402', date: '30/07/2026', code: 'PRJ-BETA-02', desc: 'Penerimaan Termin Pembayaran Klien - Ref: INV-2026-04', debit: '-', credit: '1.250.000.000' },
+        { no: '#JUR-2026-403', date: '29/07/2026', code: 'PRJ-GAMMA-03', desc: 'Pembayaran Biaya Operasional & Renovasi Kantor Pusat', debit: '185.000.000', credit: '-' }
+    ],
+    newJournal: { no: '#JUR-2026-404', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: '', amount: '', type: 'debit' },
+    addJournal() {
+        if(!this.newJournal.desc || !this.newJournal.amount) {
+            this.showToast('Keterangan dan Nominal wajib diisi!');
+            return;
+        }
+        let entry = {
+            no: this.newJournal.no,
+            date: this.newJournal.date,
+            code: this.newJournal.code,
+            desc: this.newJournal.desc,
+            debit: this.newJournal.type === 'debit' ? this.newJournal.amount : '-',
+            credit: this.newJournal.type === 'credit' ? this.newJournal.amount : '-'
+        };
+        this.journals.unshift(entry);
+        this.journalModal = false;
+        this.showToast('Entri jurnal baru berhasil disimpan!');
+        this.newJournal = { no: '#JUR-2026-405', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: '', amount: '', type: 'debit' };
+    },
+
+    invoices: [
+        { no: 'INV-2026-08', project: 'Project Alpha Tower', desc: 'Termin 3 (Progress 70%)', nominal: 'Rp 3.500.000.000', status: 'Lunas (Paid)' },
+        { no: 'INV-2026-09', project: 'Plaza Sudirman', desc: 'Termin 1 (Uang Muka / DP)', nominal: 'Rp 1.250.000.000', status: 'Pending Payment' }
+    ],
+    newInvoice: { no: 'INV-2026-10', project: '', desc: '', nominal: '', status: 'Pending Payment' },
+    addInvoice() {
+        if(!this.newInvoice.no || !this.newInvoice.nominal) {
+            this.showToast('No Invoice dan Nominal wajib diisi!');
+            return;
+        }
+        this.invoices.push({...this.newInvoice});
+        this.invoiceModal = false;
+        this.showToast('Invoice baru berhasil dibuat!');
+        this.newInvoice = { no: 'INV-2026-11', project: '', desc: '', nominal: '', status: 'Pending Payment' };
+    },
+
+    warehouses: [
+        { code: 'WH-01', name: 'Gudang Utama Pusat', location: 'Kawasan Industri Cikarang Blok A-12, Bekasi', pic: 'Pak Joko' },
+        { code: 'WH-02', name: 'Gudang Project Alpha', location: 'Site Area Alpha Tower, Jakarta Selatan', pic: 'Pak Hendra' },
+        { code: 'WH-03', name: 'Gudang Transit Sudirman', location: 'Basement Plaza Sudirman, Jakarta Pusat', pic: 'Pak Doni' }
+    ],
+    newWarehouse: { code: 'WH-04', name: '', location: '', pic: '' },
+    addWarehouse() {
+        if(!this.newWarehouse.code || !this.newWarehouse.name) {
+            this.showToast('Kode dan Nama Gudang wajib diisi!');
+            return;
+        }
+        this.warehouses.push({...this.newWarehouse});
+        this.warehouseModal = false;
+        this.showToast('Gudang baru berhasil ditambahkan!');
+        this.newWarehouse = { code: 'WH-05', name: '', location: '', pic: '' };
+    },
+
+    items: [
+        { category: 'Bahan Konstruksi', type: 'Material Struktur', code: 'SKU-BESI-12', name: 'Besi Beton Ulir 12mm SNI', price: 'Rp 90.000' },
+        { category: 'Bahan Konstruksi', type: 'Material Finishing', code: 'SKU-SEMEN-50', name: 'Semen Portland Gresik 50kg', price: 'Rp 65.000' },
+        { category: 'Instalasi & Utilitas', type: 'Elektrikal', code: 'SKU-KABEL-NYY', name: 'Kabel NYY 4x10mm Supreme', price: 'Rp 45.000' }
+    ],
+    newItem: { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' },
+    addItem() {
+        if(!this.newItem.code || !this.newItem.name) {
+            this.showToast('Kode dan Nama Barang wajib diisi!');
+            return;
+        }
+        this.items.push({...this.newItem});
+        this.itemModal = false;
+        this.showToast('Barang baru berhasil ditambahkan ke katalog!');
+        this.newItem = { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' };
+    },
+
+    transactions: [
+        { date: '31/07/2026', doc: 'DOC/2026/088', do: 'DO-9921', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '50 Batang', pickup: 'Budi', approved: 'Pak Joko', known: 'Manager Proyek', desc: 'Pengiriman material tahap 1' },
+        { date: '30/07/2026', doc: 'DOC/2026/085', do: 'DO-8840', type: 'Masuk', origin: 'Supplier Gresik', dest: 'Gudang Utama Pusat', code: '-', cat: 'Bahan Konstruksi', kind: 'Material Finishing', itemCode: 'SKU-SEMEN-50', itemName: 'Semen Portland 50kg', qty: '500 Sak', pickup: 'Andi', approved: 'Pak Hendra', known: 'Bagian Gudang', desc: 'Restock bulanan gudang pusat' }
+    ],
+    newTransaction: { date: '31/07/2026', doc: 'DOC/2026/090', do: 'DO-9930', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Transit Sudirman', code: 'PRJ-BETA-02', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '100 Batang', pickup: 'Rian', approved: 'Pak Doni', known: 'Supervisor', desc: 'Alokasi awal project' },
+    addTransaction() {
+        if(!this.newTransaction.do || !this.newTransaction.itemName) {
+            this.showToast('No DO dan Nama Barang wajib diisi!');
+            return;
+        }
+        this.transactions.unshift({...this.newTransaction});
+        this.transactionModal = false;
+        this.showToast('Transaksi gudang baru berhasil dicatat!');
+        this.newTransaction = { date: '31/07/2026', doc: 'DOC/2026/091', do: 'DO-9931', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '50 Batang', pickup: '', approved: '', known: '', desc: '' };
     }
 }" class="antialiased selection:bg-amber-500 selection:text-white">
 
@@ -158,7 +292,6 @@
                         <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
                     </div>
                     <div class="space-y-1 mt-1">
-                        <!-- Master Project -->
                         <a @click="currentTab = 'project'; activeSubTab = 'master'" 
                            :class="currentTab === 'project' && activeSubTab === 'master' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -167,7 +300,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Master Project</span>
                         </a>
-                        <!-- Project Budget -->
                         <a @click="currentTab = 'project'; activeSubTab = 'budget'" 
                            :class="currentTab === 'project' && activeSubTab === 'budget' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -186,7 +318,6 @@
                         <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
                     </div>
                     <div class="space-y-1 mt-1">
-                        <!-- Accounting -->
                         <a @click="currentTab = 'finance'; activeSubTab = 'accounting'" 
                            :class="currentTab === 'finance' && activeSubTab === 'accounting' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -195,7 +326,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Accounting</span>
                         </a>
-                        <!-- Billing -->
                         <a @click="currentTab = 'finance'; activeSubTab = 'billing'" 
                            :class="currentTab === 'finance' && activeSubTab === 'billing' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -214,7 +344,6 @@
                         <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
                     </div>
                     <div class="space-y-1 mt-1">
-                        <!-- Gudang -->
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'gudang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'gudang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -223,7 +352,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Gudang</span>
                         </a>
-                        <!-- Barang -->
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'barang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -232,7 +360,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Barang</span>
                         </a>
-                        <!-- Transaksi Gudang -->
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'transaksi'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'transaksi' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -241,7 +368,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Transaksi Gudang</span>
                         </a>
-                        <!-- Stok Barang -->
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_barang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'stok_barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -250,7 +376,6 @@
                             </div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Barang</span>
                         </a>
-                        <!-- Stok Project -->
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'stok_project' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
@@ -269,8 +394,8 @@
                 <div class="flex items-center space-x-3">
                     <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border border-amber-500/30 shrink-0">
                     <div x-show="sidebarOpen" class="overflow-hidden">
-                        <h4 class="text-xs font-bold text-white truncate">Victoria Sterling</h4>
-                        <p class="text-[11px] text-amber-400/90 truncate">Chief Executive Officer</p>
+                        <h4 class="text-xs font-bold text-white truncate">Rudi</h4>
+                        <p class="text-[11px] text-amber-400/90 truncate">PM Divisi YOFC</p>
                     </div>
                 </div>
             </div>
@@ -308,7 +433,6 @@
 
                 <!-- Right Action Header -->
                 <div class="flex items-center space-x-4">
-                    <!-- Global Search -->
                     <div class="relative hidden md:block">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
                             <i class="fa-solid fa-magnifying-glass text-xs"></i>
@@ -322,8 +446,6 @@
                             <i class="fa-regular fa-bell"></i>
                             <span class="absolute top-2 right-2 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white"></span>
                         </button>
-                        
-                        <!-- Notifications Panel -->
                         <div x-show="notificationsOpen" @click.outside="notificationsOpen = false" 
                              class="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50" style="display: none;">
                             <div class="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
@@ -350,7 +472,6 @@
                         </div>
                     </div>
 
-                    <!-- Action Button -->
                     <button @click="showToast('Sinkronisasi data ERP berhasil diperbarui.')" class="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-500/25 flex items-center space-x-2 transition-all">
                         <i class="fa-solid fa-arrows-rotate text-xs"></i>
                         <span>Sync ERP</span>
@@ -363,22 +484,18 @@
                 
                 <!-- ==================== TAB: DASHBOARD ==================== -->
                 <div x-show="currentTab === 'dashboard'" class="space-y-8">
-                    <!-- Top Metric Cards -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <!-- Card 1 -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
                             <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center text-amber-500/20 group-hover:scale-125 transition-transform">
                                 <i class="fa-solid fa-diagram-project text-5xl"></i>
                             </div>
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Active Projects</span>
                             <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">14</h3>
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading" x-text="projects.length"></h3>
                                 <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-trend-up"></i> +2.4%</span>
                             </div>
-                            <p class="text-xs text-slate-500 mt-3">3 Project dalam tahap finishing</p>
+                            <p class="text-xs text-slate-500 mt-3">Portfolio terintegrasi aktif</p>
                         </div>
-
-                        <!-- Card 2 -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
                             <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center text-blue-500/20 group-hover:scale-125 transition-transform">
                                 <i class="fa-solid fa-wallet text-5xl"></i>
@@ -390,8 +507,6 @@
                             </div>
                             <p class="text-xs text-slate-500 mt-3">Real-time Cost Control Active</p>
                         </div>
-
-                        <!-- Card 3 -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
                             <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500/20 group-hover:scale-125 transition-transform">
                                 <i class="fa-solid fa-scale-balanced text-5xl"></i>
@@ -403,29 +518,26 @@
                             </div>
                             <p class="text-xs text-slate-500 mt-3">Billing & Accounting Audited</p>
                         </div>
-
-                        <!-- Card 4 -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
                             <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-50 rounded-full flex items-center justify-center text-purple-500/20 group-hover:scale-125 transition-transform">
                                 <i class="fa-solid fa-warehouse text-5xl"></i>
                             </div>
                             <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Warehouse Utilization</span>
                             <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">82.4%</h3>
-                                <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">5 Gudang Utama</span>
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading" x-text="warehouses.length + ' Gudang'"></h3>
+                                <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pusat & Transit</span>
                             </div>
                             <p class="text-xs text-slate-500 mt-3">Stok Barang & Project Terintegrasi</p>
                         </div>
                     </div>
 
-                    <!-- Correlation Overview Banner -->
                     <div class="bg-gradient-to-r from-obsidian-900 via-obsidian-800 to-obsidian-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl border border-amber-500/20">
                         <div class="absolute right-0 top-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
                         <div class="relative z-10 max-w-2xl">
                             <span class="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">Executive Architecture</span>
                             <h2 class="text-2xl font-extrabold font-heading mt-4">Korelasi Terpadu Project, Finance, & Warehouse</h2>
                             <p class="text-slate-300 text-sm mt-2 leading-relaxed">
-                                Sistem ERP ini menghubungkan setiap Master Project dengan <b>Project Budget</b>. Alokasi material dari <b>Warehouse (Stok Gudang & Barang)</b> langsung memotong anggaran secara real-time dan tercatat dalam <b>Accounting & Billing</b> keuangan perusahaan.
+                                Sistem ERP ini menghubungkan setiap Master Project dengan <b>Project Budget</b>. Alokasi material dari <b>Warehouse</b> langsung memotong anggaran secara real-time dan tercatat dalam <b>Accounting & Billing</b>.
                             </p>
                             <div class="flex items-center space-x-4 mt-6">
                                 <button @click="currentTab = 'project'; activeSubTab = 'master'" class="bg-amber-500 hover:bg-amber-600 text-obsidian-900 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20">
@@ -435,53 +547,6 @@
                                     Lihat Stok Project
                                 </button>
                             </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Activities Table -->
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="flex items-center justify-between mb-6">
-                            <div>
-                                <h3 class="text-lg font-bold font-heading text-slate-900">Aktivitas Lintas Modul Terkini</h3>
-                                <p class="text-xs text-slate-500">Rekonsiliasi transaksi project, finance, dan inventory</p>
-                            </div>
-                            <span class="text-xs text-amber-600 font-semibold cursor-pointer hover:underline">Lihat Semua Log <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
-                                <thead>
-                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Modul / Trx ID</th>
-                                        <th class="py-3 px-4">Project Terkait</th>
-                                        <th class="py-3 px-4">Deskripsi Aktivitas</th>
-                                        <th class="py-3 px-4">Nominal / Nilai</th>
-                                        <th class="py-3 px-4">Status Integrasi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-md font-bold mr-2">WAREHOUSE</span> #TRX-8821</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-700">Project Alpha Tower</td>
-                                        <td class="py-4 px-4 text-slate-600">Pengeluaran Besi Beton 12mm (50 Batang)</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 45.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i> Terpotong dari Budget</span></td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-bold mr-2">FINANCE</span> #INV-2026-09</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-700">Pembangunan Plaza Sudirman</td>
-                                        <td class="py-4 px-4 text-slate-600">Billing Termin ke-2 (Client Milestone)</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 1.250.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-clock text-[10px] mr-1"></i> Menunggu Pembayaran</span></td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold mr-2">PROJECT</span> #PRJ-004</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-700">Renovasi Kantor Pusat</td>
-                                        <td class="py-4 px-4 text-slate-600">Revisi Anggaran & Penambahan Item Semen</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 185.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i> Approved CEO</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -494,7 +559,8 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Project</h2>
                             <p class="text-xs text-slate-500">Kelola portofolio project, status pengerjaan, dan penanggung jawab.</p>
                         </div>
-                        <button @click="showToast('Membuka form Master Project Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Tambah Project Baru -->
+                        <button @click="projectModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Tambah Project Baru</span>
                         </button>
@@ -521,57 +587,25 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600 font-medium">2026-Q1</td>
-                                        <td class="py-4 px-4 text-slate-600">FTTH</td>
-                                        <td class="py-4 px-4 text-slate-600">Jabodetabek</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-ALPHA-01</td>
-                                        <td class="py-4 px-4 font-mono text-xs text-slate-700">PO/2026/001</td>
-                                        <td class="py-4 px-4 font-bold text-slate-900">Project Alpha Tower</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Rp 24.500.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">Approved</span></td>
-                                        <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">Completed</span></td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">SND 1</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">On Progress (68%)</span></td>
-                                        <td class="py-4 px-4"><span class="bg-purple-50 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">Complete</span></td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Project Alpha Tower')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600 font-medium">2026-Q2</td>
-                                        <td class="py-4 px-4 text-slate-600">FTTB</td>
-                                        <td class="py-4 px-4 text-slate-600">Jawa Barat</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-BETA-02</td>
-                                        <td class="py-4 px-4 font-mono text-xs text-slate-700">PO/2026/042</td>
-                                        <td class="py-4 px-4 font-bold text-slate-900">Pembangunan Plaza Sudirman</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Rp 18.000.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">Pending</span></td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">In Review</span></td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">SND 2</td>
-                                        <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">Planning</span></td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">Draft</span></td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Plaza Sudirman')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600 font-medium">2026-Q1</td>
-                                        <td class="py-4 px-4 text-slate-600">Internal</td>
-                                        <td class="py-4 px-4 text-slate-600">DKI Jakarta</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-GAMMA-03</td>
-                                        <td class="py-4 px-4 font-mono text-xs text-slate-700">PO/2026/015</td>
-                                        <td class="py-4 px-4 font-bold text-slate-900">Renovasi Kantor Pusat</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Rp 6.000.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">Approved</span></td>
-                                        <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full">Completed</span></td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">SND 1</td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">Finishing (92%)</span></td>
-                                        <td class="py-4 px-4"><span class="bg-purple-50 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full">Complete</span></td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Renovasi Kantor')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
+                                    <template x-for="p in projects">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-4 px-4 text-slate-600 font-medium" x-text="p.periode"></td>
+                                            <td class="py-4 px-4 text-slate-600" x-text="p.type"></td>
+                                            <td class="py-4 px-4 text-slate-600" x-text="p.region"></td>
+                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="p.code"></td>
+                                            <td class="py-4 px-4 font-mono text-xs text-slate-700" x-text="p.po"></td>
+                                            <td class="py-4 px-4 font-bold text-slate-900" x-text="p.name"></td>
+                                            <td class="py-4 px-4 font-semibold text-slate-900" x-text="p.boq"></td>
+                                            <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full" x-text="p.poStatus"></span></td>
+                                            <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2 py-0.5 rounded-full" x-text="p.permit"></span></td>
+                                            <td class="py-4 px-4 text-slate-700 font-medium" x-text="p.snd"></td>
+                                            <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full" x-text="p.projectStatus"></span></td>
+                                            <td class="py-4 px-4"><span class="bg-purple-50 text-purple-700 text-xs font-semibold px-2 py-0.5 rounded-full" x-text="p.docStatus"></span></td>
+                                            <td class="py-4 px-4 text-right">
+                                                <button @click="showToast('Membuka detail ' + p.name)" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -585,99 +619,52 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Project Budget & Cost Control</h2>
                             <p class="text-xs text-slate-500">Korelasi anggaran project dengan realisasi penarikan material warehouse & finance.</p>
                         </div>
-                        <button @click="showToast('Menambahkan alokasi budget baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Alokasi Budget Baru -->
+                        <button @click="budgetModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Alokasi Budget Baru</span>
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- Budget Card 1 -->
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">PRJ-ALPHA-01</span>
-                                <span class="text-xs text-slate-500 font-medium">Alpha Tower</span>
-                            </div>
-                            <div>
-                                <h4 class="text-lg font-bold text-slate-900">Rp 24.500.000.000</h4>
-                                <p class="text-xs text-slate-500">Total Approved Budget</p>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="flex justify-between text-xs font-semibold">
-                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
-                                    <span class="text-amber-600">78%</span>
+                        <template x-for="b in budgets">
+                            <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md" x-text="b.code"></span>
+                                    <span class="text-xs text-slate-500 font-medium" x-text="b.name"></span>
                                 </div>
-                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                    <div class="bg-amber-500 h-full rounded-full" style="width: 78%"></div>
+                                <div>
+                                    <h4 class="text-lg font-bold text-slate-900" x-text="b.total"></h4>
+                                    <p class="text-xs text-slate-500">Total Approved Budget</p>
                                 </div>
-                            </div>
-                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
-                                <span>Sisa: Rp 5.390.000.000</span>
-                                <span class="text-emerald-600 font-semibold">Aman</span>
-                            </div>
-                        </div>
-
-                        <!-- Budget Card 2 -->
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">PRJ-BETA-02</span>
-                                <span class="text-xs text-slate-500 font-medium">Plaza Sudirman</span>
-                            </div>
-                            <div>
-                                <h4 class="text-lg font-bold text-slate-900">Rp 18.000.000.000</h4>
-                                <p class="text-xs text-slate-500">Total Approved Budget</p>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="flex justify-between text-xs font-semibold">
-                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
-                                    <span class="text-blue-600">35%</span>
+                                <div class="space-y-2">
+                                    <div class="flex justify-between text-xs font-semibold">
+                                        <span class="text-slate-600">Realisasi</span>
+                                        <span class="text-amber-600" x-text="b.percentage + '%'"></span>
+                                    </div>
+                                    <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                        <div class="bg-amber-500 h-full rounded-full" :style="'width: ' + b.percentage + '%'"></div>
+                                    </div>
                                 </div>
-                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                    <div class="bg-blue-500 h-full rounded-full" style="width: 35%"></div>
+                                <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
+                                    <span x-text="'Sisa: ' + b.remaining"></span>
+                                    <span class="text-emerald-600 font-semibold" x-text="b.status"></span>
                                 </div>
                             </div>
-                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
-                                <span>Sisa: Rp 11.700.000.000</span>
-                                <span class="text-blue-600 font-semibold">Procurement</span>
-                            </div>
-                        </div>
-
-                        <!-- Budget Card 3 -->
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md">PRJ-GAMMA-03</span>
-                                <span class="text-xs text-slate-500 font-medium">Renovasi Kantor</span>
-                            </div>
-                            <div>
-                                <h4 class="text-lg font-bold text-slate-900">Rp 6.000.000.000</h4>
-                                <p class="text-xs text-slate-500">Total Approved Budget</p>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="flex justify-between text-xs font-semibold">
-                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
-                                    <span class="text-purple-600">95%</span>
-                                </div>
-                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                                    <div class="bg-purple-500 h-full rounded-full" style="width: 95%"></div>
-                                </div>
-                            </div>
-                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
-                                <span>Sisa: Rp 300.000.000</span>
-                                <span class="text-amber-600 font-semibold">Hampir Habis</span>
-                            </div>
-                        </div>
+                        </template>
                     </div>
                 </div>
 
                 <!-- ==================== 2. FINANCE ==================== -->
-                <!-- Accounting (Updated with No. Jurnal - Tanggal - Kode Project - Keterangan - Debit (Rp) - Kredit (Rp)) -->
+                <!-- Accounting -->
                 <div x-show="currentTab === 'finance' && activeSubTab === 'accounting'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-xl font-bold font-heading text-slate-900">General Ledger & Accounting</h2>
                             <p class="text-xs text-slate-500">Pencatatan jurnal umum, neraca saldo, dan laba rugi perusahaan secara real-time.</p>
                         </div>
-                        <button @click="showToast('Membuat Jurnal Akuntansi Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Entri Jurnal Baru -->
+                        <button @click="journalModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Entri Jurnal Baru</span>
                         </button>
@@ -697,30 +684,16 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">#JUR-2026-401</td>
-                                        <td class="py-4 px-4 text-slate-600 font-medium">31/07/2026</td>
-                                        <td class="py-4 px-4 font-bold text-slate-800">PRJ-ALPHA-01</td>
-                                        <td class="py-4 px-4 text-slate-700">Pembelian Material Gudang Utama (Project Alpha) - Ref: PO-9921</td>
-                                        <td class="py-4 px-4 text-right font-semibold text-slate-900">45.000.000</td>
-                                        <td class="py-4 px-4 text-right text-slate-400">-</td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">#JUR-2026-402</td>
-                                        <td class="py-4 px-4 text-slate-600 font-medium">30/07/2026</td>
-                                        <td class="py-4 px-4 font-bold text-slate-800">PRJ-BETA-02</td>
-                                        <td class="py-4 px-4 text-slate-700">Penerimaan Termin Pembayaran Klien - Ref: INV-2026-04</td>
-                                        <td class="py-4 px-4 text-right text-slate-400">-</td>
-                                        <td class="py-4 px-4 text-right font-semibold text-slate-900">1.250.000.000</td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">#JUR-2026-403</td>
-                                        <td class="py-4 px-4 text-slate-600 font-medium">29/07/2026</td>
-                                        <td class="py-4 px-4 font-bold text-slate-800">PRJ-GAMMA-03</td>
-                                        <td class="py-4 px-4 text-slate-700">Pembayaran Biaya Operasional & Renovasi Kantor Pusat</td>
-                                        <td class="py-4 px-4 text-right font-semibold text-slate-900">185.000.000</td>
-                                        <td class="py-4 px-4 text-right text-slate-400">-</td>
-                                    </tr>
+                                    <template x-for="j in journals">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="j.no"></td>
+                                            <td class="py-4 px-4 text-slate-600 font-medium" x-text="j.date"></td>
+                                            <td class="py-4 px-4 font-bold text-slate-800" x-text="j.code"></td>
+                                            <td class="py-4 px-4 text-slate-700" x-text="j.desc"></td>
+                                            <td class="py-4 px-4 text-right font-semibold text-slate-900" x-text="j.debit"></td>
+                                            <td class="py-4 px-4 text-right font-semibold text-slate-900" x-text="j.credit"></td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -734,7 +707,8 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Billing & Invoice Management</h2>
                             <p class="text-xs text-slate-500">Penagihan termin project kepada klien korporat dan status pembayaran.</p>
                         </div>
-                        <button @click="showToast('Membuat Invoice Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Buat Invoice Baru -->
+                        <button @click="invoiceModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Buat Invoice Baru</span>
                         </button>
@@ -754,26 +728,18 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">INV-2026-08</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-800">Project Alpha Tower</td>
-                                        <td class="py-4 px-4 text-slate-600">Termin 3 (Progress 70%)</td>
-                                        <td class="py-4 px-4 font-bold text-slate-900">Rp 3.500.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">Lunas (Paid)</span></td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Mengunduh Invoice PDF')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">INV-2026-09</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-800">Plaza Sudirman</td>
-                                        <td class="py-4 px-4 text-slate-600">Termin 1 (Uang Muka / DP)</td>
-                                        <td class="py-4 px-4 font-bold text-slate-900">Rp 1.250.000.000</td>
-                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">Pending Payment</span></td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Mengunduh Invoice PDF')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
-                                        </td>
-                                    </tr>
+                                    <template x-for="inv in invoices">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="inv.no"></td>
+                                            <td class="py-4 px-4 font-semibold text-slate-800" x-text="inv.project"></td>
+                                            <td class="py-4 px-4 text-slate-600" x-text="inv.desc"></td>
+                                            <td class="py-4 px-4 font-bold text-slate-900" x-text="inv.nominal"></td>
+                                            <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full" x-text="inv.status"></span></td>
+                                            <td class="py-4 px-4 text-right">
+                                                <button @click="showToast('Mengunduh Invoice PDF')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -788,7 +754,8 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Gudang</h2>
                             <p class="text-xs text-slate-500">Daftar fasilitas pusat penyimpanan dan gudang transit di setiap site project.</p>
                         </div>
-                        <button @click="showToast('Membuka form Tambah Gudang')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Tambah Gudang Baru -->
+                        <button @click="warehouseModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Tambah Gudang Baru</span>
                         </button>
@@ -807,33 +774,17 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">WH-01</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Gudang Utama Pusat</td>
-                                        <td class="py-4 px-4 text-slate-600">Kawasan Industri Cikarang Blok A-12, Bekasi</td>
-                                        <td class="py-4 px-4 text-slate-800 font-medium">Pak Joko</td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Gudang WH-01')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">WH-02</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Gudang Project Alpha</td>
-                                        <td class="py-4 px-4 text-slate-600">Site Area Alpha Tower, Jakarta Selatan</td>
-                                        <td class="py-4 px-4 text-slate-800 font-medium">Pak Hendra</td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Gudang WH-02')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 font-bold text-amber-600">WH-03</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-900">Gudang Transit Sudirman</td>
-                                        <td class="py-4 px-4 text-slate-600">Basement Plaza Sudirman, Jakarta Pusat</td>
-                                        <td class="py-4 px-4 text-slate-800 font-medium">Pak Doni</td>
-                                        <td class="py-4 px-4 text-right">
-                                            <button @click="showToast('Membuka detail Gudang WH-03')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                        </td>
-                                    </tr>
+                                    <template x-for="w in warehouses">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="w.code"></td>
+                                            <td class="py-4 px-4 font-semibold text-slate-900" x-text="w.name"></td>
+                                            <td class="py-4 px-4 text-slate-600" x-text="w.location"></td>
+                                            <td class="py-4 px-4 text-slate-800 font-medium" x-text="w.pic"></td>
+                                            <td class="py-4 px-4 text-right">
+                                                <button @click="showToast('Membuka detail Gudang ' + w.code)" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                            </td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -847,7 +798,8 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Master Catalog Barang & SKU</h2>
                             <p class="text-xs text-slate-500">Daftar material, spesifikasi, dan standar satuan barang konstruksi.</p>
                         </div>
-                        <button @click="showToast('Menambahkan Master Barang Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Tambah Barang Baru -->
+                        <button @click="itemModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Tambah Barang Baru</span>
                         </button>
@@ -866,27 +818,15 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-sm">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600">Bahan Konstruksi</td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">Material Struktur</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-BESI-12</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-800">Besi Beton Ulir 12mm SNI</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 90.000</td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600">Bahan Konstruksi</td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">Material Finishing</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-SEMEN-50</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-800">Semen Portland Gresik 50kg</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 65.000</td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-4 px-4 text-slate-600">Instalasi & Utilitas</td>
-                                        <td class="py-4 px-4 text-slate-700 font-medium">Elektrikal</td>
-                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-KABEL-NYY</td>
-                                        <td class="py-4 px-4 font-semibold text-slate-800">Kabel NYY 4x10mm Supreme</td>
-                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 45.000</td>
-                                    </tr>
+                                    <template x-for="item in items">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-4 px-4 text-slate-600" x-text="item.category"></td>
+                                            <td class="py-4 px-4 text-slate-700 font-medium" x-text="item.type"></td>
+                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="item.code"></td>
+                                            <td class="py-4 px-4 font-semibold text-slate-800" x-text="item.name"></td>
+                                            <td class="py-4 px-4 font-medium text-slate-900" x-text="item.price"></td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -900,7 +840,8 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Transaksi Gudang (In / Out / Transfer)</h2>
                             <p class="text-xs text-slate-500">Pencatatan keluar masuk barang dan mutasi antar gudang pusat ke site project.</p>
                         </div>
-                        <button @click="showToast('Membuat Transaksi Gudang Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <!-- Tombol Catat Transaksi Baru -->
+                        <button @click="transactionModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Catat Transaksi Baru</span>
                         </button>
@@ -930,42 +871,26 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-3 px-3">31/07/2026</td>
-                                        <td class="py-3 px-3 font-mono">DOC/2026/088</td>
-                                        <td class="py-3 px-3 font-mono text-amber-600 font-bold">DO-9921</td>
-                                        <td class="py-3 px-3"><span class="bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Keluar</span></td>
-                                        <td class="py-3 px-3">Gudang Utama Pusat</td>
-                                        <td class="py-3 px-3">Gudang Project Alpha</td>
-                                        <td class="py-3 px-3 font-bold text-amber-600">PRJ-ALPHA-01</td>
-                                        <td class="py-3 px-3">Bahan Konstruksi</td>
-                                        <td class="py-3 px-3">Material Struktur</td>
-                                        <td class="py-3 px-3 font-mono font-semibold">SKU-BESI-12</td>
-                                        <td class="py-3 px-3 font-semibold text-slate-900">Besi Beton Ulir 12mm</td>
-                                        <td class="py-3 px-3 font-semibold">50 Batang</td>
-                                        <td class="py-3 px-3">Budi</td>
-                                        <td class="py-3 px-3">Pak Joko</td>
-                                        <td class="py-3 px-3">Manager Proyek</td>
-                                        <td class="py-3 px-3 text-slate-500">Pengiriman material tahap 1</td>
-                                    </tr>
-                                    <tr class="hover:bg-slate-50/85 transition-colors">
-                                        <td class="py-3 px-3">30/07/2026</td>
-                                        <td class="py-3 px-3 font-mono">DOC/2026/085</td>
-                                        <td class="py-3 px-3 font-mono text-amber-600 font-bold">DO-8840</td>
-                                        <td class="py-3 px-3"><span class="bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full">Masuk</span></td>
-                                        <td class="py-3 px-3">Supplier Gresik</td>
-                                        <td class="py-3 px-3">Gudang Utama Pusat</td>
-                                        <td class="py-3 px-3 text-slate-400">-</td>
-                                        <td class="py-3 px-3">Bahan Konstruksi</td>
-                                        <td class="py-3 px-3">Material Finishing</td>
-                                        <td class="py-3 px-3 font-mono font-semibold">SKU-SEMEN-50</td>
-                                        <td class="py-3 px-3 font-semibold text-slate-900">Semen Portland 50kg</td>
-                                        <td class="py-3 px-3 font-semibold">500 Sak</td>
-                                        <td class="py-3 px-3">Andi</td>
-                                        <td class="py-3 px-3">Pak Hendra</td>
-                                        <td class="py-3 px-3">Bagian Gudang</td>
-                                        <td class="py-3 px-3 text-slate-500">Restock bulanan gudang pusat</td>
-                                    </tr>
+                                    <template x-for="t in transactions">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-3 px-3" x-text="t.date"></td>
+                                            <td class="py-3 px-3 font-mono" x-text="t.doc"></td>
+                                            <td class="py-3 px-3 font-mono text-amber-600 font-bold" x-text="t.do"></td>
+                                            <td class="py-3 px-3"><span class="bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full" x-text="t.type"></span></td>
+                                            <td class="py-3 px-3" x-text="t.origin"></td>
+                                            <td class="py-3 px-3" x-text="t.dest"></td>
+                                            <td class="py-3 px-3 font-bold text-amber-600" x-text="t.code"></td>
+                                            <td class="py-3 px-3" x-text="t.cat"></td>
+                                            <td class="py-3 px-3" x-text="t.kind"></td>
+                                            <td class="py-3 px-3 font-mono font-semibold" x-text="t.itemCode"></td>
+                                            <td class="py-3 px-3 font-semibold text-slate-900" x-text="t.itemName"></td>
+                                            <td class="py-3 px-3 font-semibold" x-text="t.qty"></td>
+                                            <td class="py-3 px-3" x-text="t.pickup"></td>
+                                            <td class="py-3 px-3" x-text="t.approved"></td>
+                                            <td class="py-3 px-3" x-text="t.known"></td>
+                                            <td class="py-3 px-3 text-slate-500" x-text="t.desc"></td>
+                                        </tr>
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -1038,7 +963,6 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Project Alpha Material Allocation -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
                             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <div>
@@ -1056,18 +980,13 @@
                                     <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
                                     <span class="font-bold text-slate-900">1.500 Sak <span class="text-xs text-slate-400 font-normal">(Rp 97.5 Juta)</span></span>
                                 </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Kabel NYY 4x10mm (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">420 Meter <span class="text-xs text-slate-400 font-normal">(Rp 18.9 Juta)</span></span>
-                                </div>
                             </div>
                             <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                                 <span class="text-slate-500">Total Nilai Material Terserap</span>
-                                <span class="font-bold text-amber-600 text-sm">Rp 192.900.000</span>
+                                <span class="font-bold text-amber-600 text-sm">Rp 174.000.000</span>
                             </div>
                         </div>
 
-                        <!-- Plaza Sudirman Material Allocation -->
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
                             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                                 <div>
@@ -1085,14 +1004,10 @@
                                     <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
                                     <span class="font-bold text-slate-900">450 Sak <span class="text-xs text-slate-400 font-normal">(Rp 29.2 Juta)</span></span>
                                 </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Kabel NYY 4x10mm (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">100 Meter <span class="text-xs text-slate-400 font-normal">(Rp 4.5 Juta)</span></span>
-                                </div>
                             </div>
                             <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
                                 <span class="text-slate-500">Total Nilai Material Terserap</span>
-                                <span class="font-bold text-blue-600 text-sm">Rp 60.700.000</span>
+                                <span class="font-bold text-blue-600 text-sm">Rp 56.200.000</span>
                             </div>
                         </div>
                     </div>
@@ -1101,5 +1016,297 @@
             </main>
         </div>
     </div>
+
+    <!-- ==================== MODALS FORM (INTERACTIVE POPUPS) ==================== -->
+
+    <!-- 1. Modal: Tambah Project Baru -->
+    <div x-show="projectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="projectModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Master Project Baru</h3>
+                <button @click="projectModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
+                    <input type="text" x-model="newProject.code" placeholder="Contoh: PRJ-DELTA-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Project</label>
+                    <input type="text" x-model="newProject.name" placeholder="Contoh: Gedung Cyber Tower" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Periode</label>
+                        <input type="text" x-model="newProject.periode" placeholder="Contoh: 2026-Q2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tipe</label>
+                        <input type="text" x-model="newProject.type" placeholder="Contoh: FTTH" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Region</label>
+                        <input type="text" x-model="newProject.region" placeholder="Contoh: Surabaya" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nilai BoQ (Rp)</label>
+                        <input type="text" x-model="newProject.boq" placeholder="Contoh: Rp 15.000.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="projectModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addProject()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. Modal: Alokasi Budget Baru -->
+    <div x-show="budgetModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="budgetModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Alokasi Budget Project Baru</h3>
+                <button @click="budgetModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
+                    <input type="text" x-model="newBudget.code" placeholder="Contoh: PRJ-DELTA-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama / Keterangan Project</label>
+                    <input type="text" x-model="newBudget.name" placeholder="Contoh: Cyber Tower" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Total Approved Budget (Rp)</label>
+                    <input type="text" x-model="newBudget.total" placeholder="Contoh: Rp 12.000.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="budgetModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addBudget()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Budget</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Modal: Entri Jurnal Baru -->
+    <div x-show="journalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="journalModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Entri Jurnal Akuntansi Baru</h3>
+                <button @click="journalModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">No Jurnal</label>
+                        <input type="text" x-model="newJournal.no" class="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
+                        <input type="text" x-model="newJournal.code" placeholder="PRJ-ALPHA-01" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan Transaksi</label>
+                    <textarea x-model="newJournal.desc" placeholder="Rincian transaksi jurnal..." rows="2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Posisi Pos</label>
+                        <select x-model="newJournal.type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="debit">Debit</option>
+                            <option value="credit">Kredit</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
+                        <input type="text" x-model="newJournal.amount" placeholder="50.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="journalModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addJournal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Jurnal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Modal: Buat Invoice Baru -->
+    <div x-show="invoiceModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="invoiceModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Buat Invoice Penagihan Klien</h3>
+                <button @click="invoiceModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">No Invoice</label>
+                        <input type="text" x-model="newInvoice.no" class="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold" readonly>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Project / Klien</label>
+                        <input type="text" x-model="newInvoice.project" placeholder="PT Megah Semesta" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Termin / Keterangan</label>
+                    <input type="text" x-model="newInvoice.desc" placeholder="Termin 2 (Progress 50%)" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
+                        <input type="text" x-model="newInvoice.nominal" placeholder="Rp 2.500.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Status Pembayaran</label>
+                        <select x-model="newInvoice.status" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="Pending Payment">Pending Payment</option>
+                            <option value="Lunas (Paid)">Lunas (Paid)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="invoiceModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addInvoice()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Terbitkan Invoice</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Modal: Tambah Gudang Baru -->
+    <div x-show="warehouseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="warehouseModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Fasilitas Gudang Baru</h3>
+                <button @click="warehouseModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Gudang</label>
+                        <input type="text" x-model="newWarehouse.code" placeholder="WH-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Gudang</label>
+                        <input type="text" x-model="newWarehouse.name" placeholder="Gudang Transit Timur" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Lokasi Alamat</label>
+                    <input type="text" x-model="newWarehouse.location" placeholder="Jl. Raya Industrial No. 45, Cikarang" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Penanggung Jawab (PIC)</label>
+                    <input type="text" x-model="newWarehouse.pic" placeholder="Pak Budi" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="warehouseModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addWarehouse()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Gudang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Modal: Tambah Barang Baru -->
+    <div x-show="itemModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="itemModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Katalog Barang & SKU Baru</h3>
+                <button @click="itemModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori</label>
+                        <input type="text" x-model="newItem.category" placeholder="Bahan Konstruksi" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis</label>
+                        <input type="text" x-model="newItem.type" placeholder="Material Struktur" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Barang (SKU)</label>
+                        <input type="text" x-model="newItem.code" placeholder="SKU-PIPA-4IN" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Satuan</label>
+                        <input type="text" x-model="newItem.price" placeholder="Rp 120.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Barang Lengkap</label>
+                    <input type="text" x-model="newItem.name" placeholder="Pipa Galvanis 4 Inch SNI" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="itemModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addItem()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Barang</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. Modal: Catat Transaksi Baru -->
+    <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div @click.outside="transactionModal = false" class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Catat Transaksi Gudang Baru</h3>
+                <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">No DO</label>
+                        <input type="text" x-model="newTransaction.do" placeholder="DO-9930" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Tipe Transaksi</label>
+                        <select x-model="newTransaction.type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="Keluar">Keluar</option>
+                            <option value="Masuk">Masuk</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Kode Project</label>
+                        <input type="text" x-model="newTransaction.code" placeholder="PRJ-ALPHA-01" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Gudang Asal</label>
+                        <input type="text" x-model="newTransaction.origin" placeholder="Gudang Utama Pusat" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Gudang Tujuan</label>
+                        <input type="text" x-model="newTransaction.dest" placeholder="Gudang Project Alpha" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Nama Barang</label>
+                        <input type="text" x-model="newTransaction.itemName" placeholder="Besi Beton Ulir 12mm" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Jumlah</label>
+                        <input type="text" x-model="newTransaction.qty" placeholder="50 Batang" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-1">Keterangan / Catatan</label>
+                    <input type="text" x-model="newTransaction.desc" placeholder="Pengiriman material tahap 2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="transactionModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="addTransaction()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Catat Transaksi</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
