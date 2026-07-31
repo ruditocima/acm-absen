@@ -97,7 +97,13 @@
     journalModal: false,
     invoiceModal: false,
     warehouseModal: false,
+    isEditWarehouse: false,
+    editWarehouseIdx: null,
+    
     itemModal: false,
+    isEditItem: false,
+    editItemIdx: null,
+
     transactionModal: false,
 
     toastMessage: '',
@@ -188,15 +194,36 @@
         { code: 'WH-03', name: 'Gudang Transit Sudirman', location: 'Basement Plaza Sudirman, Jakarta Pusat', pic: 'Pak Doni' }
     ],
     newWarehouse: { code: 'WH-04', name: '', location: '', pic: '' },
-    addWarehouse() {
+    openWarehouseModal(edit = false, index = null) {
+        this.isEditWarehouse = edit;
+        if (edit && index !== null) {
+            this.editWarehouseIdx = index;
+            this.newWarehouse = { ...this.warehouses[index] };
+        } else {
+            this.editWarehouseIdx = null;
+            this.newWarehouse = { code: 'WH-04', name: '', location: '', pic: '' };
+        }
+        this.warehouseModal = true;
+    },
+    saveWarehouse() {
         if(!this.newWarehouse.code || !this.newWarehouse.name) {
             this.showToast('Kode dan Nama Gudang wajib diisi!');
             return;
         }
-        this.warehouses.push({...this.newWarehouse});
+        if (this.isEditWarehouse && this.editWarehouseIdx !== null) {
+            this.warehouses[this.editWarehouseIdx] = { ...this.newWarehouse };
+            this.showToast('Data gudang berhasil diperbarui!');
+        } else {
+            this.warehouses.push({...this.newWarehouse});
+            this.showToast('Gudang baru berhasil ditambahkan!');
+        }
         this.warehouseModal = false;
-        this.showToast('Gudang baru berhasil ditambahkan!');
-        this.newWarehouse = { code: 'WH-05', name: '', location: '', pic: '' };
+    },
+    deleteWarehouse(index) {
+        if (confirm('Apakah Anda yakin ingin menghapus gudang ini?')) {
+            this.warehouses.splice(index, 1);
+            this.showToast('Gudang berhasil dihapus!');
+        }
     },
 
     items: [
@@ -205,15 +232,36 @@
         { category: 'Instalasi & Utilitas', type: 'Elektrikal', code: 'SKU-KABEL-NYY', name: 'Kabel NYY 4x10mm Supreme', price: 'Rp 45.000' }
     ],
     newItem: { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' },
-    addItem() {
+    openItemModal(edit = false, index = null) {
+        this.isEditItem = edit;
+        if (edit && index !== null) {
+            this.editItemIdx = index;
+            this.newItem = { ...this.items[index] };
+        } else {
+            this.editItemIdx = null;
+            this.newItem = { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' };
+        }
+        this.itemModal = true;
+    },
+    saveItem() {
         if(!this.newItem.code || !this.newItem.name) {
             this.showToast('Kode dan Nama Barang wajib diisi!');
             return;
         }
-        this.items.push({...this.newItem});
+        if (this.isEditItem && this.editItemIdx !== null) {
+            this.items[this.editItemIdx] = { ...this.newItem };
+            this.showToast('Data barang berhasil diperbarui!');
+        } else {
+            this.items.push({...this.newItem});
+            this.showToast('Barang baru berhasil ditambahkan ke katalog!');
+        }
         this.itemModal = false;
-        this.showToast('Barang baru berhasil ditambahkan ke katalog!');
-        this.newItem = { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' };
+    },
+    deleteItem(index) {
+        if (confirm('Apakah Anda yakin ingin menghapus barang ini?')) {
+            this.items.splice(index, 1);
+            this.showToast('Barang berhasil dihapus!');
+        }
     },
 
     transactions: [
@@ -223,7 +271,7 @@
     newTransaction: { 
         date: '31/07/2026', 
         doc: '', 
-        do: 'DO-9930', 
+        do: '', 
         type: 'Keluar', 
         origin: 'Gudang Utama Pusat', 
         dest: 'Gudang Transit Sudirman', 
@@ -235,6 +283,12 @@
         items: [
             { cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: 100 }
         ]
+    },
+    deleteTransaction(index) {
+        if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
+            this.transactions.splice(index, 1);
+            this.showToast('Transaksi gudang berhasil dihapus!');
+        }
     },
 
     // Helper: Konversi Bulan ke Angka Romawi
@@ -285,8 +339,12 @@
         }
     },
     addTransaction() {
-        if(!this.newTransaction.do || this.newTransaction.items.length === 0) {
-            this.showToast('No DO dan minimal 1 item material wajib diisi!');
+        if(!this.newTransaction.do || this.newTransaction.do.trim() === '') {
+            this.showToast('No DO wajib diisi!');
+            return;
+        }
+        if(this.newTransaction.items.length === 0) {
+            this.showToast('Minimal 1 item material wajib diisi!');
             return;
         }
         if(!this.newTransaction.desc || this.newTransaction.desc.trim() === '') {
@@ -326,7 +384,7 @@
         this.newTransaction = { 
             date: '31/07/2026', 
             doc: '', 
-            do: 'DO-9931', 
+            do: '', 
             type: 'Keluar', 
             origin: 'Gudang Utama Pusat', 
             dest: '', 
@@ -863,7 +921,7 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Gudang</h2>
                             <p class="text-xs text-slate-500">Daftar fasilitas pusat penyimpanan dan gudang transit di setiap site project.</p>
                         </div>
-                        <button @click="warehouseModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <button @click="openWarehouseModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Tambah Gudang Baru</span>
                         </button>
@@ -871,25 +929,30 @@
 
                     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Kode Gudang</th>
-                                        <th class="py-3 px-4">Nama Gudang</th>
-                                        <th class="py-3 px-4">Lokasi</th>
-                                        <th class="py-3 px-4">Penanggung Jawab</th>
-                                        <th class="py-3 px-4 text-right">Aksi</th>
+                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-2.5 px-4">Kode Gudang</th>
+                                        <th class="py-2.5 px-4">Nama Gudang</th>
+                                        <th class="py-2.5 px-4">Lokasi</th>
+                                        <th class="py-2.5 px-4">Penanggung Jawab</th>
+                                        <th class="py-2.5 px-4 text-right">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 text-sm">
-                                    <template x-for="w in warehouses">
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
+                                    <template x-for="(w, index) in warehouses" :key="index">
                                         <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="w.code"></td>
-                                            <td class="py-4 px-4 font-semibold text-slate-900" x-text="w.name"></td>
-                                            <td class="py-4 px-4 text-slate-600" x-text="w.location"></td>
-                                            <td class="py-4 px-4 text-slate-800 font-medium" x-text="w.pic"></td>
-                                            <td class="py-4 px-4 text-right">
-                                                <button @click="showToast('Membuka detail Gudang ' + w.code)" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="w.code"></td>
+                                            <td class="py-2.5 px-4 font-semibold text-slate-900" x-text="w.name"></td>
+                                            <td class="py-2.5 px-4 text-slate-600" x-text="w.location"></td>
+                                            <td class="py-2.5 px-4 font-medium" x-text="w.pic"></td>
+                                            <td class="py-2.5 px-4 text-right space-x-1">
+                                                <button @click="openWarehouseModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </button>
+                                                <button @click="deleteWarehouse(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     </template>
@@ -906,7 +969,7 @@
                             <h2 class="text-xl font-bold font-heading text-slate-900">Master Catalog Barang & SKU</h2>
                             <p class="text-xs text-slate-500">Daftar material, spesifikasi, dan standar satuan barang konstruksi.</p>
                         </div>
-                        <button @click="itemModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <button @click="openItemModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
                             <span>Tambah Barang Baru</span>
                         </button>
@@ -914,24 +977,33 @@
 
                     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse text-xs">
                                 <thead>
-                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Kategori</th>
-                                        <th class="py-3 px-4">Jenis</th>
-                                        <th class="py-3 px-4">Kode Barang</th>
-                                        <th class="py-3 px-4">Nama Barang</th>
-                                        <th class="py-3 px-4">Harga Satuan</th>
+                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-2.5 px-4">Kategori</th>
+                                        <th class="py-2.5 px-4">Jenis</th>
+                                        <th class="py-2.5 px-4">Kode Barang</th>
+                                        <th class="py-2.5 px-4">Nama Barang</th>
+                                        <th class="py-2.5 px-4">Harga Satuan</th>
+                                        <th class="py-2.5 px-4 text-right">Aksi</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-100 text-sm">
-                                    <template x-for="item in items">
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
+                                    <template x-for="(item, index) in items" :key="index">
                                         <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-4 px-4 text-slate-600" x-text="item.category"></td>
-                                            <td class="py-4 px-4 text-slate-700 font-medium" x-text="item.type"></td>
-                                            <td class="py-4 px-4 font-bold text-amber-600" x-text="item.code"></td>
-                                            <td class="py-4 px-4 font-semibold text-slate-800" x-text="item.name"></td>
-                                            <td class="py-4 px-4 font-medium text-slate-900" x-text="item.price"></td>
+                                            <td class="py-2.5 px-4 text-slate-600" x-text="item.category"></td>
+                                            <td class="py-2.5 px-4 font-medium" x-text="item.type"></td>
+                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="item.code"></td>
+                                            <td class="py-2.5 px-4 font-semibold text-slate-900" x-text="item.name"></td>
+                                            <td class="py-2.5 px-4 font-medium" x-text="item.price"></td>
+                                            <td class="py-2.5 px-4 text-right space-x-1">
+                                                <button @click="openItemModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </button>
+                                                <button @click="deleteItem(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
                                         </tr>
                                     </template>
                                 </tbody>
@@ -974,10 +1046,11 @@
                                         <th class="py-3 px-3">Disetujui</th>
                                         <th class="py-3 px-3">Diketahui</th>
                                         <th class="py-3 px-3">Keterangan</th>
+                                        <th class="py-3 px-3 text-right">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="t in transactions">
+                                    <template x-for="(t, index) in transactions" :key="index">
                                         <tr class="hover:bg-slate-50/85 transition-colors">
                                             <td class="py-3 px-3" x-text="t.date"></td>
                                             <td class="py-3 px-3 font-mono" x-text="t.doc"></td>
@@ -995,6 +1068,11 @@
                                             <td class="py-3 px-3" x-text="t.approved"></td>
                                             <td class="py-3 px-3" x-text="t.known"></td>
                                             <td class="py-3 px-3 text-slate-500" x-text="t.desc"></td>
+                                            <td class="py-3 px-3 text-right">
+                                                <button @click="deleteTransaction(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
+                                                    <i class="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
                                         </tr>
                                     </template>
                                 </tbody>
@@ -1283,11 +1361,11 @@
         </div>
     </div>
 
-    <!-- 5. Modal: Tambah Gudang Baru -->
+    <!-- 5. Modal: Tambah/Edit Gudang -->
     <div x-show="warehouseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div @click.outside="warehouseModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Fasilitas Gudang Baru</h3>
+                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditWarehouse ? 'Edit Fasilitas Gudang' : 'Tambah Fasilitas Gudang Baru'"></h3>
                 <button @click="warehouseModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3 text-sm">
@@ -1312,16 +1390,16 @@
             </div>
             <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
                 <button @click="warehouseModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addWarehouse()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Gudang</button>
+                <button @click="saveWarehouse()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md" x-text="isEditWarehouse ? 'Simpan Perubahan' : 'Simpan Gudang'"></button>
             </div>
         </div>
     </div>
 
-    <!-- 6. Modal: Tambah Barang Baru -->
+    <!-- 6. Modal: Tambah/Edit Barang -->
     <div x-show="itemModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div @click.outside="itemModal = false" class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Katalog Barang & SKU Baru</h3>
+                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditItem ? 'Edit Katalog Barang & SKU' : 'Tambah Katalog Barang & SKU Baru'"></h3>
                 <button @click="itemModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <div class="space-y-3 text-sm">
@@ -1352,7 +1430,7 @@
             </div>
             <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
                 <button @click="itemModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addItem()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Barang</button>
+                <button @click="saveItem()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md" x-text="isEditItem ? 'Simpan Perubahan' : 'Simpan Barang'"></button>
             </div>
         </div>
     </div>
@@ -1380,8 +1458,8 @@
                         <input type="text" x-model="newTransaction.doc" readonly class="w-full px-2.5 py-1.5 border rounded-lg bg-slate-100 font-mono text-[11px] font-bold text-slate-700 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">No DO</label>
-                        <input type="text" x-model="newTransaction.do" placeholder="DO-9930" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">No DO <span class="text-rose-500">*</span></label>
+                        <input type="text" x-model="newTransaction.do" placeholder="Wajib diisi (Contoh: DO-9930)" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                     </div>
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Tipe Transaksi</label>
@@ -1440,7 +1518,7 @@
                 </div>
             </div>
 
-            <!-- Daftar Item Material (Multi-Item Input) -->
+            <!-- Daftar Item Material (Multi-Item Input dengan Filter Kategori -> Jenis -> Kode Barang) -->
             <div class="space-y-2 pt-2 border-t border-slate-100">
                 <div class="flex items-center justify-between">
                     <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">Detail Material</h4>
@@ -1464,24 +1542,24 @@
                                 <!-- Kategori Dropdown -->
                                 <div>
                                     <label class="block font-semibold text-slate-600 mb-0.5">Kategori</label>
-                                    <select x-model="item.cat" class="w-full px-2 py-1.5 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                                    <select x-model="item.cat" @change="item.kind = ''; item.itemCode = ''; item.itemName = ''" class="w-full px-2 py-1.5 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                                         <option value="">-- Pilih Kategori --</option>
                                         <template x-for="catOpt in [...new Set(items.map(i => i.category))]" :key="catOpt">
                                             <option :value="catOpt" x-text="catOpt"></option>
                                         </template>
                                     </select>
                                 </div>
-                                <!-- Jenis Dropdown -->
+                                <!-- Jenis Dropdown (Filtered by Kategori) -->
                                 <div>
                                     <label class="block font-semibold text-slate-600 mb-0.5">Jenis</label>
-                                    <select x-model="item.kind" class="w-full px-2 py-1.5 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                                    <select x-model="item.kind" @change="item.itemCode = ''; item.itemName = ''" class="w-full px-2 py-1.5 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                                         <option value="">-- Pilih Jenis --</option>
                                         <template x-for="kindOpt in [...new Set(items.filter(i => !item.cat || i.category === item.cat).map(i => i.type))]" :key="kindOpt">
                                             <option :value="kindOpt" x-text="kindOpt"></option>
                                         </template>
                                     </select>
                                 </div>
-                                <!-- Kode Barang Dropdown -->
+                                <!-- Kode Barang Dropdown (Filtered by Jenis) -->
                                 <div>
                                     <label class="block font-semibold text-slate-600 mb-0.5">Kode Barang</label>
                                     <select x-model="item.itemCode" @change="updateItemDetails(item)" class="w-full px-2 py-1.5 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
