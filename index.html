@@ -220,16 +220,71 @@
         { date: '31/07/2026', doc: 'DOC/2026/088', do: 'DO-9921', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '50 Batang', pickup: 'Budi', approved: 'Pak Joko', known: 'Manager Proyek', desc: 'Pengiriman material tahap 1' },
         { date: '30/07/2026', doc: 'DOC/2026/085', do: 'DO-8840', type: 'Masuk', origin: 'Supplier Gresik', dest: 'Gudang Utama Pusat', code: '-', cat: 'Bahan Konstruksi', kind: 'Material Finishing', itemCode: 'SKU-SEMEN-50', itemName: 'Semen Portland 50kg', qty: '500 Sak', pickup: 'Andi', approved: 'Pak Hendra', known: 'Bagian Gudang', desc: 'Restock bulanan gudang pusat' }
     ],
-    newTransaction: { date: '31/07/2026', doc: 'DOC/2026/090', do: 'DO-9930', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Transit Sudirman', code: 'PRJ-BETA-02', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '100 Batang', pickup: 'Rian', approved: 'Pak Doni', known: 'Supervisor', desc: 'Alokasi awal project' },
+    newTransaction: { 
+        date: '31/07/2026', 
+        doc: 'DOC/2026/090', 
+        do: 'DO-9930', 
+        type: 'Keluar', 
+        origin: 'Gudang Utama Pusat', 
+        dest: 'Gudang Transit Sudirman', 
+        code: 'PRJ-BETA-02', 
+        pickup: 'Rian', 
+        approved: 'Pak Doni', 
+        known: 'Supervisor', 
+        desc: 'Alokasi awal project',
+        items: [
+            { cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '100 Batang' }
+        ]
+    },
     addTransaction() {
-        if(!this.newTransaction.do || !this.newTransaction.itemName) {
-            this.showToast('No DO dan Nama Barang wajib diisi!');
+        if(!this.newTransaction.do || this.newTransaction.items.length === 0) {
+            this.showToast('No DO dan minimal 1 item material wajib diisi!');
             return;
         }
-        this.transactions.unshift({...this.newTransaction});
+        // Loop through multiple items and push each into transactions table
+        this.newTransaction.items.forEach(item => {
+            let entry = {
+                date: this.newTransaction.date,
+                doc: this.newTransaction.doc,
+                do: this.newTransaction.do,
+                type: this.newTransaction.type,
+                origin: this.newTransaction.origin,
+                dest: this.newTransaction.dest,
+                code: this.newTransaction.code,
+                cat: item.cat,
+                kind: item.kind,
+                itemCode: item.itemCode,
+                itemName: item.itemName,
+                qty: item.qty,
+                pickup: this.newTransaction.pickup,
+                approved: this.newTransaction.approved,
+                known: this.newTransaction.known,
+                desc: this.newTransaction.desc
+            };
+            this.transactions.unshift(entry);
+        });
+
         this.transactionModal = false;
-        this.showToast('Transaksi gudang baru berhasil dicatat!');
-        this.newTransaction = { date: '31/07/2026', doc: 'DOC/2026/091', do: 'DO-9931', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '50 Batang', pickup: '', approved: '', known: '', desc: '' };
+        this.showToast('Transaksi gudang beserta item material berhasil dicatat!');
+        this.resetTransactionForm();
+    },
+    resetTransactionForm() {
+        this.newTransaction = { 
+            date: '31/07/2026', 
+            doc: 'DOC/2026/091', 
+            do: 'DO-9931', 
+            type: 'Keluar', 
+            origin: 'Gudang Utama Pusat', 
+            dest: 'Gudang Project Alpha', 
+            code: 'PRJ-ALPHA-01', 
+            pickup: '', 
+            approved: '', 
+            known: '', 
+            desc: '',
+            items: [
+                { cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: '50 Batang' }
+            ]
+        };
     }
 }" class="antialiased selection:bg-amber-500 selection:text-white">
 
@@ -1251,15 +1306,29 @@
         </div>
     </div>
 
-    <!-- 7. Modal: Catat Transaksi Baru -->
+    <!-- 7. Modal: Catat Transaksi Gudang Baru (3 Kolom & Multi-Item Material) -->
     <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div @click.outside="transactionModal = false" class="bg-white rounded-2xl w-full max-w-xl p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div @click.outside="transactionModal = false" class="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-6 shadow-2xl border border-slate-200 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Catat Transaksi Gudang Baru</h3>
+                <div>
+                    <h3 class="font-heading font-bold text-lg text-slate-900">Catat Transaksi Gudang Baru</h3>
+                    <p class="text-xs text-slate-500">Formulir header 3-kolom dan input multi-item material sesuai dengan tabel transaksi gudang.</p>
+                </div>
                 <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="space-y-3 text-xs">
-                <div class="grid grid-cols-3 gap-3">
+            
+            <!-- Header Informasi Transaksi (3 Kolom Layout) -->
+            <div class="space-y-3">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">1. Informasi Dokumen & Header Transaksi</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Tanggal</label>
+                        <input type="text" x-model="newTransaction.date" placeholder="31/07/2026" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">No Doc</label>
+                        <input type="text" x-model="newTransaction.doc" placeholder="DOC/2026/090" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
                     <div>
                         <label class="block font-semibold text-slate-600 mb-1">No DO</label>
                         <input type="text" x-model="newTransaction.do" placeholder="DO-9930" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
@@ -1269,14 +1338,9 @@
                         <select x-model="newTransaction.type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                             <option value="Keluar">Keluar</option>
                             <option value="Masuk">Masuk</option>
+                            <option value="Transfer">Transfer</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Kode Project</label>
-                        <input type="text" x-model="newTransaction.code" placeholder="PRJ-ALPHA-01" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block font-semibold text-slate-600 mb-1">Gudang Asal</label>
                         <input type="text" x-model="newTransaction.origin" placeholder="Gudang Utama Pusat" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
@@ -1285,25 +1349,79 @@
                         <label class="block font-semibold text-slate-600 mb-1">Gudang Tujuan</label>
                         <input type="text" x-model="newTransaction.dest" placeholder="Gudang Project Alpha" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                     </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Nama Barang</label>
-                        <input type="text" x-model="newTransaction.itemName" placeholder="Besi Beton Ulir 12mm" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <label class="block font-semibold text-slate-600 mb-1">Kode Project</label>
+                        <input type="text" x-model="newTransaction.code" placeholder="PRJ-ALPHA-01" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-1">Jumlah</label>
-                        <input type="text" x-model="newTransaction.qty" placeholder="50 Batang" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                        <label class="block font-semibold text-slate-600 mb-1">Pickup (Pengambil)</label>
+                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Pengambil" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                     </div>
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-600 mb-1">Keterangan / Catatan</label>
-                    <input type="text" x-model="newTransaction.desc" placeholder="Pengiriman material tahap 2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Disetujui (Approver)</label>
+                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Approver" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-600 mb-1">Diketahui (Know by)</label>
+                        <input type="text" x-model="newTransaction.known" placeholder="Nama Supervisor" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block font-semibold text-slate-600 mb-1">Keterangan / Catatan</label>
+                        <input type="text" x-model="newTransaction.desc" placeholder="Catatan transaksi..." class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                    </div>
                 </div>
             </div>
+
+            <!-- Daftar Item Material (Multi-Item Input) -->
+            <div class="space-y-3 pt-2 border-t border-slate-100">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg">2. Daftar Item Material (Bisa Input Beberapa Barang)</h4>
+                    <button @click="newTransaction.items.push({ cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: '', itemName: '', qty: '' })" type="button" class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow flex items-center space-x-1.5 transition-all">
+                        <i class="fa-solid fa-plus text-[10px]"></i>
+                        <span>Tambah Baris Item</span>
+                    </button>
+                </div>
+
+                <div class="space-y-3">
+                    <template x-for="(item, index) in newTransaction.items" :key="index">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 relative space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] font-bold text-slate-700" x-text="'Item Material #' + (index + 1)"></span>
+                                <button x-show="newTransaction.items.length > 1" @click="newTransaction.items.splice(index, 1)" type="button" class="text-rose-500 hover:text-rose-700 text-xs font-semibold flex items-center space-x-1">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>Hapus Baris</span>
+                                </button>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                                <div>
+                                    <label class="block font-semibold text-slate-600 mb-1">Kategori</label>
+                                    <input type="text" x-model="item.cat" placeholder="Bahan Konstruksi" class="w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-600 mb-1">Jenis</label>
+                                    <input type="text" x-model="item.kind" placeholder="Material Struktur" class="w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-600 mb-1">Kode Barang</label>
+                                    <input type="text" x-model="item.itemCode" placeholder="SKU-BESI-12" class="w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-600 mb-1">Nama Barang</label>
+                                    <input type="text" x-model="item.itemName" placeholder="Besi Beton Ulir 12mm" class="w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block font-semibold text-slate-600 mb-1">Jumlah</label>
+                                    <input type="text" x-model="item.qty" placeholder="50 Batang" class="w-full px-3 py-2 bg-white border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
             <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
                 <button @click="transactionModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addTransaction()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Catat Transaksi</button>
+                <button @click="addTransaction()" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Transaksi Gudang</button>
             </div>
         </div>
     </div>
