@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AURA Enterprise - Executive ERP Suite</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js for interactivity -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Plus Jakarta Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        luxury: {
+                            50: '#f8f7f4',
+                            100: '#edeae1',
+                            200: '#d9d2c1',
+                            300: '#beb199',
+                            400: '#a39174',
+                            500: '#8c7654',
+                            600: '#756045',
+                            700: '#5e4c37',
+                            800: '#4b3c2c',
+                            900: '#3d3124',
+                            950: '#221b14',
+                        },
+                        obsidian: {
+                            900: '#0b0f19',
+                            800: '#111827',
+                            700: '#1f2937',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f5f7;
+            color: #1f2937;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom Glassmorphism */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .dark-glass {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body x-data="{ 
+    currentTab: 'dashboard',
+    activeSubTab: '',
+    sidebarOpen: true,
+    notificationsOpen: false,
+    userMenuOpen: false,
+    projectModal: false,
+    warehouseModal: false,
+    toastMessage: '',
+    showToast(msg) {
+        this.toastMessage = msg;
+        setTimeout(() => { this.toastMessage = ''; }, 3500);
+    }
+}" class="antialiased selection:bg-amber-500 selection:text-white">
+
+    <!-- Toast Notification -->
+    <div x-show="toastMessage" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 transform translate-y-2"
+         x-transition:enter-end="opacity-100 transform translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 transform translate-y-0"
+         x-transition:leave-end="opacity-0 transform translate-y-2"
+         class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl border border-amber-500/30 flex items-center space-x-3"
+         style="display: none;">
+        <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
+            <i class="fa-solid fa-bell"></i>
+        </div>
+        <div>
+            <p class="text-xs text-slate-400 font-medium">SISTEM NOTIFIKASI</p>
+            <p class="text-sm font-semibold" x-text="toastMessage"></p>
+        </div>
+    </div>
+
+    <div class="flex h-screen overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <aside :class="sidebarOpen ? 'w-72' : 'w-20'" class="transition-all duration-300 ease-in-out bg-obsidian-900 text-slate-300 flex flex-col z-40 border-r border-slate-800 shadow-2xl">
+            <!-- Brand Logo Area -->
+            <div class="h-20 flex items-center px-6 border-b border-slate-800/80 bg-obsidian-900/50">
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
+                        <i class="fa-solid fa-cubes text-obsidian-900 text-lg font-bold"></i>
+                    </div>
+                    <div x-show="sidebarOpen" x-transition.opacity class="flex flex-col">
+                        <span class="font-heading font-extrabold text-lg text-white tracking-wider">AURA<span class="text-amber-400">ERP</span></span>
+                        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Enterprise Suite v4.2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Navigation Menu -->
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-6">
+                
+                <!-- General Section -->
+                <div>
+                    <div x-show="sidebarOpen" class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Core Dashboard</div>
+                    <a @click="currentTab = 'dashboard'; activeSubTab = ''" 
+                       :class="currentTab === 'dashboard' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500 shadow-inner' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                       class="flex items-center px-3 py-3 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                        <div class="w-6 flex justify-center text-lg shrink-0">
+                            <i class="fa-solid fa-chart-pie group-hover:scale-110 transition-transform"></i>
+                        </div>
+                        <span x-show="sidebarOpen" class="ml-3 text-sm font-medium tracking-wide">Executive Overview</span>
+                    </a>
+                </div>
+
+                <!-- 1. PROJECT -->
+                <div x-data="{ open: true }">
+                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
+                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">1. Project Management</span>
+                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
+                    </div>
+                    <div class="space-y-1 mt-1">
+                        <!-- Master Project -->
+                        <a @click="currentTab = 'project'; activeSubTab = 'master'" 
+                           :class="currentTab === 'project' && activeSubTab === 'master' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-diagram-project"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Master Project</span>
+                        </a>
+                        <!-- Project Budget -->
+                        <a @click="currentTab = 'project'; activeSubTab = 'budget'" 
+                           :class="currentTab === 'project' && activeSubTab === 'budget' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-wallet"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Project Budget</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 2. FINANCE -->
+                <div x-data="{ open: true }">
+                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
+                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">2. Finance & Accounting</span>
+                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
+                    </div>
+                    <div class="space-y-1 mt-1">
+                        <!-- Accounting -->
+                        <a @click="currentTab = 'finance'; activeSubTab = 'accounting'" 
+                           :class="currentTab === 'finance' && activeSubTab === 'accounting' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-scale-balanced"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Accounting</span>
+                        </a>
+                        <!-- Billing -->
+                        <a @click="currentTab = 'finance'; activeSubTab = 'billing'" 
+                           :class="currentTab === 'finance' && activeSubTab === 'billing' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Billing</span>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 3. WAREHOUSE -->
+                <div x-data="{ open: true }">
+                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
+                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">3. Warehouse & Inventory</span>
+                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
+                    </div>
+                    <div class="space-y-1 mt-1">
+                        <!-- Gudang -->
+                        <a @click="currentTab = 'warehouse'; activeSubTab = 'gudang'" 
+                           :class="currentTab === 'warehouse' && activeSubTab === 'gudang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-warehouse"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Gudang</span>
+                        </a>
+                        <!-- Barang -->
+                        <a @click="currentTab = 'warehouse'; activeSubTab = 'barang'" 
+                           :class="currentTab === 'warehouse' && activeSubTab === 'barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-boxes-stacked"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Barang</span>
+                        </a>
+                        <!-- Transaksi Gudang -->
+                        <a @click="currentTab = 'warehouse'; activeSubTab = 'transaksi'" 
+                           :class="currentTab === 'warehouse' && activeSubTab === 'transaksi' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-right-left"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Transaksi Gudang</span>
+                        </a>
+                        <!-- Stok Barang -->
+                        <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_barang'" 
+                           :class="currentTab === 'warehouse' && activeSubTab === 'stok_barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-chart-line"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Barang</span>
+                        </a>
+                        <!-- Stok Project -->
+                        <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" 
+                           :class="currentTab === 'warehouse' && activeSubTab === 'stok_project' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
+                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
+                            <div class="w-6 flex justify-center text-sm shrink-0">
+                                <i class="fa-solid fa-network-wired"></i>
+                            </div>
+                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Project</span>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Sidebar Footer User Profile -->
+            <div class="p-4 border-t border-slate-800 bg-obsidian-900/80">
+                <div class="flex items-center space-x-3">
+                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border border-amber-500/30 shrink-0">
+                    <div x-show="sidebarOpen" class="overflow-hidden">
+                        <h4 class="text-xs font-bold text-white truncate">Victoria Sterling</h4>
+                        <p class="text-[11px] text-amber-400/90 truncate">Chief Executive Officer</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT CONTAINER -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            
+            <!-- TOP NAVBAR -->
+            <header class="h-20 bg-white/80 backdrop-blur-md border-b border-slate-200 px-8 flex items-center justify-between z-30 shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <button @click="sidebarOpen = !sidebarOpen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-bars-staggered"></i>
+                    </button>
+                    <div>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider" x-text="currentTab"></span>
+                            <span class="text-slate-300">/</span>
+                            <span class="text-xs font-medium text-slate-500 uppercase tracking-wider" x-text="activeSubTab || 'Overview'"></span>
+                        </div>
+                        <h1 class="text-xl font-extrabold text-slate-900 font-heading">
+                            <template x-if="currentTab === 'dashboard'">Executive Intelligence Dashboard</template>
+                            <template x-if="currentTab === 'project' && activeSubTab === 'master'">Master Project Portfolios</template>
+                            <template x-if="currentTab === 'project' && activeSubTab === 'budget'">Project Financial Budgeting & Cost Control</template>
+                            <template x-if="currentTab === 'finance' && activeSubTab === 'accounting'">General Ledger & Financial Accounting</template>
+                            <template x-if="currentTab === 'finance' && activeSubTab === 'billing'">Client Billing & Invoice Management</template>
+                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'gudang'">Warehouse Facility Hub</template>
+                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'barang'">Master Catalog Barang & SKU</template>
+                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'transaksi'">Logistics & Warehouse Transactions</template>
+                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'stok_barang'">Real-time Stok Barang Analytics</template>
+                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'stok_project'">Project Material Allocation & Tracking</template>
+                        </h1>
+                    </div>
+                </div>
+
+                <!-- Right Action Header -->
+                <div class="flex items-center space-x-4">
+                    <!-- Global Search -->
+                    <div class="relative hidden md:block">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                        </span>
+                        <input type="text" placeholder="Cari project, SKU, atau invoice..." class="w-64 pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-xl focus:bg-white focus:border-amber-500 focus:outline-none transition-all">
+                    </div>
+
+                    <!-- Notifications Dropdown Toggle -->
+                    <div class="relative">
+                        <button @click="notificationsOpen = !notificationsOpen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors relative">
+                            <i class="fa-regular fa-bell"></i>
+                            <span class="absolute top-2 right-2 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white"></span>
+                        </button>
+                        
+                        <!-- Notifications Panel -->
+                        <div x-show="notificationsOpen" @click.outside="notificationsOpen = false" 
+                             class="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50" style="display: none;">
+                            <div class="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
+                                <span class="font-heading font-bold text-sm text-slate-800">Notifikasi Sistem</span>
+                                <span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">3 Baru</span>
+                            </div>
+                            <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                                    <p class="text-xs font-semibold text-slate-800">Budget Project Alpha Hampir Habis</p>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Penggunaan mencapai 85% dari total alokasi.</p>
+                                    <span class="text-[9px] text-slate-400 mt-1 block">10 menit lalu</span>
+                                </div>
+                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                                    <p class="text-xs font-semibold text-slate-800">Mutasi Gudang #TRX-998 Disetujui</p>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Transfer material ke Site Project Beta sukses.</p>
+                                    <span class="text-[9px] text-slate-400 mt-1 block">1 jam lalu</span>
+                                </div>
+                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
+                                    <p class="text-xs font-semibold text-slate-800">Invoice #INV-2026-04 Lunas</p>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Pembayaran diterima dari PT Megah Semesta.</p>
+                                    <span class="text-[9px] text-slate-400 mt-1 block">3 jam lalu</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <button @click="showToast('Sinkronisasi data ERP berhasil diperbarui.')" class="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-500/25 flex items-center space-x-2 transition-all">
+                        <i class="fa-solid fa-arrows-rotate text-xs"></i>
+                        <span>Sync ERP</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- CONTENT BODY AREA -->
+            <main class="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+                
+                <!-- ==================== TAB: DASHBOARD ==================== -->
+                <div x-show="currentTab === 'dashboard'" class="space-y-8">
+                    <!-- Top Metric Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <!-- Card 1 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center text-amber-500/20 group-hover:scale-125 transition-transform">
+                                <i class="fa-solid fa-diagram-project text-5xl"></i>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Active Projects</span>
+                            <div class="flex items-baseline space-x-3 mt-2">
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">14</h3>
+                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-trend-up"></i> +2.4%</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">3 Project dalam tahap finishing</p>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center text-blue-500/20 group-hover:scale-125 transition-transform">
+                                <i class="fa-solid fa-wallet text-5xl"></i>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Project Budget</span>
+                            <div class="flex items-baseline space-x-3 mt-2">
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">Rp 48.5 M</h3>
+                                <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Alokasi Optimal</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">Real-time Cost Control Active</p>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500/20 group-hover:scale-125 transition-transform">
+                                <i class="fa-solid fa-scale-balanced text-5xl"></i>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Net Revenue (YTD)</span>
+                            <div class="flex items-baseline space-x-3 mt-2">
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">Rp 12.8 M</h3>
+                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-trend-up"></i> +14.2%</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">Billing & Accounting Audited</p>
+                        </div>
+
+                        <!-- Card 4 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-50 rounded-full flex items-center justify-center text-purple-500/20 group-hover:scale-125 transition-transform">
+                                <i class="fa-solid fa-warehouse text-5xl"></i>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Warehouse Utilization</span>
+                            <div class="flex items-baseline space-x-3 mt-2">
+                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">82.4%</h3>
+                                <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">5 Gudang Utama</span>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">Stok Barang & Project Terintegrasi</p>
+                        </div>
+                    </div>
+
+                    <!-- Correlation Overview Banner -->
+                    <div class="bg-gradient-to-r from-obsidian-900 via-obsidian-800 to-obsidian-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl border border-amber-500/20">
+                        <div class="absolute right-0 top-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                        <div class="relative z-10 max-w-2xl">
+                            <span class="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">Executive Architecture</span>
+                            <h2 class="text-2xl font-extrabold font-heading mt-4">Korelasi Terpadu Project, Finance, & Warehouse</h2>
+                            <p class="text-slate-300 text-sm mt-2 leading-relaxed">
+                                Sistem ERP ini menghubungkan setiap Master Project dengan <b>Project Budget</b>. Alokasi material dari <b>Warehouse (Stok Gudang & Barang)</b> langsung memotong anggaran secara real-time dan tercatat dalam <b>Accounting & Billing</b> keuangan perusahaan.
+                            </p>
+                            <div class="flex items-center space-x-4 mt-6">
+                                <button @click="currentTab = 'project'; activeSubTab = 'master'" class="bg-amber-500 hover:bg-amber-600 text-obsidian-900 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20">
+                                    Kelola Project <i class="fa-solid fa-arrow-right ml-2"></i>
+                                </button>
+                                <button @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-3 rounded-xl text-sm border border-slate-700 transition-all">
+                                    Lihat Stok Project
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities Table -->
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-lg font-bold font-heading text-slate-900">Aktivitas Lintas Modul Terkini</h3>
+                                <p class="text-xs text-slate-500">Rekonsiliasi transaksi project, finance, dan inventory</p>
+                            </div>
+                            <span class="text-xs text-amber-600 font-semibold cursor-pointer hover:underline">Lihat Semua Log <i class="fa-solid fa-arrow-right text-[10px]"></i></span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">Modul / Trx ID</th>
+                                        <th class="py-3 px-4">Project Terkait</th>
+                                        <th class="py-3 px-4">Deskripsi Aktivitas</th>
+                                        <th class="py-3 px-4">Nominal / Nilai</th>
+                                        <th class="py-3 px-4">Status Integrasi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-md font-bold mr-2">WAREHOUSE</span> #TRX-8821</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-700">Project Alpha Tower</td>
+                                        <td class="py-4 px-4 text-slate-600">Pengeluaran Besi Beton 12mm (50 Batang)</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 45.000.000</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i> Terpotong dari Budget</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-md font-bold mr-2">FINANCE</span> #INV-2026-09</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-700">Pembangunan Plaza Sudirman</td>
+                                        <td class="py-4 px-4 text-slate-600">Billing Termin ke-2 (Client Milestone)</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 1.250.000.000</td>
+                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-clock text-[10px] mr-1"></i> Menunggu Pembayaran</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-medium text-slate-800"><span class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-md font-bold mr-2">PROJECT</span> #PRJ-004</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-700">Renovasi Kantor Pusat</td>
+                                        <td class="py-4 px-4 text-slate-600">Revisi Anggaran & Penambahan Item Semen</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 185.000.000</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check text-[10px] mr-1"></i> Approved CEO</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 1. PROJECT ==================== -->
+                <!-- Master Project -->
+                <div x-show="currentTab === 'project' && activeSubTab === 'master'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Project</h2>
+                            <p class="text-xs text-slate-500">Kelola portofolio project, status pengerjaan, dan penanggung jawab.</p>
+                        </div>
+                        <button @click="showToast('Membuka form Master Project Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Tambah Project Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">Kode Project</th>
+                                        <th class="py-3 px-4">Nama Project & Klien</th>
+                                        <th class="py-3 px-4">Project Manager</th>
+                                        <th class="py-3 px-4">Timeline</th>
+                                        <th class="py-3 px-4">Status</th>
+                                        <th class="py-3 px-4 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-ALPHA-01</td>
+                                        <td class="py-4 px-4">
+                                            <p class="font-bold text-slate-900">Project Alpha Tower</p>
+                                            <p class="text-xs text-slate-500">PT Megah Semesta Property</p>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">Ir. Ardiansyah, M.T.</td>
+                                        <td class="py-4 px-4 text-xs text-slate-600">Jan 2026 - Des 2026</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">On Progress (68%)</span></td>
+                                        <td class="py-4 px-4 text-right">
+                                            <button @click="showToast('Membuka detail Project Alpha Tower')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-BETA-02</td>
+                                        <td class="py-4 px-4">
+                                            <p class="font-bold text-slate-900">Pembangunan Plaza Sudirman</p>
+                                            <p class="text-xs text-slate-500">Government Capital Corp</p>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">Siti Rahma, S.T.</td>
+                                        <td class="py-4 px-4 text-xs text-slate-600">Mar 2026 - Nov 2027</td>
+                                        <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">Planning & Procurement</span></td>
+                                        <td class="py-4 px-4 text-right">
+                                            <button @click="showToast('Membuka detail Plaza Sudirman')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">PRJ-GAMMA-03</td>
+                                        <td class="py-4 px-4">
+                                            <p class="font-bold text-slate-900">Renovasi Kantor Pusat</p>
+                                            <p class="text-xs text-slate-500">Internal Enterprise</p>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">Budi Santoso</td>
+                                        <td class="py-4 px-4 text-xs text-slate-600">Feb 2026 - Mei 2026</td>
+                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">Finishing (92%)</span></td>
+                                        <td class="py-4 px-4 text-right">
+                                            <button @click="showToast('Membuka detail Renovasi Kantor')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Project Budget -->
+                <div x-show="currentTab === 'project' && activeSubTab === 'budget'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Project Budget & Cost Control</h2>
+                            <p class="text-xs text-slate-500">Korelasi anggaran project dengan realisasi penarikan material warehouse & finance.</p>
+                        </div>
+                        <button @click="showToast('Menambahkan alokasi budget baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Alokasi Budget Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- Budget Card 1 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">PRJ-ALPHA-01</span>
+                                <span class="text-xs text-slate-500 font-medium">Alpha Tower</span>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">Rp 24.500.000.000</h4>
+                                <p class="text-xs text-slate-500">Total Approved Budget</p>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs font-semibold">
+                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
+                                    <span class="text-amber-600">78%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                    <div class="bg-amber-500 h-full rounded-full" style="width: 78%"></div>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
+                                <span>Sisa: Rp 5.390.000.000</span>
+                                <span class="text-emerald-600 font-semibold">Aman</span>
+                            </div>
+                        </div>
+
+                        <!-- Budget Card 2 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">PRJ-BETA-02</span>
+                                <span class="text-xs text-slate-500 font-medium">Plaza Sudirman</span>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">Rp 18.000.000.000</h4>
+                                <p class="text-xs text-slate-500">Total Approved Budget</p>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs font-semibold">
+                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
+                                    <span class="text-blue-600">35%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                    <div class="bg-blue-500 h-full rounded-full" style="width: 35%"></div>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
+                                <span>Sisa: Rp 11.700.000.000</span>
+                                <span class="text-blue-600 font-semibold">Procurement</span>
+                            </div>
+                        </div>
+
+                        <!-- Budget Card 3 -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-md">PRJ-GAMMA-03</span>
+                                <span class="text-xs text-slate-500 font-medium">Renovasi Kantor</span>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-bold text-slate-900">Rp 6.000.000.000</h4>
+                                <p class="text-xs text-slate-500">Total Approved Budget</p>
+                            </div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-xs font-semibold">
+                                    <span class="text-slate-600">Realisasi (Material & Biaya)</span>
+                                    <span class="text-purple-600">95%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                                    <div class="bg-purple-500 h-full rounded-full" style="width: 95%"></div>
+                                </div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-100 flex justify-between text-xs text-slate-500">
+                                <span>Sisa: Rp 300.000.000</span>
+                                <span class="text-amber-600 font-semibold">Hampir Habis</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 2. FINANCE ==================== -->
+                <!-- Accounting -->
+                <div x-show="currentTab === 'finance' && activeSubTab === 'accounting'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">General Ledger & Accounting</h2>
+                            <p class="text-xs text-slate-500">Pencatatan jurnal umum, neraca saldo, dan laba rugi perusahaan secara real-time.</p>
+                        </div>
+                        <button @click="showToast('Membuat Jurnal Akuntansi Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Entri Jurnal Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">No. Jurnal & Tanggal</th>
+                                        <th class="py-3 px-4">Keterangan Akun</th>
+                                        <th class="py-3 px-4">Debit (Rp)</th>
+                                        <th class="py-3 px-4">Kredit (Rp)</th>
+                                        <th class="py-3 px-4">Status Audit</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-slate-800">
+                                            <p>#JUR-2026-401</p>
+                                            <p class="text-xs text-slate-400 font-normal">31 Juli 2026</p>
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <p class="font-semibold text-slate-800">Pembelian Material Gudang Utama (Project Alpha)</p>
+                                            <p class="text-xs text-slate-500">Ref: PO-9921 / Persediaan Bahan Baku</p>
+                                        </td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">45.000.000</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">-</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">Balanced & Verified</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-slate-800">
+                                            <p>#JUR-2026-402</p>
+                                            <p class="text-xs text-slate-400 font-normal">30 Juli 2026</p>
+                                        </td>
+                                        <td class="py-4 px-4">
+                                            <p class="font-semibold text-slate-800">Penerimaan Termin Pembayaran Klien</p>
+                                            <p class="text-xs text-slate-500">Ref: INV-2026-04 / Kas & Bank</p>
+                                        </td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">1.250.000.000</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">-</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">Balanced & Verified</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Billing -->
+                <div x-show="currentTab === 'finance' && activeSubTab === 'billing'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Billing & Invoice Management</h2>
+                            <p class="text-xs text-slate-500">Penagihan termin project kepada klien korporat dan status pembayaran.</p>
+                        </div>
+                        <button @click="showToast('Membuat Invoice Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Buat Invoice Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">No. Invoice</th>
+                                        <th class="py-3 px-4">Project & Klien</th>
+                                        <th class="py-3 px-4">Termin / Keterangan</th>
+                                        <th class="py-3 px-4">Nominal (Rp)</th>
+                                        <th class="py-3 px-4">Status</th>
+                                        <th class="py-3 px-4 text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">INV-2026-08</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Project Alpha Tower</td>
+                                        <td class="py-4 px-4 text-slate-600">Termin 3 (Progress 70%)</td>
+                                        <td class="py-4 px-4 font-bold text-slate-900">Rp 3.500.000.000</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">Lunas (Paid)</span></td>
+                                        <td class="py-4 px-4 text-right">
+                                            <button @click="showToast('Mengunduh Invoice PDF')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
+                                        </td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">INV-2026-09</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Plaza Sudirman</td>
+                                        <td class="py-4 px-4 text-slate-600">Termin 1 (Uang Muka / DP)</td>
+                                        <td class="py-4 px-4 font-bold text-slate-900">Rp 1.250.000.000</td>
+                                        <td class="py-4 px-4"><span class="bg-amber-50 text-amber-700 text-xs font-semibold px-2.5 py-1 rounded-full">Pending Payment</span></td>
+                                        <td class="py-4 px-4 text-right">
+                                            <button @click="showToast('Mengunduh Invoice PDF')" class="px-3 py-1.5 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ==================== 3. WAREHOUSE ==================== -->
+                <!-- Gudang -->
+                <div x-show="currentTab === 'warehouse' && activeSubTab === 'gudang'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Gudang</h2>
+                            <p class="text-xs text-slate-500">Daftar fasilitas pusat penyimpanan dan gudang transit di setiap site project.</p>
+                        </div>
+                        <button @click="showToast('Membuka form Tambah Gudang')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Tambah Gudang Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                            <div class="flex justify-between items-start">
+                                <span class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg"><i class="fa-solid fa-warehouse"></i></span>
+                                <span class="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-semibold">Aktif</span>
+                            </div>
+                            <h3 class="font-bold text-lg text-slate-900">Gudang Utama Pusat (WH-01)</h3>
+                            <p class="text-xs text-slate-500">Kawasan Industri Cikarang Blok A-12, Bekasi</p>
+                            <div class="pt-3 border-t border-slate-100 flex justify-between text-xs text-slate-600">
+                               <span>Kapasitas: 85%</span>
+                               <span class="font-semibold text-slate-900">Kepala: Pak Joko</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                            <div class="flex justify-between items-start">
+                                <span class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg"><i class="fa-solid fa-warehouse"></i></span>
+                                <span class="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-semibold">Aktif</span>
+                            </div>
+                            <h3 class="font-bold text-lg text-slate-900">Gudang Project Alpha (WH-02)</h3>
+                            <p class="text-xs text-slate-500">Site Area Alpha Tower, Jakarta Selatan</p>
+                            <div class="pt-3 border-t border-slate-100 flex justify-between text-xs text-slate-600">
+                               <span>Kapasitas: 62%</span>
+                               <span class="font-semibold text-slate-900">Kepala: Pak Hendra</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                            <div class="flex justify-between items-start">
+                                <span class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-lg"><i class="fa-solid fa-warehouse"></i></span>
+                                <span class="text-xs bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full font-semibold">Aktif</span>
+                            </div>
+                            <h3 class="font-bold text-lg text-slate-900">Gudang Transit Sudirman (WH-03)</h3>
+                            <p class="text-xs text-slate-500">Basement Plaza Sudirman, Jakarta Pusat</p>
+                            <div class="pt-3 border-t border-slate-100 flex justify-between text-xs text-slate-600">
+                               <span>Kapasitas: 40%</span>
+                               <span class="font-semibold text-slate-900">Kepala: Pak Doni</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Barang -->
+                <div x-show="currentTab === 'warehouse' && activeSubTab === 'barang'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Catalog Barang & SKU</h2>
+                            <p class="text-xs text-slate-500">Daftar material, spesifikasi, dan standar satuan barang konstruksi.</p>
+                        </div>
+                        <button @click="showToast('Menambahkan Master Barang Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Tambah Barang Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">SKU / Kode Barang</th>
+                                        <th class="py-3 px-4">Nama Barang & Spesifikasi</th>
+                                        <th class="py-3 px-4">Kategori</th>
+                                        <th class="py-3 px-4">Satuan</th>
+                                        <th class="py-3 px-4">Est. Harga Satuan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-BESI-12</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Besi Beton Ulir 12mm SNI</td>
+                                        <td class="py-4 px-4 text-slate-600">Material Struktur</td>
+                                        <td class="py-4 px-4 text-slate-700">Batang</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 90.000</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-SEMEN-50</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Semen Portland Gresik 50kg</td>
+                                        <td class="py-4 px-4 text-slate-600">Material Finishing</td>
+                                        <td class="py-4 px-4 text-slate-700">Sak</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 65.000</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">SKU-KABEL-NYY</td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Kabel NYY 4x10mm Supreme</td>
+                                        <td class="py-4 px-4 text-slate-600">Elektrikal</td>
+                                        <td class="py-4 px-4 text-slate-700">Meter</td>
+                                        <td class="py-4 px-4 font-medium text-slate-900">Rp 45.000</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaksi Gudang -->
+                <div x-show="currentTab === 'warehouse' && activeSubTab === 'transaksi'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Transaksi Gudang (In / Out / Transfer)</h2>
+                            <p class="text-xs text-slate-500">Pencatatan keluar masuk barang dan mutasi antar gudang pusat ke site project.</p>
+                        </div>
+                        <button @click="showToast('Membuat Transaksi Gudang Baru')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-plus text-xs"></i>
+                            <span>Catat Transaksi Baru</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">No. Transaksi</th>
+                                        <th class="py-3 px-4">Jenis Transaksi</th>
+                                        <th class="py-3 px-4">Barang & Qty</th>
+                                        <th class="py-3 px-4">Asal / Tujuan</th>
+                                        <th class="py-3 px-4">Status Integrasi Project</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">#TRX-8821</td>
+                                        <td class="py-4 px-4"><span class="bg-blue-50 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">Keluar (Project)</span></td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Besi Beton 12mm (50 Batang)</td>
+                                        <td class="py-4 px-4 text-slate-600">WH Utama → Project Alpha</td>
+                                        <td class="py-4 px-4"><span class="text-xs text-emerald-600 font-bold"><i class="fa-solid fa-check"></i> Memotong Budget Alpha</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4 font-bold text-amber-600">#TRX-8820</td>
+                                        <td class="py-4 px-4"><span class="bg-emerald-50 text-emerald-700 text-xs font-semibold px-2.5 py-1 rounded-full">Masuk (Supplier)</span></td>
+                                        <td class="py-4 px-4 font-semibold text-slate-800">Semen Portland 50kg (500 Sak)</td>
+                                        <td class="py-4 px-4 text-slate-600">Supplier → WH Utama</td>
+                                        <td class="py-4 px-4"><span class="text-xs text-slate-500 font-medium">Masuk Inventory Pusat</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stok Barang -->
+                <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_barang'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Stok Barang Real-time</h2>
+                            <p class="text-xs text-slate-500">Monitor ketersediaan fisik barang di seluruh gudang secara terpusat.</p>
+                        </div>
+                        <button @click="showToast('Mengunduh Laporan Stok Barang')" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-download text-xs"></i>
+                            <span>Export Laporan Stok</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-slate-100 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">SKU & Nama Barang</th>
+                                        <th class="py-3 px-4">Gudang Utama Pusat</th>
+                                        <th class="py-3 px-4">Gudang Project Alpha</th>
+                                        <th class="py-3 px-4">Gudang Transit Sudirman</th>
+                                        <th class="py-3 px-4 font-bold">Total Stok</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-sm">
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4">
+                                            <p class="font-bold text-slate-900">Besi Beton Ulir 12mm</p>
+                                            <p class="text-xs text-amber-600">SKU-BESI-12</p>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">1.250 Batang</td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">350 Batang</td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">100 Batang</td>
+                                        <td class="py-4 px-4 font-extrabold text-slate-900">1.700 Batang</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50/85 transition-colors">
+                                        <td class="py-4 px-4">
+                                            <p class="font-bold text-slate-900">Semen Portland Gresik 50kg</p>
+                                            <p class="text-xs text-amber-600">SKU-SEMEN-50</p>
+                                        </td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">2.400 Sak</td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">600 Sak</td>
+                                        <td class="py-4 px-4 text-slate-700 font-medium">150 Sak</td>
+                                        <td class="py-4 px-4 font-extrabold text-slate-900">3.150 Sak</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stok Project -->
+                <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_project'" class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-xl font-bold font-heading text-slate-900">Alokasi Stok Project</h2>
+                            <p class="text-xs text-slate-500">Korelasi langsung pemakaian material inventory terhadap masing-masing active project.</p>
+                        </div>
+                        <button @click="showToast('Sinkronisasi alokasi material project')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                            <i class="fa-solid fa-sync text-xs"></i>
+                            <span>Rekonsiliasi Material</span>
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Project Alpha Material Allocation -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <div>
+                                    <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">PRJ-ALPHA-01</span>
+                                    <h3 class="font-bold text-lg text-slate-900 mt-1">Project Alpha Tower</h3>
+                                </div>
+                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">Budget Terkorelasi</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Besi Beton 12mm (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">850 Batang <span class="text-xs text-slate-400 font-normal">(Rp 76.5 Juta)</span></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">1.500 Sak <span class="text-xs text-slate-400 font-normal">(Rp 97.5 Juta)</span></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Kabel NYY 4x10mm (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">420 Meter <span class="text-xs text-slate-400 font-normal">(Rp 18.9 Juta)</span></span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                                <span class="text-slate-500">Total Nilai Material Terserap</span>
+                                <span class="font-bold text-amber-600 text-sm">Rp 192.900.000</span>
+                            </div>
+                        </div>
+
+                        <!-- Plaza Sudirman Material Allocation -->
+                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                                <div>
+                                    <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">PRJ-BETA-02</span>
+                                    <h3 class="font-bold text-lg text-slate-900 mt-1">Pembangunan Plaza Sudirman</h3>
+                                </div>
+                                <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Procurement Stage</span>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Besi Beton 12mm (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">300 Batang <span class="text-xs text-slate-400 font-normal">(Rp 27.0 Juta)</span></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">450 Sak <span class="text-xs text-slate-400 font-normal">(Rp 29.2 Juta)</span></span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm">
+                                    <span class="text-slate-600">Kabel NYY 4x10mm (Terpakai)</span>
+                                    <span class="font-bold text-slate-900">100 Meter <span class="text-xs text-slate-400 font-normal">(Rp 4.5 Juta)</span></span>
+                                </div>
+                            </div>
+                            <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                                <span class="text-slate-500">Total Nilai Material Terserap</span>
+                                <span class="font-bold text-blue-600 text-sm">Rp 60.700.000</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+    </div>
+</body>
+</html>
