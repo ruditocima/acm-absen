@@ -56,7 +56,6 @@
         h1, h2, h3, h4, h5, h6 {
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        /* Custom Glassmorphism */
         .glass-card {
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
@@ -67,7 +66,6 @@
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -105,6 +103,8 @@
     editItemIdx: null,
 
     transactionModal: false,
+    isEditTransaction: false,
+    editTransactionIdx: null,
 
     toastMessage: '',
     showToast(msg) {
@@ -113,8 +113,8 @@
     },
 
     // Variabel & Fungsi Tambahan Stok Barang
-    selectedWarehouseFilter: '', // Fitur Filter Gudang
-    stockBreakdownModal: false,  // Fitur Modal Breakdown Sisa
+    selectedWarehouseFilter: '', 
+    stockBreakdownModal: false,  
     selectedBreakdown: { itemCode: '', itemName: '', sisa: 0 },
     
     openStockBreakdown(stock) {
@@ -126,10 +126,62 @@
         this.stockBreakdownModal = true;
     },
 
-    // Dynamic Calculation untuk Table Stok Barang
+    // Variabel & Fungsi Stok Project
+    selectedProjectRegion: '',
+    selectedProjectCode: '',
+    projectStockBreakdownModal: false,
+    selectedProjectBreakdownItem: { itemCode: '', itemName: '', sisa: 0 },
+
+    openProjectStockBreakdown(stock) {
+        this.selectedProjectBreakdownItem = {
+            itemCode: stock.itemCode,
+            itemName: stock.itemName,
+            sisa: stock.netto
+        };
+        this.projectStockBreakdownModal = true;
+    },
+
+    calculatedProjectStocks() {
+        let result = {};
+        this.items.forEach(item => {
+            result[item.code] = {
+                itemCode: item.code,
+                itemName: item.name,
+                masuk: 0,
+                keluar: 0,
+                netto: 0
+            };
+        });
+
+        this.transactions.forEach(t => {
+            if (this.selectedProjectCode !== '' && t.code !== this.selectedProjectCode) return;
+            if (this.selectedProjectRegion !== '') {
+                let proj = this.projects.find(p => p.code === t.code);
+                if (!proj || proj.region !== this.selectedProjectRegion) return;
+            }
+
+            if (!result[t.itemCode]) return;
+            let qty = parseInt(t.qty) || 0;
+
+            if (t.type === 'Masuk') {
+                result[t.itemCode].masuk += qty;
+                result[t.itemCode].netto += qty;
+            } else if (t.type === 'Keluar') {
+                result[t.itemCode].keluar += qty;
+                result[t.itemCode].netto -= qty;
+            } else if (t.type === 'Transfer') {
+                if (t.code === this.selectedProjectCode || this.selectedProjectCode === '') {
+                    result[t.itemCode].masuk += qty;
+                    result[t.itemCode].netto += qty;
+                }
+            }
+        });
+
+        return Object.values(result);
+    },
+
     calculatedStocks() {
         let result = {};
-        // Mapping seluruh master barang
         this.items.forEach(item => {
             result[item.code] = {
                 itemCode: item.code,
@@ -142,7 +194,6 @@
             };
         });
 
-        // Loop histori transaksi (In, Out, Transfer)
         this.transactions.forEach(t => {
             if (!result[t.itemCode]) return;
 
@@ -248,7 +299,7 @@
     },
 
     warehouses: [
-        { code: 'WH-01', name: 'Gudang Utama Pusat', location: 'Kawasan Industri Cikarang Blok A-12, Bekasi', pic: 'Pak Joko' },
+        { code: 'ACH-01', name: 'Gudang Utama Aceh', location: 'Kawasan Industri Aceh Blok A-12', pic: 'Pak Joko' },
         { code: 'WH-02', name: 'Gudang Project Alpha', location: 'Site Area Alpha Tower, Jakarta Selatan', pic: 'Pak Hendra' },
         { code: 'WH-03', name: 'Gudang Transit Sudirman', location: 'Basement Plaza Sudirman, Jakarta Pusat', pic: 'Pak Doni' }
     ],
@@ -324,25 +375,102 @@
     },
 
     transactions: [
-        { date: '31/07/2026', doc: 'ACM/WH-/VII/2026-0001', do: 'DO-9921', type: 'Keluar', origin: 'Gudang Utama Pusat', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm SNI', qty: 50, pickup: 'Budi', approved: 'Pak Joko', known: 'Manager Proyek', desc: 'Pengiriman material tahap 1' },
-        { date: '30/07/2026', doc: 'ACM/WH-/VII/2026-0002', do: 'DO-8840', type: 'Masuk', origin: 'Supplier Gresik', dest: 'Gudang Utama Pusat', code: '-', cat: 'Bahan Konstruksi', kind: 'Material Finishing', itemCode: 'SKU-SEMEN-50', itemName: 'Semen Portland Gresik 50kg', qty: 500, pickup: 'Andi', approved: 'Pak Hendra', known: 'Bagian Gudang', desc: 'Restock bulanan gudang pusat' }
+        { date: '31/07/2026', doc: 'ACM/WH-/VII/2026-0001', do: 'DO-9921', type: 'Keluar', origin: 'Gudang Utama Aceh', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm SNI', qty: 50, pickup: 'Budi', approved: 'Pak Joko', known: 'Manager Proyek', desc: 'Pengiriman material tahap 1' },
+        { date: '30/07/2026', doc: 'ACM/WH-/VII/2026-0002', do: 'DO-8840', type: 'Masuk', origin: 'Supplier Gresik', dest: 'Gudang Utama Aceh', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Finishing', itemCode: 'SKU-SEMEN-50', itemName: 'Semen Portland Gresik 50kg', qty: 500, pickup: 'Andi', approved: 'Pak Hendra', known: 'Bagian Gudang', desc: 'Restock bulanan gudang pusat' }
     ],
+    
     newTransaction: { 
         date: '31/07/2026', 
         doc: '', 
         do: '', 
         type: 'Keluar', 
-        origin: 'Gudang Utama Pusat', 
+        origin: 'Gudang Utama Aceh', 
         dest: 'Gudang Transit Sudirman', 
         code: 'PRJ-ALPHA-01', 
-        pickup: 'Rian', 
-        approved: 'Pak Doni', 
-        known: 'Supervisor', 
-        desc: 'Alokasi awal project',
+        pickup: '', 
+        approved: '', 
+        known: '', 
+        desc: '',
         items: [
-            { cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: 100 }
+            { cat: '', kind: '', itemCode: '', itemName: '', qty: '' }
         ]
     },
+
+    openTransactionModal(edit = false, index = null) {
+        this.isEditTransaction = edit;
+        if (edit && index !== null) {
+            this.editTransactionIdx = index;
+            let t = this.transactions[index];
+            this.newTransaction = {
+                date: t.date,
+                doc: t.doc,
+                do: t.do,
+                type: t.type,
+                origin: t.origin,
+                dest: t.dest,
+                code: t.code,
+                pickup: t.pickup,
+                approved: t.approved,
+                known: t.known,
+                desc: t.desc,
+                items: [
+                    { cat: t.cat, kind: t.kind, itemCode: t.itemCode, itemName: t.itemName, qty: t.qty }
+                ]
+            };
+        } else {
+            this.editTransactionIdx = null;
+            this.resetTransactionForm();
+        }
+        this.transactionModal = true;
+    },
+
+    getFilteredProjects() {
+        let whName = this.newTransaction.origin;
+        if (!whName) return this.projects;
+        let foundWh = this.warehouses.find(w => w.name === whName);
+        if (!foundWh || !foundWh.code) return this.projects;
+        
+        let prefix = foundWh.code.substring(0, 3).toUpperCase();
+        
+        if (this.newTransaction.type === 'Keluar' || this.newTransaction.type === 'Transfer') {
+            let filtered = this.projects.filter(p => {
+                let regUpper = (p.region || '').toUpperCase();
+                return regUpper.includes(prefix) || prefix.includes(regUpper.substring(0, 3));
+            });
+            return filtered.length > 0 ? filtered : this.projects;
+        }
+        return this.projects;
+    },
+
+    getUniqueCategories() {
+        return [...new Set(this.items.map(i => i.category))];
+    },
+    getFilteredTypes(cat) {
+        if (!cat) return [];
+        return [...new Set(this.items.filter(i => i.category === cat).map(i => i.type))];
+    },
+    getFilteredItems(cat, kind) {
+        if (!cat || !kind) return [];
+        return this.items.filter(i => i.category === cat && i.type === kind);
+    },
+    onCategoryChange(item) {
+        item.kind = '';
+        item.itemCode = '';
+        item.itemName = '';
+    },
+    onTypeChange(item) {
+        item.itemCode = '';
+        item.itemName = '';
+    },
+    onItemCodeChange(item) {
+        let found = this.items.find(i => i.code === item.itemCode);
+        if (found) {
+            item.itemName = found.name;
+        } else {
+            item.itemName = '';
+        }
+    },
+
     deleteTransaction(index) {
         if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
             this.transactions.splice(index, 1);
@@ -350,13 +478,11 @@
         }
     },
 
-    // Helper: Konversi Bulan ke Angka Romawi
     getRomanMonth(monthNum) {
         const roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
         return roman[parseInt(monthNum, 10)] || 'I';
     },
 
-    // Helper: Otomatis generate No Doc format ACM/ACH/bulan/tahun-0000
     updateDocNumber() {
         let whName = (this.newTransaction.type === 'Masuk') ? this.newTransaction.dest : this.newTransaction.origin;
         let ach = 'GEN';
@@ -384,37 +510,33 @@
         this.newTransaction.doc = `ACM/${ach}/${romanMonth}/${year}-${seqStr}`;
     },
 
-    // Fungsi untuk otomatis memperbarui Kategori, Jenis, dan Nama Barang berdasarkan Kode Barang (SKU) yang dipilih
-    updateItemDetails(item) {
-        let found = this.items.find(i => i.code === item.itemCode);
-        if (found) {
-            item.cat = found.category;
-            item.kind = found.type;
-            item.itemName = found.name;
-        } else {
-            item.cat = '';
-            item.kind = '';
-            item.itemName = '';
-        }
-    },
-    addTransaction() {
+    saveTransaction() {
         if(!this.newTransaction.do || this.newTransaction.do.trim() === '') {
             this.showToast('No DO wajib diisi!');
             return;
         }
-        if(this.newTransaction.items.length === 0) {
+        if(!this.newTransaction.items || this.newTransaction.items.length === 0) {
             this.showToast('Minimal 1 item material wajib diisi!');
             return;
+        }
+        for(let item of this.newTransaction.items) {
+            if(!item.itemCode || !item.qty || item.qty <= 0) {
+                this.showToast('Pastikan semua Kategori, Jenis, Kode Barang, dan Qty terisi dengan benar!');
+                return;
+            }
         }
         if(!this.newTransaction.desc || this.newTransaction.desc.trim() === '') {
             this.showToast('Keterangan / Catatan wajib diisi!');
             return;
         }
-        this.updateDocNumber();
+        
+        if (!this.isEditTransaction) {
+            this.updateDocNumber();
+        }
 
-        // Loop through multiple items and push each into transactions table
-        this.newTransaction.items.forEach(item => {
-            let entry = {
+        if (this.isEditTransaction && this.editTransactionIdx !== null) {
+            let item = this.newTransaction.items[0];
+            this.transactions[this.editTransactionIdx] = {
                 date: this.newTransaction.date,
                 doc: this.newTransaction.doc,
                 do: this.newTransaction.do,
@@ -426,38 +548,62 @@
                 kind: item.kind,
                 itemCode: item.itemCode,
                 itemName: item.itemName,
-                qty: item.qty,
+                qty: parseInt(item.qty) || 0,
                 pickup: this.newTransaction.pickup,
                 approved: this.newTransaction.approved,
                 known: this.newTransaction.known,
                 desc: this.newTransaction.desc
             };
-            this.transactions.unshift(entry);
-        });
+            this.showToast('Data transaksi gudang berhasil diperbarui!');
+        } else {
+            this.newTransaction.items.forEach(item => {
+                let entry = {
+                    date: this.newTransaction.date,
+                    doc: this.newTransaction.doc,
+                    do: this.newTransaction.do,
+                    type: this.newTransaction.type,
+                    origin: this.newTransaction.origin || '-',
+                    dest: this.newTransaction.dest || '-',
+                    code: this.newTransaction.code,
+                    cat: item.cat,
+                    kind: item.kind,
+                    itemCode: item.itemCode,
+                    itemName: item.itemName,
+                    qty: parseInt(item.qty) || 0,
+                    pickup: this.newTransaction.pickup,
+                    approved: this.newTransaction.approved,
+                    known: this.newTransaction.known,
+                    desc: this.newTransaction.desc
+                };
+                this.transactions.unshift(entry);
+            });
+            this.showToast('Transaksi gudang beserta beberapa item material berhasil dicatat!');
+        }
 
         this.transactionModal = false;
-        this.showToast('Transaksi gudang beserta item material berhasil dicatat!');
         this.resetTransactionForm();
     },
+
     resetTransactionForm() {
         this.newTransaction = { 
             date: '31/07/2026', 
             doc: '', 
             do: '', 
             type: 'Keluar', 
-            origin: 'Gudang Utama Pusat', 
-            dest: '', 
+            origin: 'Gudang Utama Aceh', 
+            dest: 'Gudang Transit Sudirman', 
             code: 'PRJ-ALPHA-01', 
             pickup: '', 
             approved: '', 
             known: '', 
             desc: '',
             items: [
-                { cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm', qty: 50 }
+                { cat: '', kind: '', itemCode: '', itemName: '', qty: '' }
             ]
         };
         this.updateDocNumber();
     },
+
     init() {
         this.updateDocNumber();
     }
@@ -486,7 +632,6 @@
         
         <!-- SIDEBAR -->
         <aside :class="sidebarOpen ? 'w-72' : 'w-20'" class="transition-all duration-300 ease-in-out bg-obsidian-900 text-slate-300 flex flex-col z-40 border-r border-slate-800 shadow-2xl">
-            <!-- Brand Logo Area -->
             <div class="h-20 flex items-center px-6 border-b border-slate-800/80 bg-obsidian-900/50">
                 <div class="flex items-center space-x-3 overflow-hidden">
                     <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
@@ -499,10 +644,7 @@
                 </div>
             </div>
 
-            <!-- Navigation Menu -->
             <div class="flex-1 overflow-y-auto py-6 px-4 space-y-6">
-                
-                <!-- General Section -->
                 <div>
                     <div x-show="sidebarOpen" class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Core Dashboard</div>
                     <a @click="currentTab = 'dashboard'; activeSubTab = ''" 
@@ -525,17 +667,13 @@
                         <a @click="currentTab = 'project'; activeSubTab = 'master'" 
                            :class="currentTab === 'project' && activeSubTab === 'master' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-diagram-project"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-diagram-project"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Master Project</span>
                         </a>
                         <a @click="currentTab = 'project'; activeSubTab = 'budget'" 
                            :class="currentTab === 'project' && activeSubTab === 'budget' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-wallet"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-wallet"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Project Budget</span>
                         </a>
                     </div>
@@ -551,17 +689,13 @@
                         <a @click="currentTab = 'finance'; activeSubTab = 'accounting'" 
                            :class="currentTab === 'finance' && activeSubTab === 'accounting' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-scale-balanced"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-scale-balanced"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Accounting</span>
                         </a>
                         <a @click="currentTab = 'finance'; activeSubTab = 'billing'" 
                            :class="currentTab === 'finance' && activeSubTab === 'billing' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-file-invoice-dollar"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Billing</span>
                         </a>
                     </div>
@@ -577,49 +711,37 @@
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'gudang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'gudang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-warehouse"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-warehouse"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Gudang</span>
                         </a>
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'barang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-boxes-stacked"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-boxes-stacked"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Barang</span>
                         </a>
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'transaksi'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'transaksi' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-right-left"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-right-left"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Transaksi Gudang</span>
                         </a>
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_barang'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'stok_barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-chart-line"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-chart-line"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Barang</span>
                         </a>
                         <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" 
                            :class="currentTab === 'warehouse' && activeSubTab === 'stok_project' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
                            class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0">
-                                <i class="fa-solid fa-network-wired"></i>
-                            </div>
+                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-network-wired"></i></div>
                             <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Project</span>
                         </a>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Sidebar Footer User Profile -->
             <div class="p-4 border-t border-slate-800 bg-obsidian-900/80">
                 <div class="flex items-center space-x-3">
                     <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border border-amber-500/30 shrink-0">
@@ -661,7 +783,6 @@
                     </div>
                 </div>
 
-                <!-- Right Action Header -->
                 <div class="flex items-center space-x-4">
                     <div class="relative hidden md:block">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
@@ -670,7 +791,6 @@
                         <input type="text" placeholder="Cari project, SKU, atau invoice..." class="w-64 pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-xl focus:bg-white focus:border-amber-500 focus:outline-none transition-all">
                     </div>
 
-                    <!-- Notifications Dropdown Toggle -->
                     <div class="relative">
                         <button @click="notificationsOpen = !notificationsOpen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors relative">
                             <i class="fa-regular fa-bell"></i>
@@ -712,7 +832,7 @@
             <!-- CONTENT BODY AREA -->
             <main class="flex-1 overflow-y-auto p-8 bg-slate-50/50">
                 
-                <!-- ==================== TAB: DASHBOARD ==================== -->
+                <!-- DASHBOARD -->
                 <div x-show="currentTab === 'dashboard'" class="space-y-8">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
                         <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
@@ -781,8 +901,7 @@
                     </div>
                 </div>
 
-                <!-- ==================== 1. PROJECT ==================== -->
-                <!-- Master Project -->
+                <!-- PROJECT: MASTER -->
                 <div x-show="currentTab === 'project' && activeSubTab === 'master'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -841,7 +960,7 @@
                     </div>
                 </div>
 
-                <!-- Project Budget -->
+                <!-- PROJECT: BUDGET -->
                 <div x-show="currentTab === 'project' && activeSubTab === 'budget'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -883,8 +1002,7 @@
                     </div>
                 </div>
 
-                <!-- ==================== 2. FINANCE ==================== -->
-                <!-- Accounting -->
+                <!-- FINANCE: ACCOUNTING -->
                 <div x-show="currentTab === 'finance' && activeSubTab === 'accounting'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -927,7 +1045,7 @@
                     </div>
                 </div>
 
-                <!-- Billing -->
+                <!-- FINANCE: BILLING -->
                 <div x-show="currentTab === 'finance' && activeSubTab === 'billing'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -972,8 +1090,7 @@
                     </div>
                 </div>
 
-                <!-- ==================== 3. WAREHOUSE ==================== -->
-                <!-- Gudang -->
+                <!-- WAREHOUSE: GUDANG -->
                 <div x-show="currentTab === 'warehouse' && activeSubTab === 'gudang'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -1021,7 +1138,7 @@
                     </div>
                 </div>
 
-                <!-- Barang -->
+                <!-- WAREHOUSE: BARANG -->
                 <div x-show="currentTab === 'warehouse' && activeSubTab === 'barang'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -1071,16 +1188,15 @@
                     </div>
                 </div>
 
-                <!-- Transaksi Gudang -->
+                <!-- WAREHOUSE: TRANSAKSI GUDANG -->
                 <div x-show="currentTab === 'warehouse' && activeSubTab === 'transaksi'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
                             <h2 class="text-xl font-bold font-heading text-slate-900">Transaksi Gudang (In / Out / Transfer)</h2>
-                            <p class="text-xs text-slate-500">Pencatatan keluar masuk barang dan mutasi antar gudang pusat ke site project.</p>
                         </div>
-                        <button @click="transactionModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
+                        <button @click="openTransactionModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
                             <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Catat Transaksi Baru</span>
+                            <span>Transaksi Baru</span>
                         </button>
                     </div>
 
@@ -1127,7 +1243,10 @@
                                             <td class="py-3 px-3" x-text="t.approved"></td>
                                             <td class="py-3 px-3" x-text="t.known"></td>
                                             <td class="py-3 px-3 text-slate-500" x-text="t.desc"></td>
-                                            <td class="py-3 px-3 text-right">
+                                            <td class="py-3 px-3 text-right space-x-1">
+                                                <button @click="openTransactionModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
+                                                    <i class="fa-solid fa-pen-to-square"></i>
+                                                </button>
                                                 <button @click="deleteTransaction(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
                                                     <i class="fa-solid fa-trash"></i>
                                                 </button>
@@ -1140,7 +1259,7 @@
                     </div>
                 </div>
 
-                <!-- MENU BARU: Stok Barang (Dinamis & Filterable) -->
+                <!-- WAREHOUSE: STOK BARANG -->
                 <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_barang'" class="space-y-6">
                     <div class="flex items-center justify-between">
                         <div>
@@ -1148,7 +1267,6 @@
                             <p class="text-xs text-slate-500">Monitor ketersediaan fisik barang berdasarkan filter gudang.</p>
                         </div>
                         <div class="flex items-center space-x-3">
-                            <!-- Dropdown Pilih Gudang -->
                             <div class="relative flex items-center">
                                 <i class="fa-solid fa-warehouse absolute left-3 text-slate-400 text-xs"></i>
                                 <select x-model="selectedWarehouseFilter" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm appearance-none cursor-pointer">
@@ -1204,66 +1322,64 @@
                     </div>
                 </div>
 
-                <!-- Stok Project -->
+                <!-- WAREHOUSE: STOK PROJECT -->
                 <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_project'" class="space-y-6">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between flex-wrap gap-4">
                         <div>
                             <h2 class="text-xl font-bold font-heading text-slate-900">Alokasi Stok Project</h2>
-                            <p class="text-xs text-slate-500">Korelasi langsung pemakaian material inventory terhadap masing-masing active project.</p>
+                            <p class="text-xs text-slate-500">Monitor penggunaan material berdasarkan Region dan Project yang dipilih.</p>
                         </div>
-                        <button @click="showToast('Sinkronisasi alokasi material project')" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-sync text-xs"></i>
-                            <span>Rekonsiliasi Material</span>
-                        </button>
+                        
+                        <div class="flex items-center space-x-3 flex-wrap gap-2">
+                            <div class="relative flex items-center">
+                                <i class="fa-solid fa-map-location-dot absolute left-3 text-slate-400 text-xs"></i>
+                                <select x-model="selectedProjectRegion" @change="selectedProjectCode = ''" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm cursor-pointer">
+                                    <option value="">Semua Region</option>
+                                    <template x-for="reg in [...new Set(projects.map(p => p.region))]" :key="reg">
+                                        <option :value="reg" x-text="reg"></option>
+                                    </template>
+                                </select>
+                            </div>
+
+                            <div class="relative flex items-center">
+                                <i class="fa-solid fa-diagram-project absolute left-3 text-slate-400 text-xs"></i>
+                                <select x-model="selectedProjectCode" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm cursor-pointer">
+                                    <option value="">Semua Project</option>
+                                    <template x-for="p in selectedProjectRegion ? projects.filter(x => x.region === selectedProjectRegion) : projects" :key="p.code">
+                                        <option :value="p.code" x-text="p.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                <div>
-                                    <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md">PRJ-ALPHA-01</span>
-                                    <h3 class="font-bold text-lg text-slate-900 mt-1">Project Alpha Tower</h3>
-                                </div>
-                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">Budget Terkorelasi</span>
-                            </div>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Besi Beton 12mm (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">850 Batang <span class="text-xs text-slate-400 font-normal">(Rp 76.5 Juta)</span></span>
-                                </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">1.500 Sak <span class="text-xs text-slate-400 font-normal">(Rp 97.5 Juta)</span></span>
-                                </div>
-                            </div>
-                            <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                                <span class="text-slate-500">Total Nilai Material Terserap</span>
-                                <span class="font-bold text-amber-600 text-sm">Rp 174.000.000</span>
-                            </div>
-                        </div>
-
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-                                <div>
-                                    <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">PRJ-BETA-02</span>
-                                    <h3 class="font-bold text-lg text-slate-900 mt-1">Pembangunan Plaza Sudirman</h3>
-                                </div>
-                                <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Procurement Stage</span>
-                            </div>
-                            <div class="space-y-3">
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Besi Beton 12mm (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">300 Batang <span class="text-xs text-slate-400 font-normal">(Rp 27.0 Juta)</span></span>
-                                </div>
-                                <div class="flex justify-between items-center text-sm">
-                                    <span class="text-slate-600">Semen Portland 50kg (Terpakai)</span>
-                                    <span class="font-bold text-slate-900">450 Sak <span class="text-xs text-slate-400 font-normal">(Rp 29.2 Juta)</span></span>
-                                </div>
-                            </div>
-                            <div class="pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
-                                <span class="text-slate-500">Total Nilai Material Terserap</span>
-                                <span class="font-bold text-blue-600 text-sm">Rp 56.200.000</span>
-                            </div>
+                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
+                                        <th class="py-3 px-4">Nama Barang</th>
+                                        <th class="py-3 px-4 text-center">Total Masuk</th>
+                                        <th class="py-3 px-4 text-center">Total Keluar</th>
+                                        <th class="py-3 px-4 text-center font-bold text-slate-900">Netto</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 text-slate-700">
+                                    <template x-for="stock in calculatedProjectStocks()" :key="stock.itemCode">
+                                        <tr class="hover:bg-slate-50/85 transition-colors">
+                                            <td class="py-3 px-4 font-semibold text-slate-900" x-text="stock.itemName"></td>
+                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.masuk"></td>
+                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.keluar"></td>
+                                            <td class="py-3 px-4 text-center">
+                                                <button @click="openProjectStockBreakdown(stock)" 
+                                                        class="font-extrabold text-slate-900 bg-amber-100 border border-amber-300 hover:bg-amber-500 hover:text-white hover:border-amber-500 px-3 py-1 rounded-lg transition-colors cursor-pointer shadow-sm w-16"
+                                                        x-text="stock.netto" title="Klik untuk lihat Breakdown">
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -1272,9 +1388,9 @@
         </div>
     </div>
 
-    <!-- ==================== MODALS FORM (INTERACTIVE POPUPS) ==================== -->
+    <!-- ==================== MODALS FORM ==================== -->
 
-    <!-- 1. Modal: Tambah Project Baru -->
+    <!-- Modal: Tambah Project Baru -->
     <div x-show="projectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1318,7 +1434,7 @@
         </div>
     </div>
 
-    <!-- 2. Modal: Alokasi Budget Baru -->
+    <!-- Modal: Alokasi Budget Baru -->
     <div x-show="budgetModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1346,7 +1462,7 @@
         </div>
     </div>
 
-    <!-- 3. Modal: Entri Jurnal Baru -->
+    <!-- Modal: Entri Jurnal Baru -->
     <div x-show="journalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1389,7 +1505,7 @@
         </div>
     </div>
 
-    <!-- 4. Modal: Buat Invoice Baru -->
+    <!-- Modal: Buat Invoice Baru -->
     <div x-show="invoiceModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1432,7 +1548,7 @@
         </div>
     </div>
 
-    <!-- 5. Modal: Tambah/Edit Gudang -->
+    <!-- Modal: Tambah/Edit Gudang -->
     <div x-show="warehouseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1466,7 +1582,7 @@
         </div>
     </div>
 
-    <!-- 6. Modal: Tambah/Edit Barang -->
+    <!-- Modal: Tambah/Edit Barang -->
     <div x-show="itemModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -1506,161 +1622,142 @@
         </div>
     </div>
 
-    <!-- 7. Modal: Transaksi Gudang (Compact & Optimized UI) -->
-    <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto p-4 shadow-2xl border border-slate-200 space-y-4 text-xs">
+    <!-- Modal: Tambah/Edit Transaksi Gudang (Jarak diperkecil agar pas saat tampilan awal) -->
+    <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto" style="display: none;">
+        <div class="bg-white rounded-2xl w-full max-w-2xl p-5 shadow-2xl border border-slate-200 space-y-3 my-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-                <div>
-                    <h3 class="font-heading font-bold text-base text-slate-900">Transaksi Gudang</h3>
-                </div>
-                <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-base"></i></button>
+                <h3 class="font-heading font-bold text-base text-slate-900" x-text="isEditTransaction ? 'Edit Transaksi Gudang' : 'Catat Transaksi Gudang Baru'"></h3>
+                <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            
-            <!-- Header Informasi Transaksi (3 Kolom Layout) -->
-            <div class="space-y-2.5">
-                <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">Informasi Dokumen</h4>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+            <div class="space-y-2.5 text-xs max-h-[75vh] overflow-y-auto pr-1">
+                <div class="grid grid-cols-3 gap-2">
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Tanggal</label>
-                        <input type="text" x-model="newTransaction.date" @input="updateDocNumber()" placeholder="31/07/2026" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                        <input type="text" x-model="newTransaction.date" @input="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">No Doc <span class="text-amber-600 text-[10px]">(Auto)</span></label>
-                        <input type="text" x-model="newTransaction.doc" readonly class="w-full px-2.5 py-1.5 border rounded-lg bg-slate-100 font-mono text-[11px] font-bold text-slate-700 focus:outline-none">
+                        <label class="block font-semibold text-slate-600 mb-0.5">No DO</label>
+                        <input type="text" x-model="newTransaction.do" placeholder="DO-9921" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">No DO <span class="text-rose-500">*</span></label>
-                        <input type="text" x-model="newTransaction.do" placeholder="Wajib diisi (Contoh: DO-9930)" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">No Dokumen (Auto)</label>
+                        <input type="text" x-model="newTransaction.doc" class="w-full px-2.5 py-1.5 border rounded-lg bg-slate-50 text-slate-600 font-mono font-bold text-[11px]" readonly>
                     </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Tipe Transaksi</label>
-                        <select x-model="newTransaction.type" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                        <select x-model="newTransaction.type" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
                             <option value="Keluar">Keluar</option>
                             <option value="Masuk">Masuk</option>
                             <option value="Transfer">Transfer</option>
                         </select>
                     </div>
-                    <!-- Gudang Asal -->
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Gudang Asal</label>
-                        <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white text-xs">
-                            <option value="">-- Pilih Gudang Asal --</option>
+                        <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
+                            <option value="">- Pilih Gudang Asal -</option>
                             <template x-for="w in warehouses" :key="w.code">
-                                <option :value="w.name" x-text="w.code + ' - ' + w.name"></option>
+                                <option :value="w.name" x-text="w.name"></option>
                             </template>
                         </select>
                     </div>
-                    <!-- Gudang Tujuan -->
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Gudang Tujuan</label>
-                        <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white text-xs">
-                            <option value="">-- Pilih Gudang Tujuan --</option>
+                        <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
+                            <option value="">- Pilih Gudang Tujuan -</option>
                             <template x-for="w in warehouses" :key="w.code">
-                                <option :value="w.name" x-text="w.code + ' - ' + w.name"></option>
+                                <option :value="w.name" x-text="w.name"></option>
                             </template>
                         </select>
                     </div>
-                    <!-- Kode Project -->
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Kode Project</label>
-                        <select x-model="newTransaction.code" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white text-xs">
-                            <option value="">-- Pilih Kode Project --</option>
-                            <template x-for="p in projects" :key="p.code">
+                        <select x-model="newTransaction.code" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
+                            <option value="">- Pilih Project -</option>
+                            <template x-for="p in getFilteredProjects()" :key="p.code">
                                 <option :value="p.code" x-text="p.code + ' - ' + p.name"></option>
                             </template>
                         </select>
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Pickup (Pengambil)</label>
-                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Pengambil" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Disetujui (Approver)</label>
-                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Approver" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Diketahui (Know by)</label>
-                        <input type="text" x-model="newTransaction.known" placeholder="Nama Supervisor" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block font-semibold text-slate-600 mb-0.5">Keterangan / Catatan <span class="text-rose-500">*</span></label>
-                        <input type="text" x-model="newTransaction.desc" placeholder="Catatan transaksi (wajib diisi)..." class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">Keterangan / Catatan</label>
+                        <input type="text" x-model="newTransaction.desc" placeholder="Catatan pengiriman..." class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
                     </div>
                 </div>
-            </div>
 
-            <!-- Daftar Item Material (Multi-Item Input dengan Filter Kategori -> Jenis -> Kode Barang) -->
-            <div class="space-y-2 pt-2 border-t border-slate-100">
-                <div class="flex items-center justify-between">
-                    <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-lg">Detail Material</h4>
-                    <button @click="newTransaction.items.push({ cat: '', kind: '', itemCode: '', itemName: '', qty: 1 })" type="button" class="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-semibold shadow flex items-center space-x-1 transition-all">
-                        <i class="fa-solid fa-plus text-[9px]"></i>
-                        <span>Tambah Baris Item</span>
-                    </button>
-                </div>
-                
-                <!-- Loop baris item material yang terpotong di source asli -->
-                <div class="space-y-3 mt-3">
-                    <template x-for="(item, index) in newTransaction.items" :key="index">
-                        <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <div class="md:col-span-4">
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Pilih SKU Barang</label>
-                                <select x-model="item.itemCode" @change="updateItemDetails(item)" class="w-full px-2 py-1.5 border rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-none text-[11px]">
-                                    <option value="">-- Pilih --</option>
-                                    <template x-for="i in items" :key="i.code">
-                                        <option :value="i.code" x-text="i.code + ' - ' + i.name"></option>
-                                    </template>
-                                </select>
+                <!-- Dynamic Items Repeater -->
+                <div class="border-t border-slate-100 pt-2 space-y-2">
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-800 text-[11px]">Daftar Material / Item Barang</span>
+                    </div>
+                    <template x-for="(item, idx) in newTransaction.items" :key="idx">
+                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1.5 relative">
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kategori</label>
+                                    <select x-model="item.cat" @change="onCategoryChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
+                                        <option value="">- Pilih Kategori -</option>
+                                        <template x-for="c in getUniqueCategories()" :key="c">
+                                            <option :value="c" x-text="c"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Jenis</label>
+                                    <select x-model="item.kind" @change="onTypeChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
+                                        <option value="">- Pilih Jenis -</option>
+                                        <template x-for="k in getFilteredTypes(item.cat)" :key="k">
+                                            <option :value="k" x-text="k"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kode Barang (SKU)</label>
+                                    <select x-model="item.itemCode" @change="onItemCodeChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
+                                        <option value="">- Pilih SKU -</option>
+                                        <template x-for="it in getFilteredItems(item.cat, item.kind)" :key="it.code">
+                                            <option :value="it.code" x-text="it.code + ' (' + it.name + ')'"></option>
+                                        </template>
+                                    </select>
+                                </div>
                             </div>
-                            <div class="md:col-span-4">
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nama Barang (Auto)</label>
-                                <input type="text" :value="item.itemName" readonly class="w-full px-2 py-1.5 border border-transparent bg-slate-100 rounded-md text-[11px] text-slate-500 focus:outline-none font-semibold">
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Qty</label>
-                                <input type="number" x-model.number="item.qty" class="w-full px-2 py-1.5 border rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-none text-[11px]">
-                            </div>
-                            <div class="md:col-span-2">
-                                <button @click="newTransaction.items.splice(index, 1)" type="button" class="w-full py-1.5 bg-rose-100 hover:bg-rose-500 hover:text-white text-rose-600 rounded-md text-[11px] font-bold transition-colors">
-                                    Hapus
-                                </button>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nama Barang</label>
+                                    <input type="text" x-model="item.itemName" class="w-full px-2 py-1 border rounded-md bg-slate-100 text-xs font-medium" readonly>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Jumlah Qty</label>
+                                    <input type="number" x-model="item.qty" placeholder="0" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
+                                </div>
                             </div>
                         </div>
                     </template>
                 </div>
-                
-                <div class="flex justify-end space-x-3 pt-4 border-t border-slate-100 mt-2">
-                    <button @click="transactionModal = false" type="button" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                    <button @click="addTransaction()" type="button" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Transaksi</button>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- 8. Modal: Breakdown Sisa Stok -->
-    <div x-show="stockBreakdownModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-sm p-6 shadow-2xl border border-slate-200 space-y-4 text-center relative">
-            <button @click="stockBreakdownModal = false" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors">
-                <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-            <div class="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center text-amber-500 mx-auto mb-2 border border-amber-100">
-                <i class="fa-solid fa-boxes-stacked text-3xl"></i>
-            </div>
-            <h3 class="font-heading font-bold text-lg text-slate-900">Breakdown Stok Tersedia</h3>
-            
-            <div class="bg-slate-50 rounded-xl p-4 border border-slate-100 space-y-3">
-                <div class="pb-3 border-b border-slate-200">
-                    <p class="text-[10px] uppercase font-bold text-slate-400">Kode SKU Barang</p>
-                    <p class="text-base font-mono font-bold text-amber-600" x-text="selectedBreakdown.itemCode"></p>
-                </div>
-                <div>
-                    <p class="text-[10px] uppercase font-bold text-slate-400 mb-1">Total Sisa Stok</p>
-                    <p class="text-4xl font-extrabold text-slate-900 font-heading" x-text="selectedBreakdown.sisa"></p>
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Pickup</label>
+                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama pickup" class="w-full px-2 py-1 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Disetujui</label>
+                        <input type="text" x-model="newTransaction.approved" placeholder="Nama approved" class="w-full px-2 py-1 border rounded-lg text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Diketahui</label>
+                        <input type="text" x-model="newTransaction.known" placeholder="Nama known" class="w-full px-2 py-1 border rounded-lg text-xs">
+                    </div>
                 </div>
             </div>
-
-            <div class="pt-2">
-                <button @click="stockBreakdownModal = false" class="w-full px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-semibold shadow-md transition-colors">Tutup Informasi</button>
+            <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button @click="transactionModal = false" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">Batal</button>
+                <button @click="saveTransaction()" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-md" x-text="isEditTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'"></button>
             </div>
         </div>
     </div>
