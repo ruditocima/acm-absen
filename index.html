@@ -1622,7 +1622,7 @@
         </div>
     </div>
 
-    <!-- Modal: Tambah/Edit Transaksi Gudang (Jarak diperkecil agar pas saat tampilan awal) -->
+    <!-- Modal: Tambah/Edit Transaksi Gudang (Multi-Item Material) -->
     <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto" style="display: none;">
         <div class="bg-white rounded-2xl w-full max-w-2xl p-5 shadow-2xl border border-slate-200 space-y-3 my-4">
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
@@ -1657,7 +1657,7 @@
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Gudang Asal</label>
                         <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                            <option value="">- Pilih Gudang Asal -</option>
+                            <option value="-">-</option>
                             <template x-for="w in warehouses" :key="w.code">
                                 <option :value="w.name" x-text="w.name"></option>
                             </template>
@@ -1666,7 +1666,7 @@
                     <div>
                         <label class="block font-semibold text-slate-600 mb-0.5">Gudang Tujuan</label>
                         <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                            <option value="">- Pilih Gudang Tujuan -</option>
+                            <option value="-">-</option>
                             <template x-for="w in warehouses" :key="w.code">
                                 <option :value="w.name" x-text="w.name"></option>
                             </template>
@@ -1674,66 +1674,65 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 gap-2">
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Kode Project</label>
+                        <label class="block font-semibold text-slate-600 mb-0.5">Kaitan Project</label>
                         <select x-model="newTransaction.code" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                            <option value="">- Pilih Project -</option>
+                            <option value="">Pilih Project (Opsional / Sesuai Region)</option>
                             <template x-for="p in getFilteredProjects()" :key="p.code">
                                 <option :value="p.code" x-text="p.code + ' - ' + p.name"></option>
                             </template>
                         </select>
                     </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Keterangan / Catatan</label>
-                        <input type="text" x-model="newTransaction.desc" placeholder="Catatan pengiriman..." class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                    </div>
                 </div>
 
-                <!-- Dynamic Items Repeater -->
-                <div class="border-t border-slate-100 pt-2 space-y-2">
+                <!-- Multi Item Section -->
+                <div class="border-t border-slate-200 pt-2 space-y-2">
                     <div class="flex justify-between items-center">
-                        <span class="font-bold text-slate-800 text-[11px]">Daftar Material / Item Barang</span>
+                        <span class="font-bold text-slate-800">Daftar Item Material</span>
+                        <button type="button" @click="newTransaction.items.push({ cat: '', kind: '', itemCode: '', itemName: '', qty: '' })" class="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-semibold flex items-center space-x-1">
+                            <i class="fa-solid fa-plus text-[10px]"></i>
+                            <span>Tambah Item</span>
+                        </button>
                     </div>
                     <template x-for="(item, idx) in newTransaction.items" :key="idx">
-                        <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-1.5 relative">
-                            <div class="grid grid-cols-3 gap-2">
+                        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 relative">
+                            <button type="button" x-show="newTransaction.items.length > 1" @click="newTransaction.items.splice(idx, 1)" class="absolute top-2 right-2 text-rose-500 hover:text-rose-700 text-xs">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                            <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kategori</label>
-                                    <select x-model="item.cat" @change="onCategoryChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
-                                        <option value="">- Pilih Kategori -</option>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Kategori</label>
+                                    <select x-model="item.cat" @change="onCategoryChange(item)" class="w-full px-2 py-1 border rounded-lg bg-white text-xs">
+                                        <option value="">Pilih Kategori</option>
                                         <template x-for="c in getUniqueCategories()" :key="c">
                                             <option :value="c" x-text="c"></option>
                                         </template>
                                     </select>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Jenis</label>
-                                    <select x-model="item.kind" @change="onTypeChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
-                                        <option value="">- Pilih Jenis -</option>
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Jenis</label>
+                                    <select x-model="item.kind" @change="onTypeChange(item)" class="w-full px-2 py-1 border rounded-lg bg-white text-xs">
+                                        <option value="">Pilih Jenis</option>
                                         <template x-for="k in getFilteredTypes(item.cat)" :key="k">
                                             <option :value="k" x-text="k"></option>
                                         </template>
                                     </select>
                                 </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kode Barang (SKU)</label>
-                                    <select x-model="item.itemCode" @change="onItemCodeChange(item)" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
-                                        <option value="">- Pilih SKU -</option>
-                                        <template x-for="it in getFilteredItems(item.cat, item.kind)" :key="it.code">
-                                            <option :value="it.code" x-text="it.code + ' (' + it.name + ')'"></option>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="col-span-2">
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Kode / Nama Barang</label>
+                                    <select x-model="item.itemCode" @change="onItemCodeChange(item)" class="w-full px-2 py-1 border rounded-lg bg-white text-xs font-mono">
+                                        <option value="">Pilih Barang (SKU)</option>
+                                        <template x-for="i in getFilteredItems(item.cat, item.kind)" :key="i.code">
+                                            <option :value="i.code" x-text="i.code + ' - ' + i.name"></option>
                                         </template>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nama Barang</label>
-                                    <input type="text" x-model="item.itemName" class="w-full px-2 py-1 border rounded-md bg-slate-100 text-xs font-medium" readonly>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Jumlah Qty</label>
-                                    <input type="number" x-model="item.qty" placeholder="0" class="w-full px-2 py-1 border rounded-md bg-white text-xs font-medium">
+                                    <label class="block text-[11px] font-semibold text-slate-600 mb-0.5">Qty</label>
+                                    <input type="number" x-model="item.qty" placeholder="0" class="w-full px-2 py-1 border rounded-lg bg-white text-xs font-bold text-center">
                                 </div>
                             </div>
                         </div>
@@ -1742,22 +1741,76 @@
 
                 <div class="grid grid-cols-3 gap-2 pt-1">
                     <div>
-                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Pickup</label>
-                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama pickup" class="w-full px-2 py-1 border rounded-lg text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">Pickup / Kurir</label>
+                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Kurir" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Disetujui</label>
-                        <input type="text" x-model="newTransaction.approved" placeholder="Nama approved" class="w-full px-2 py-1 border rounded-lg text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">Disetujui Oleh</label>
+                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Approver" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                     </div>
                     <div>
-                        <label class="block text-[10px] font-semibold text-slate-600 mb-0.5">Diketahui</label>
-                        <input type="text" x-model="newTransaction.known" placeholder="Nama known" class="w-full px-2 py-1 border rounded-lg text-xs">
+                        <label class="block font-semibold text-slate-600 mb-0.5">Diketahui Oleh</label>
+                        <input type="text" x-model="newTransaction.known" placeholder="Nama Mengetahui" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs">
                     </div>
                 </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-600 mb-0.5">Keterangan / Catatan</label>
+                    <textarea x-model="newTransaction.desc" placeholder="Catatan transaksi..." rows="2" class="w-full px-2.5 py-1.5 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs"></textarea>
+                </div>
             </div>
+
             <div class="flex justify-end space-x-2 pt-2 border-t border-slate-100">
-                <button @click="transactionModal = false" class="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">Batal</button>
-                <button @click="saveTransaction()" class="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-md" x-text="isEditTransaction ? 'Simpan Perubahan' : 'Simpan Transaksi'"></button>
+                <button @click="transactionModal = false" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">Batal</button>
+                <button @click="saveTransaction()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold shadow-md">Simpan Transaksi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Stock Breakdown (Stok Barang) -->
+    <div x-show="stockBreakdownModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Breakdown Sisa Stok Barang</h3>
+                <button @click="stockBreakdownModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                    <p class="text-xs text-amber-600 font-bold" x-text="selectedBreakdown.itemCode"></p>
+                    <p class="text-base font-extrabold text-slate-900" x-text="selectedBreakdown.itemName"></p>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="font-semibold text-slate-600">Total Sisa Fisik:</span>
+                    <span class="text-lg font-black text-amber-600" x-text="selectedBreakdown.sisa"></span>
+                </div>
+                <p class="text-xs text-slate-500">Rincian akumulasi dari seluruh transaksi masuk, keluar, dan transfer gudang yang telah terverifikasi sistem.</p>
+            </div>
+            <div class="flex justify-end pt-3 border-t border-slate-100">
+                <button @click="stockBreakdownModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold">Tutup</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Project Stock Breakdown (Stok Project) -->
+    <div x-show="projectStockBreakdownModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900">Breakdown Netto Stok Project</h3>
+                <button @click="projectStockBreakdownModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200">
+                    <p class="text-xs text-amber-600 font-bold" x-text="selectedProjectBreakdownItem.itemCode"></p>
+                    <p class="text-base font-extrabold text-slate-900" x-text="selectedProjectBreakdownItem.itemName"></p>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-200">
+                    <span class="font-semibold text-slate-600">Total Netto Project:</span>
+                    <span class="text-lg font-black text-amber-600" x-text="selectedProjectBreakdownItem.sisa"></span>
+                </div>
+                <p class="text-xs text-slate-500">Rincian mutasi material masuk dan keluar pada alokasi project yang sedang berjalan.</p>
+            </div>
+            <div class="flex justify-end pt-3 border-t border-slate-100">
+                <button @click="projectStockBreakdownModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold">Tutup</button>
             </div>
         </div>
     </div>
