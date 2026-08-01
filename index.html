@@ -1622,38 +1622,135 @@
         </div>
     </div>
 
-    <!-- Modal: Tambah/Edit Transaksi Gudang -->
+    <!-- Modal: Tambah/Edit Transaksi Gudang (Kelanjutan) -->
     <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-4xl p-5 shadow-2xl border border-slate-200 space-y-3 my-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-2.5">
-                <h3 class="font-heading font-bold text-base text-slate-900" x-text="isEditTransaction ? 'Edit Transaksi Gudang' : 'Catat Transaksi Gudang Baru'"></h3>
+        <div class="bg-white rounded-2xl w-full max-w-4xl p-6 shadow-2xl border border-slate-200 space-y-4 my-6">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditTransaction ? 'Edit Transaksi Gudang' : 'Catat Transaksi Gudang Baru'"></h3>
                 <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             
-            <div class="space-y-3 text-xs max-h-[75vh] overflow-y-auto pr-1">
-                <!-- Baris 1: 4 Kolom Dokumen & Tipe -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div class="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-2">
+                <!-- Informasi Utama Transaksi -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Tanggal</label>
-                        <input type="text" x-model="newTransaction.date" @input="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal Transaksi</label>
+                        <input type="text" x-model="newTransaction.date" @input="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Tipe Transaksi</label>
-                        <select x-model="newTransaction.type" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                            <option value="Keluar">Keluar</option>
-                            <option value="Masuk">Masuk</option>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tipe Transaksi</label>
+                        <select x-model="newTransaction.type" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <option value="Keluar">Keluar (Out)</option>
+                            <option value="Masuk">Masuk (In)</option>
                             <option value="Transfer">Transfer</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">No DO</label>
-                        <input type="text" x-model="newTransaction.do" placeholder="DO-9921" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">No Dokumen Sistem</label>
-                        <input type="text" x-model="newTransaction.doc" class="w-full px-2.5 py-1.5 border rounded-xl bg-slate-50 font-mono text-xs font-bold text-slate-800" readonly>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">No. Surat Jalan (DO)</label>
+                        <input type="text" x-model="newTransaction.do" placeholder="Contoh: DO-9921" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
                     </div>
                 </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gudang Asal (Origin)</label>
+                        <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <template x-for="w in warehouses" :key="w.code">
+                                <option :value="w.name" x-text="w.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gudang Tujuan (Destination)</label>
+                        <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <template x-for="w in warehouses" :key="w.code">
+                                <option :value="w.name" x-text="w.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Project Terkait</label>
+                        <select x-model="newTransaction.code" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
+                            <template x-for="p in getFilteredProjects()" :key="p.code">
+                                <option :value="p.code" x-text="p.code + ' - ' + p.name"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Daftar Item Material (Multi-item support) -->
+                <div class="border-t border-slate-100 pt-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="font-bold text-slate-800">Daftar Material / Barang</span>
+                        <button type="button" @click="newTransaction.items.push({ cat: '', kind: '', itemCode: '', itemName: '', qty: '' })" class="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-semibold text-[11px]">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Item
+                        </button>
+                    </div>
+                    
+                    <template x-for="(ti, idx) in newTransaction.items" :key="idx">
+                        <div class="grid grid-cols-12 gap-2 mb-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                            <div class="col-span-3">
+                                <label class="block text-[10px] text-slate-500">Kategori</label>
+                                <select x-model="ti.cat" @change="onCategoryChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
+                                    <option value="">Pilih Kategori...</option>
+                                    <template x-for="c in getUniqueCategories()"><option :value="c" x-text="c"></option></template>
+                                </select>
+                            </div>
+                            <div class="col-span-3">
+                                <label class="block text-[10px] text-slate-500">Jenis</label>
+                                <select x-model="ti.kind" @change="onTypeChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
+                                    <option value="">Pilih Jenis...</option>
+                                    <template x-for="k in getFilteredTypes(ti.cat)"><option :value="k" x-text="k"></option></template>
+                                </select>
+                            </div>
+                            <div class="col-span-3">
+                                <label class="block text-[10px] text-slate-500">Barang (SKU)</label>
+                                <select x-model="ti.itemCode" @change="onItemCodeChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
+                                    <option value="">Pilih Barang...</option>
+                                    <template x-for="i in getFilteredItems(ti.cat, ti.kind)"><option :value="i.code" x-text="i.code + ' - ' + i.name"></option></template>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-[10px] text-slate-500">Qty</label>
+                                <input type="number" x-model="ti.qty" placeholder="0" class="w-full px-2 py-1.5 border rounded-lg bg-white">
+                            </div>
+                            <div class="col-span-1 text-center pt-4">
+                                <button type="button" @click="newTransaction.items.splice(idx, 1)" x-show="newTransaction.items.length > 1" class="text-rose-500 hover:text-rose-700">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Otorisasi & Keterangan -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Pengambilan (Pickup)</label>
+                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Kurir/Driver" class="w-full px-3 py-2 border rounded-xl">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Disetujui Oleh</label>
+                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Approver" class="w-full px-3 py-2 border rounded-xl">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Diketahui Oleh</label>
+                        <input type="text" x-model="newTransaction.known" placeholder="Nama Manager" class="w-full px-3 py-2 border rounded-xl">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan / Catatan Dokumen</label>
+                    <input type="text" x-model="newTransaction.desc" placeholder="Keperluan pengiriman material..." class="w-full px-3 py-2 border rounded-xl">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button @click="transactionModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
+                <button @click="saveTransaction()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Transaksi</button>
+            </div>
+        </div>
+    </div>
 
                 <!-- Baris 2: Gudang & Project -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
