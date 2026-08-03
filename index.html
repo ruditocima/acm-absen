@@ -623,7 +623,7 @@
             basecamps = [];
             snapshot.forEach((doc) => { basecamps.push(doc.data()); });
             if (currentUser) {
-                if (map) initMap();
+                initMap();
                 renderAdminBasecampTable();
             }
             updateDashboardCounters();
@@ -849,27 +849,50 @@
             const titles = { 'dashboard': 'Dashboard Utama', 'live-gps': 'Live GPS Check-In & Geofencing', 'rekap': 'Rekap Data Absensi Karyawan', 'settings': 'Manajemen Sistem & Data' };
             document.getElementById('page-title').textContent = titles[tabId];
 
-            if (tabId === 'live-gps' && map) { setTimeout(() => { map.invalidateSize(); }, 250); }
+            if (tabId === 'live-gps') {
+                if (!map) {
+                    initMap();
+                } else {
+                    setTimeout(() => { map.invalidateSize(); }, 200);
+                }
+            }
         }
 
         // ================= 5. LEAFLET MAP & GEOFENCE LOGIC =================
+        let basecampsLayer = L.layerGroup();
+
         function initMap() {
-            if (map) { map.remove(); }
-            map = L.map('map');
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
+            if (!map) {
+                map = L.map('map');
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '&copy; OpenStreetMap contributors'
+                }).addTo(map);
+                basecampsLayer.addTo(map);
+            }
+
+            basecampsLayer.clearLayers();
 
             let bounds = [];
             basecamps.forEach(bc => {
-                L.marker([bc.lat, bc.lng]).addTo(map).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
-                L.circle([bc.lat, bc.lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, radius: bc.radius }).addTo(map);
+                const marker = L.marker([bc.lat, bc.lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
+                const circle = L.circle([bc.lat, bc.lng], { color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.12, radius: bc.radius });
+                
+                basecampsLayer.addLayer(marker);
+                basecampsLayer.addLayer(circle);
                 bounds.push([bc.lat, bc.lng]);
             });
 
-            if (bounds.length > 0) { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); } 
-            else { map.setView([-0.7893, 113.9213], 5); }
+            if (bounds.length > 0) { 
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 }); 
+            } else { 
+                map.setView([-0.7893, 113.9213], 5); 
+            }
+            
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
+            
+            setTimeout(() => {
+                if (map) map.invalidateSize();
+            }, 200);
         }
 
         // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION, TELEPORT DETECTION & OFFLINE QUEUE) =================
@@ -912,7 +935,6 @@
                             const lastLatLng = L.latLng(lastPos.lat, lastPos.lng);
                             const distanceMeters = currentLatLng.distanceTo(lastLatLng);
 
-                            // Jika selang waktu di bawah 2 menit (120 detik) tapi jarak perpindahan melebihi 2 Kilometer (2000 meter) -> Mustahil secara kecepatan manusia/kendaraan (Indikator Fake GPS Teleport)
                             if (timeDiffSeconds < 120 && distanceMeters > 2000) {
                                 statusEl.textContent = "Terdeteksi LonCATAN Lokasi Tidak Wajar";
                                 statusEl.className = "font-bold text-red-600";
@@ -928,7 +950,6 @@
                             }
                         }
 
-                        // Simpan posisi valid saat ini untuk perbandingan berikutnya
                         localStorage.setItem(lastPosKey, JSON.stringify({
                             lat: userLat,
                             lng: userLng,
@@ -1017,7 +1038,6 @@
                 status: attendanceStatus
             };
 
-            // Jika offline, simpan langsung ke local queue
             if (!navigator.onLine) {
                 saveToOfflineQueue(attendancePayload);
                 Swal.fire({
@@ -1146,7 +1166,6 @@
             });
         }
 
-        // ================= FITUR RESET DEVICE BINDING OLEH PM =================
         function resetDeviceBinding(empId) {
             Swal.fire({
                 title: 'Reset Perangkat HP?',
