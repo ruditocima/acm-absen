@@ -629,7 +629,8 @@
             updateDashboardCounters();
         });
 
-        db.collection("attendance").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+        // PERBAIKAN UTAMA: Mengambil semua dokumen attendance tanpa query orderBy di server agar dokumen baru yang serverTimestamp-nya masih null tidak terfilter, lalu di-sort via JS.
+        db.collection("attendance").onSnapshot((snapshot) => {
             attendanceRecords = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
@@ -640,6 +641,10 @@
                 } else {
                     dateObj = new Date();
                 }
+                const timestampVal = data.timestamp && typeof data.timestamp.toMillis === 'function' 
+                    ? data.timestamp.toMillis() 
+                    : (data.timestamp && data.timestamp.seconds ? data.timestamp.seconds * 1000 : Date.now());
+
                 attendanceRecords.push({
                     id: data.employeeId,
                     name: data.name,
@@ -647,12 +652,16 @@
                     basecamp: data.basecamp,
                     time: data.timeStr,
                     dateObj: dateObj,
+                    timestampVal: timestampVal,
                     status: data.status || "Valid (Geofence)",
                     badgeClass: isLate 
                         ? "bg-red-100 text-red-700 border-red-200" 
                         : "bg-emerald-100 text-emerald-700 border-emerald-200"
                 });
             });
+            // Sorting secara descending berdasarkan waktu timestamp
+            attendanceRecords.sort((a, b) => b.timestampVal - a.timestampVal);
+
             if (currentUser) {
                 handleFilterChange();
                 renderRecentActivity();
@@ -909,7 +918,6 @@
                         const userLng = position.coords.longitude;
                         const accuracy = position.coords.accuracy;
 
-                        // Akurasi dinaikkan toleransinya menjadi 300 meter agar tidak mudah error di dalam ruangan/testing
                         if (accuracy > 300) {
                             statusEl.textContent = "Terindikasi Fake GPS / Akurasi Rendah";
                             statusEl.className = "font-bold text-red-600";
