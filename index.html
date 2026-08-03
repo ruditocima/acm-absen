@@ -629,7 +629,6 @@
             updateDashboardCounters();
         });
 
-        // PERBAIKAN UTAMA: Mengambil semua dokumen attendance tanpa query orderBy di server agar dokumen baru yang serverTimestamp-nya masih null tidak terfilter, lalu di-sort via JS.
         db.collection("attendance").onSnapshot((snapshot) => {
             attendanceRecords = [];
             snapshot.forEach((doc) => {
@@ -659,7 +658,6 @@
                         : "bg-emerald-100 text-emerald-700 border-emerald-200"
                 });
             });
-            // Sorting secara descending berdasarkan waktu timestamp
             attendanceRecords.sort((a, b) => b.timestampVal - a.timestampVal);
 
             if (currentUser) {
@@ -728,7 +726,6 @@
                     return;
                 }
 
-                // --- DEVICE BINDING CHECK UNTUK ADMIN/EMPLOYEE BER-ID ---
                 if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
                     Swal.fire({
                         title: 'Akses Perangkat Ditolak',
@@ -752,7 +749,6 @@
                     return;
                 }
 
-                // --- DEVICE BINDING CHECK UNTUK KARYAWAN ---
                 if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
                     Swal.fire({
                         title: 'Akses Perangkat Ditolak',
@@ -862,7 +858,17 @@
                 if (!map) {
                     initMap();
                 } else {
-                    setTimeout(() => { map.invalidateSize(); }, 200);
+                    // PENGAMATAN MEMORI & RENDER MAP: Pemanggilan invalidateSize secara konsisten untuk mencegah glitch/area abu-abu saat berpindah tab
+                    setTimeout(() => {
+                        if (map) {
+                            map.invalidateSize(true);
+                        }
+                    }, 100);
+                    setTimeout(() => {
+                        if (map) {
+                            map.invalidateSize(true);
+                        }
+                    }, 300);
                 }
             }
         }
@@ -900,9 +906,18 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
             
             setTimeout(() => {
-                if (map) map.invalidateSize();
+                if (map) {
+                    map.invalidateSize(true);
+                }
             }, 200);
         }
+
+        // Penambahan window resize handler untuk memastikan peta selalu menyesuaikan ukuran container dengan sempurna
+        window.addEventListener('resize', () => {
+            if (map) {
+                map.invalidateSize(true);
+            }
+        });
 
         // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION, TELEPORT DETECTION & OFFLINE QUEUE) =================
         function performCheckIn() {
@@ -932,7 +947,6 @@
                             return;
                         }
 
-                        // --- ADVANCED MOCK LOCATION / TELEPORTATION DETECTION ---
                         const lastPosKey = `acm_last_geo_${currentUser ? currentUser.id : 'guest'}`;
                         const lastPosStr = localStorage.getItem(lastPosKey);
                         if (lastPosStr) {
