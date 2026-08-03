@@ -872,7 +872,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION & OFFLINE QUEUE) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION, TELEPORT DETECTION & OFFLINE QUEUE) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -899,6 +899,41 @@
                             });
                             return;
                         }
+
+                        // --- ADVANCED MOCK LOCATION / TELEPORTATION DETECTION ---
+                        const lastPosKey = `acm_last_geo_${currentUser ? currentUser.id : 'guest'}`;
+                        const lastPosStr = localStorage.getItem(lastPosKey);
+                        if (lastPosStr) {
+                            const lastPos = JSON.parse(lastPosStr);
+                            const nowTime = Date.now();
+                            const timeDiffSeconds = (nowTime - lastPos.timestamp) / 1000;
+                            
+                            const currentLatLng = L.latLng(userLat, userLng);
+                            const lastLatLng = L.latLng(lastPos.lat, lastPos.lng);
+                            const distanceMeters = currentLatLng.distanceTo(lastLatLng);
+
+                            // Jika selang waktu di bawah 2 menit (120 detik) tapi jarak perpindahan melebihi 2 Kilometer (2000 meter) -> Mustahil secara kecepatan manusia/kendaraan (Indikator Fake GPS Teleport)
+                            if (timeDiffSeconds < 120 && distanceMeters > 2000) {
+                                statusEl.textContent = "Terdeteksi LonCATAN Lokasi Tidak Wajar";
+                                statusEl.className = "font-bold text-red-600";
+                                distEl.textContent = `Loncatan: ${Math.round(distanceMeters)}m dalam ${Math.round(timeDiffSeconds)} dtk`;
+
+                                Swal.fire({
+                                    title: 'Check-In Ditolak (Anti-Cheat)',
+                                    html: `Sistem mendeteksi loncatan koordinat GPS yang mencurigakan (perpindahan instan sejauh ${Math.round(distanceMeters)} meter dalam waktu ${Math.round(timeDiffSeconds)} detik).<br><br><small>Harap matikan aplikasi pemalsu lokasi / Mock Location Anda.</small>`,
+                                    icon: 'error',
+                                    confirmButtonColor: '#ef4444'
+                                });
+                                return;
+                            }
+                        }
+
+                        // Simpan posisi valid saat ini untuk perbandingan berikutnya
+                        localStorage.setItem(lastPosKey, JSON.stringify({
+                            lat: userLat,
+                            lng: userLng,
+                            timestamp: Date.now()
+                        }));
 
                         const userLatLng = L.latLng(userLat, userLng);
                         
