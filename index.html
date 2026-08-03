@@ -285,22 +285,6 @@
                                </tbody>
                             </table>
                         </div>
-
-                        <!-- PAGINATION CONTROLS -->
-                        <div class="p-4 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
-                            <div class="text-xs text-slate-500" id="pagination-info">
-                                Menampilkan 0 dari 0 data
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <button onclick="changePage(-1)" id="prev-page-btn" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="fa-solid fa-chevron-left mr-1"></i> Sebelumnya
-                                </button>
-                                <span id="page-indicator" class="text-xs font-semibold text-slate-700 px-2">Hal 1 dari 1</span>
-                                <button onclick="changePage(1)" id="next-page-btn" class="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    Berikutnya <i class="fa-solid fa-chevron-right ml-1"></i>
-                                </button>
-                            </div>
-                        </div>
                     </div>
                 </section>
 
@@ -410,7 +394,7 @@
                                             <th class="p-3">Karyawan</th>
                                             <th class="p-3">Posisi / Role</th>
                                             <th class="p-3">Password</th>
-                                            <th class="p-3 text-center">Aksi</th>
+                                            <th class="p-3 text-center">Aksi & Perangkat</th>
                                         </tr>
                                     </thead>
                                     <tbody id="employee-table-body" class="text-sm divide-y divide-slate-100 bg-white">
@@ -444,6 +428,13 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+
+        // ================= DEVICE BINDING: GENERATE/GET UNIQUE DEVICE UUID =================
+        let currentDeviceId = localStorage.getItem('acm_device_uuid');
+        if (!currentDeviceId) {
+            currentDeviceId = 'dev_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+            localStorage.setItem('acm_device_uuid', currentDeviceId);
+        }
 
         // ================= PWA & SERVICE WORKER SETUP =================
         if ('serviceWorker' in navigator) {
@@ -589,10 +580,6 @@
         let basecamps = [];
         let attendanceRecords = [];
 
-        // Pagination State
-        let currentPage = 1;
-        const rowsPerPage = 10;
-
         // --- SKRIP SEEDING (Menggunakan merge: true agar password ter-update otomatis) ---
         async function seedInitialData() {
             const pass123 = await hashPassword("123");
@@ -667,7 +654,7 @@
                 });
             });
             if (currentUser) {
-                handleFilterChange(false);
+                handleFilterChange();
                 renderRecentActivity();
             }
             updateDashboardCounters();
@@ -731,6 +718,21 @@
                     Swal.fire('Gagal Login', 'Password Admin salah!', 'error');
                     return;
                 }
+
+                // --- DEVICE BINDING CHECK UNTUK ADMIN/EMPLOYEE BER-ID ---
+                if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
+                    Swal.fire({
+                        title: 'Akses Perangkat Ditolak',
+                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
+                        icon: 'error',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                } else if (!foundEmp.deviceId) {
+                    await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
+                    foundEmp.deviceId = currentDeviceId;
+                }
+
                 currentUser = { ...foundEmp, type: "admin" };
             } else {
                 if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
@@ -740,6 +742,21 @@
                     Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
                     return;
                 }
+
+                // --- DEVICE BINDING CHECK UNTUK KARYAWAN ---
+                if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
+                    Swal.fire({
+                        title: 'Akses Perangkat Ditolak',
+                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
+                        icon: 'error',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                } else if (!foundEmp.deviceId) {
+                    await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
+                    foundEmp.deviceId = currentDeviceId;
+                }
+
                 currentUser = { ...foundEmp, type: "employee" };
             }
 
@@ -1030,7 +1047,7 @@
 
             try {
                 if (editingEmployeeId) {
-                    await db.collection("employees").doc(editingEmployeeId).set(empData);
+                    await db.collection("employees").doc(editingEmployeeId).set(empData, { merge: true });
                     Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
                 } else {
                     const existingCheck = employees.find(e => e.id === id);
@@ -1094,6 +1111,30 @@
             });
         }
 
+        // ================= FITUR RESET DEVICE BINDING OLEH PM =================
+        function resetDeviceBinding(empId) {
+            Swal.fire({
+                title: 'Reset Perangkat HP?',
+                text: `Karyawan dengan ID ${empId} akan diizinkan login kembali menggunakan HP/perangkat baru mereka.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Reset Perangkat!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    try {
+                        await db.collection("employees").doc(empId).update({
+                            deviceId: firebase.firestore.FieldValue.delete()
+                        });
+                        Swal.fire('Berhasil!', 'Ikatan perangkat (device binding) berhasil di-reset. Karyawan dapat login dari HP baru.', 'success');
+                    } catch(err) {
+                        Swal.fire('Error', 'Gagal mereset perangkat di database.', 'error');
+                    }
+                }
+            });
+        }
+
         function renderAdminEmployeeTable() {
             const tbody = document.getElementById('employee-table-body');
             tbody.innerHTML = '';
@@ -1103,20 +1144,26 @@
             }
             employees.forEach((emp, index) => {
                 const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+                const hasDevice = emp.deviceId ? '<span class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-medium">Terikat HP</span>' : '<span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Belum Terikat</span>';
+                
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-3 font-mono text-xs text-slate-500">${emp.id}</td>
                         <td class="p-3 font-semibold text-slate-800">
                             <div class="flex items-center gap-3">
                                 <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">${initials}</div>
-                                <span>${emp.name}</span>
+                                <div>
+                                    <span>${emp.name}</span>
+                                    <div class="mt-0.5">${hasDevice}</div>
+                                </div>
                             </div>
                         </td>
                         <td class="p-3 text-slate-600">${emp.role}</td>
                         <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? 'Ter-enkripsi' : '-'}</td>
                         <td class="p-3 text-center">
-                            <button onclick="editEmployee(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="removeEmployee(${index})" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="editEmployee(${index})" title="Edit Karyawan" class="text-blue-500 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="resetDeviceBinding('${emp.id}')" title="Reset HP / Perangkat" class="text-amber-500 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-mobile-screen-button"></i></button>
+                            <button onclick="removeEmployee(${index})" title="Hapus Karyawan" class="text-red-500 hover:bg-red-50 px-2.5 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
@@ -1213,7 +1260,7 @@
             });
         }
 
-        // ================= 9. REKAP, FILTER, DASHBOARD & PAGINASI =================
+        // ================= 9. REKAP, FILTER & DASHBOARD =================
         function updateDashboardCounters() {
             document.getElementById('stat-basecamp-count').textContent = basecamps.length;
             const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
@@ -1250,30 +1297,12 @@
                 return true;
             });
 
-            // Pagination Calculations
-            const totalData = filtered.length;
-            const totalPages = Math.ceil(totalData / rowsPerPage) || 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-            if (currentPage < 1) currentPage = 1;
-
-            const startIndex = (currentPage - 1) * rowsPerPage;
-            const paginatedData = filtered.slice(startIndex, startIndex + rowsPerPage);
-
-            // Update Pagination Info & Buttons
-            const startItem = totalData === 0 ? 0 : startIndex + 1;
-            const endItem = Math.min(startIndex + rowsPerPage, totalData);
-            document.getElementById('pagination-info').textContent = `Menampilkan ${startItem} - ${endItem} dari ${totalData} data`;
-            document.getElementById('page-indicator').textContent = `Hal ${currentPage} dari ${totalPages}`;
-            
-            document.getElementById('prev-page-btn').disabled = currentPage === 1;
-            document.getElementById('next-page-btn').disabled = currentPage >= totalPages;
-
-            if (paginatedData.length === 0) {
+            if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Tidak ada data absensi yang sesuai dengan filter.</td></tr>`;
                 return;
             }
 
-            paginatedData.forEach(r => {
+            filtered.forEach(r => {
                 const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50/60 transition-colors">
@@ -1295,22 +1324,16 @@
             });
         }
 
-        function handleFilterChange(resetPage = true) {
-            if (resetPage) currentPage = 1;
+        function handleFilterChange() {
             const searchVal = document.getElementById('searchInput').value;
             const startVal = document.getElementById('startDate').value;
             const endVal = document.getElementById('endDate').value;
             renderTable(searchVal, startVal, endVal);
         }
 
-        function changePage(direction) {
-            currentPage += direction;
-            handleFilterChange(false);
-        }
-
-        document.getElementById('searchInput').addEventListener('keyup', () => handleFilterChange(true));
-        document.getElementById('startDate').addEventListener('change', () => handleFilterChange(true));
-        document.getElementById('endDate').addEventListener('change', () => handleFilterChange(true));
+        document.getElementById('searchInput').addEventListener('keyup', handleFilterChange);
+        document.getElementById('startDate').addEventListener('change', handleFilterChange);
+        document.getElementById('endDate').addEventListener('change', handleFilterChange);
 
         function renderRecentActivity() {
             const recentContainer = document.getElementById('recent-activity-list');
