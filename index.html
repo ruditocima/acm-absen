@@ -7,7 +7,380 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDK (Compat Version untuk Single-File HTML) -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+    // ================= 1. KONFIGURASI SERVICE =================
+const CLOUDINARY_CLOUD_NAME = "sozzmhut"; // Contoh: "dxy123abc"
+const CLOUDINARY_PRESET = "preset_absensi"; 
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDEE6HvoB0yox9aAHNaTR6mAmkNeRjy0Mk",
+  authDomain: "acm-absensi.firebaseapp.com",
+  projectId: "acm-absensi",
+  storageBucket: "acm-absensi.firebasestorage.app",
+  messagingSenderId: "48936624614",
+  appId: "1:48936624614:web:37afb53b6418f0995c7627"
+};
+
+// Inisialisasi Firestore
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// State Tambahan untuk Kamera
+let videoStream = null;
+let capturedBase64Image = null;
+let currentValidBasecamp = null;
+
+// ================= 2. FUINSI LOGIKA WEBCAM =================
+async function openWebcamModal() {
+    const modal = document.getElementById('webcam-modal');
+    const video = document.getElementById('webcam-stream');
+    const canvas = document.getElementById('photo-canvas');
     
+    modal.classList.remove('hidden');
+    video.classList.remove('hidden');
+    canvas.classList.add('hidden');
+    
+    document.getElementById('btn-capture').classList.remove('hidden');
+    document.getElementById('btn-retake').classList.add('hidden');
+    document.getElementById('btn-submit-absent').disabled = true;
+
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } }, 
+            audio: false 
+        });
+        video.srcObject = videoStream;
+    } catch (err) {
+        Swal.fire('Kamera Ditolak', 'Mohon beri izin akses kamera untuk absensi.', 'error');
+        closeWebcamModal();
+    }
+}
+
+function takeSnapshot() {
+    const video = document.getElementById('webcam-stream');
+    const canvas = document.getElementById('photo-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Kompresi foto menjadi resolusi 300x300 px
+    const size = 300;
+    canvas.width = size;
+    canvas.height = size;
+    ctx.drawImage(video, 0, 0, size, size);
+
+    // Kualitas JPG 50% (~25 KB)
+    capturedBase64Image = canvas.toDataURL('image/jpeg', 0.5);
+
+    video.classList.add('hidden');
+    canvas.classList.remove('hidden');
+    document.getElementById('btn-capture').classList.add('hidden');
+    document.getElementById('btn-retake').classList.remove('hidden');
+    document.getElementById('btn-submit-absent').disabled = false;
+}
+
+function retakePhoto() {
+    capturedBase64Image = null;
+    document.getElementById('webcam-stream').classList.remove('hidden');
+    document.getElementById('photo-canvas').classList.add('hidden');
+    document.getElementById('btn-capture').classList.remove('hidden');
+    document.getElementById('btn-retake').classList.add('hidden');
+    document.getElementById('btn-submit-absent').disabled = true;
+}
+
+function closeWebcamModal() {
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+    }
+    document.getElementById('webcam-modal').classList.add('hidden');
+}
+
+// ================= 3. UPLOAD CLOUDINARY & SIMPAN FIRESTORE =================
+async function uploadToCloudinary(base64Data) {
+    const formData = new FormData();
+    formData.append("file", base64Data);
+    formData.append("upload_preset", CLOUDINARY_PRESET);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formData
+    });
+
+    if (!response.ok) throw new Error("Gagal mengunggah foto ke Cloudinary");
+    const data = await response.json();
+    return data.secure_url; // Mengembalikan URL HTTPS
+}
+
+// Modifikasi fungsi performCheckIn saat GPS Valid -> Buka Kamera
+function performCheckIn() {
+    const statusEl = document.getElementById('gps-status');
+    const distEl = document.getElementById('gps-distance');
+
+    statusEl.textContent = "Mencari lokasi GPS...";
+    statusEl.className = "font-bold text-blue-600";
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                let validBasecamp = null;
+                let shortestDistance = Infinity;
+
+                basecamps.forEach(bc => {
+                    const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                    if (distance < shortestDistance) shortestDistance = distance;
+                    if (distance <= bc.radius) validBasecamp = bc;
+                });
+
+                if (validBasecamp) {
+                    currentValidBasecamp = validBasecamp;
+                    statusEl.textContent = `Valid (${validBasecamp.name})`;
+                    statusEl.className = "font-bold text-emerald-600";
+                    distEl.textContent = `${Math.round(shortestDistance)}m dari ${validBasecamp.name}`;
+
+                    // Buka Modal Kamera jika GPS valid
+                    openWebcamModal();
+                } else {
+                    statusEl.textContent = "Diluar Radius Basecamp!";
+                    statusEl.className = "font-bold text-red-600";
+                    Swal.fire('Check-In Ditolak', 'Anda berada di luar radius lokasi basecamp mana pun.', 'error');
+                }
+            },
+            (error) => { Swal.fire('Error GPS', 'Gagal membaca sinyal lokasi.', 'error'); },
+            { enableHighAccuracy: true }
+        );
+    }
+}
+
+// Kirim foto ke Cloudinary & simpan rekap ke Firestore
+async function processFinalCheckIn() {
+    if (!capturedBase64Image || !currentValidBasecamp) return;
+
+    try {
+        Swal.fire({
+            title: 'Mengirim Absensi...',
+            text: 'Mengunggah foto selfie & mengamankan data...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        // 1. Upload ke Cloudinary
+        const photoUrl = await uploadToCloudinary(capturedBase64Image);
+
+        // 2. Simpan ke Firebase Firestore
+        const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
+        await db.collection("attendance").add({
+            employeeId: currentUser.id,
+            name: currentUser.name,
+            role: currentUser.role,
+            basecamp: currentValidBasecamp.name,
+            photoUrl: photoUrl,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            timeStr: nowTime,
+            status: "Valid (Geofence)"
+        });
+
+        closeWebcamModal();
+
+        Swal.fire({
+            title: 'Absensi Berhasil!',
+            html: `Foto terunggah & data tersimpan untuk basecamp <b>${currentValidBasecamp.name}</b>.`,
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+
+    } catch (error) {
+        console.error(error);
+        Swal.fire('Gagal Absen', 'Terjadi masalah koneksi saat mengunggah absensi.', 'error');
+    }
+}"; // Contoh: "dxy123abc"
+const CLOUDINARY_PRESET = "preset_absensi"; 
+
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef"
+};
+
+// Inisialisasi Firestore
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// State Tambahan untuk Kamera
+let videoStream = null;
+let capturedBase64Image = null;
+let currentValidBasecamp = null;
+
+// ================= 2. FUINSI LOGIKA WEBCAM =================
+async function openWebcamModal() {
+    const modal = document.getElementById('webcam-modal');
+    const video = document.getElementById('webcam-stream');
+    const canvas = document.getElementById('photo-canvas');
+    
+    modal.classList.remove('hidden');
+    video.classList.remove('hidden');
+    canvas.classList.add('hidden');
+    
+    document.getElementById('btn-capture').classList.remove('hidden');
+    document.getElementById('btn-retake').classList.add('hidden');
+    document.getElementById('btn-submit-absent').disabled = true;
+
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } }, 
+            audio: false 
+        });
+        video.srcObject = videoStream;
+    } catch (err) {
+        Swal.fire('Kamera Ditolak', 'Mohon beri izin akses kamera untuk absensi.', 'error');
+        closeWebcamModal();
+    }
+}
+
+function takeSnapshot() {
+    const video = document.getElementById('webcam-stream');
+    const canvas = document.getElementById('photo-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Kompresi foto menjadi resolusi 300x300 px
+    const size = 300;
+    canvas.width = size;
+    canvas.height = size;
+    ctx.drawImage(video, 0, 0, size, size);
+
+    // Kualitas JPG 50% (~25 KB)
+    capturedBase64Image = canvas.toDataURL('image/jpeg', 0.5);
+
+    video.classList.add('hidden');
+    canvas.classList.remove('hidden');
+    document.getElementById('btn-capture').classList.add('hidden');
+    document.getElementById('btn-retake').classList.remove('hidden');
+    document.getElementById('btn-submit-absent').disabled = false;
+}
+
+function retakePhoto() {
+    capturedBase64Image = null;
+    document.getElementById('webcam-stream').classList.remove('hidden');
+    document.getElementById('photo-canvas').classList.add('hidden');
+    document.getElementById('btn-capture').classList.remove('hidden');
+    document.getElementById('btn-retake').classList.add('hidden');
+    document.getElementById('btn-submit-absent').disabled = true;
+}
+
+function closeWebcamModal() {
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+    }
+    document.getElementById('webcam-modal').classList.add('hidden');
+}
+
+// ================= 3. UPLOAD CLOUDINARY & SIMPAN FIRESTORE =================
+async function uploadToCloudinary(base64Data) {
+    const formData = new FormData();
+    formData.append("file", base64Data);
+    formData.append("upload_preset", CLOUDINARY_PRESET);
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+        method: "POST",
+        body: formData
+    });
+
+    if (!response.ok) throw new Error("Gagal mengunggah foto ke Cloudinary");
+    const data = await response.json();
+    return data.secure_url; // Mengembalikan URL HTTPS
+}
+
+// Modifikasi fungsi performCheckIn saat GPS Valid -> Buka Kamera
+function performCheckIn() {
+    const statusEl = document.getElementById('gps-status');
+    const distEl = document.getElementById('gps-distance');
+
+    statusEl.textContent = "Mencari lokasi GPS...";
+    statusEl.className = "font-bold text-blue-600";
+
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+                
+                let validBasecamp = null;
+                let shortestDistance = Infinity;
+
+                basecamps.forEach(bc => {
+                    const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                    if (distance < shortestDistance) shortestDistance = distance;
+                    if (distance <= bc.radius) validBasecamp = bc;
+                });
+
+                if (validBasecamp) {
+                    currentValidBasecamp = validBasecamp;
+                    statusEl.textContent = `Valid (${validBasecamp.name})`;
+                    statusEl.className = "font-bold text-emerald-600";
+                    distEl.textContent = `${Math.round(shortestDistance)}m dari ${validBasecamp.name}`;
+
+                    // Buka Modal Kamera jika GPS valid
+                    openWebcamModal();
+                } else {
+                    statusEl.textContent = "Diluar Radius Basecamp!";
+                    statusEl.className = "font-bold text-red-600";
+                    Swal.fire('Check-In Ditolak', 'Anda berada di luar radius lokasi basecamp mana pun.', 'error');
+                }
+            },
+            (error) => { Swal.fire('Error GPS', 'Gagal membaca sinyal lokasi.', 'error'); },
+            { enableHighAccuracy: true }
+        );
+    }
+}
+
+// Kirim foto ke Cloudinary & simpan rekap ke Firestore
+async function processFinalCheckIn() {
+    if (!capturedBase64Image || !currentValidBasecamp) return;
+
+    try {
+        Swal.fire({
+            title: 'Mengirim Absensi...',
+            text: 'Mengunggah foto selfie & mengamankan data...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        // 1. Upload ke Cloudinary
+        const photoUrl = await uploadToCloudinary(capturedBase64Image);
+
+        // 2. Simpan ke Firebase Firestore
+        const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
+        await db.collection("attendance").add({
+            employeeId: currentUser.id,
+            name: currentUser.name,
+            role: currentUser.role,
+            basecamp: currentValidBasecamp.name,
+            photoUrl: photoUrl,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+            timeStr: nowTime,
+            status: "Valid (Geofence)"
+        });
+
+        closeWebcamModal();
+
+        Swal.fire({
+            title: 'Absensi Berhasil!',
+            html: `Foto terunggah & data tersimpan untuk basecamp <b>${currentValidBasecamp.name}</b>.`,
+            icon: 'success',
+            confirmButtonColor: '#3b82f6'
+        });
+
+    } catch (error) {
+        console.error(error);
+        Swal.fire('Gagal Absen', 'Terjadi masalah koneksi saat mengunggah absensi.', 'error');
+    }
+}
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
@@ -1107,5 +1480,35 @@
             document.body.removeChild(a);
         }
     </script>
+    <!-- MODAL POPUP WEBCAM SELFIE -->
+<div id="webcam-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-card max-w-md w-full p-6 rounded-3xl shadow-2xl space-y-4 text-center">
+        <h3 class="text-lg font-bold text-slate-900">Foto Selfie Check-In</h3>
+        <p class="text-xs text-slate-500">Posisikan wajah Anda dengan jelas di dalam bingkai.</p>
+
+        <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden border-2 border-blue-500 shadow-inner flex items-center justify-center">
+            <video id="webcam-stream" autoplay playsinline class="w-full h-full object-cover"></video>
+            <canvas id="photo-canvas" class="hidden w-full h-full object-cover"></canvas>
+        </div>
+
+        <div class="flex gap-3">
+            <button id="btn-capture" onclick="takeSnapshot()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-camera"></i> Ambil Foto
+            </button>
+            <button id="btn-retake" onclick="retakePhoto()" class="hidden flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> Foto Ulang
+            </button>
+        </div>
+
+        <div class="flex gap-2">
+            <button onclick="closeWebcamModal()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl text-xs font-semibold">
+                Batal
+            </button>
+            <button id="btn-submit-absent" onclick="processFinalCheckIn()" disabled class="w-2/3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2">
+                <i class="fa-solid fa-paper-plane"></i> KIRIM ABSENSI
+            </button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
