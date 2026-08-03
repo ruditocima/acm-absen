@@ -26,7 +26,10 @@
 
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
-        .map-container { height: 420px; z-index: 10; border-radius: 0.75rem; }
+        .map-container { height: 380px; z-index: 10; border-radius: 0.75rem; }
+        @media (min-width: 768px) {
+            .map-container { height: 420px; }
+        }
         .glass-card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
@@ -36,7 +39,7 @@
         .nav-item.active { background-color: #0f172a; border-left: 4px solid #3b82f6; color: #ffffff; }
         
         /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
@@ -46,13 +49,13 @@
 
     <!-- LOGIN MODAL / SCREEN -->
     <div id="login-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="glass-card max-w-md w-full p-8 rounded-3xl shadow-2xl space-y-6">
+        <div class="glass-card max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-2xl space-y-6">
             <div class="text-center">
                 <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl shadow-blue-500/30 mb-4">
                     <i class="fa-solid fa-fingerprint text-3xl"></i>
                 </div>
-                <h2 class="text-2xl font-bold text-slate-900">PT Acero Cetha Metalindo</h2>
-                <p class="text-sm text-slate-500 mt-1">Sistem Absensi & Geofencing Lapangan</p>
+                <h2 class="text-xl sm:text-2xl font-bold text-slate-900">PT Acero Cetha Metalindo</h2>
+                <p class="text-xs sm:text-sm text-slate-500 mt-1">Sistem Absensi & Geofencing Lapangan</p>
             </div>
 
             <div class="space-y-4">
@@ -77,7 +80,7 @@
                     <input type="password" id="login-pass" placeholder="Masukkan password..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
                 </div>
 
-                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 sm:py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm sm:text-base">
                     <i class="fa-solid fa-right-to-bracket"></i> MASUK KE SISTEM
                 </button>
             </div>
@@ -86,10 +89,14 @@
     </div>
 
     <!-- MAIN APP CONTAINER -->
-    <div id="app-container" class="flex h-screen w-full overflow-hidden hidden">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-20">
-            <div class="p-6 border-b border-slate-800">
+    <div id="app-container" class="flex h-screen w-full overflow-hidden hidden relative">
+        
+        <!-- Mobile Sidebar Backdrop -->
+        <div id="sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/50 z-30 md:hidden hidden"></div>
+
+        <!-- Sidebar (Drawer on Mobile, Fixed on Desktop) -->
+        <aside id="app-sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:translate-x-0 md:static w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out">
+            <div class="p-5 sm:p-6 border-b border-slate-800 flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
                         <i class="fa-solid fa-satellite-dish text-lg"></i>
@@ -99,9 +106,12 @@
                         <p class="text-xs text-slate-400">PT Acero Cetha Metalindo</p>
                     </div>
                 </div>
+                <button onclick="toggleMobileSidebar()" class="md:hidden text-slate-400 hover:text-white p-2">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
             </div>
 
-            <nav class="flex-1 px-4 py-6 space-y-2">
+            <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
                 <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
                     <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
                 </a>
@@ -131,54 +141,60 @@
         </aside>
 
         <!-- Main Content Area -->
-        <main class="flex-1 flex flex-col h-full relative overflow-y-auto bg-slate-100">
+        <main class="flex-1 flex flex-col h-full relative overflow-y-auto bg-slate-100 w-full">
             <!-- Top Header -->
-            <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 px-8 py-4 flex justify-between items-center shadow-sm">
-                <div>
-                    <h2 id="page-title" class="text-xl font-bold text-slate-900">Dashboard Utama</h2>
-                    <p class="text-xs text-slate-500">Sistem Manajemen Kehadiran Berbasis Geofencing Multi-Radius</p>
-                </div>
-                <div class="flex items-center gap-6">
-                    <div class="text-right">
-                        <p class="text-xs font-semibold text-slate-500" id="current-date"></p>
-                        <p class="text-base font-bold text-blue-600 font-mono" id="current-time"></p>
+            <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-8 py-3.5 sm:py-4 flex justify-between items-center shadow-sm">
+                <div class="flex items-center gap-3">
+                    <!-- Mobile Hamburger Toggle -->
+                    <button onclick="toggleMobileSidebar()" class="md:hidden w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors">
+                        <i class="fa-solid fa-bars text-lg"></i>
+                    </button>
+                    <div>
+                        <h2 id="page-title" class="text-base sm:text-xl font-bold text-slate-900 truncate max-w-[180px] sm:max-w-none">Dashboard Utama</h2>
+                        <p class="text-[10px] sm:text-xs text-slate-500 hidden sm:block">Sistem Manajemen Kehadiran Berbasis Geofencing Multi-Radius</p>
                     </div>
-                    <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
-                        <i class="fa-solid fa-bell"></i>
+                </div>
+                <div class="flex items-center gap-3 sm:gap-6">
+                    <div class="text-right">
+                        <p class="text-[10px] sm:text-xs font-semibold text-slate-500" id="current-date"></p>
+                        <p class="text-xs sm:text-base font-bold text-blue-600 font-mono" id="current-time"></p>
+                    </div>
+                    <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                        <i class="fa-solid fa-bell text-sm"></i>
                     </div>
                 </div>
             </header>
 
-            <div class="p-8 space-y-8">
+            <div class="p-4 sm:p-8 space-y-6 sm:space-y-8 pb-16">
                 <!-- SECTION: DASHBOARD -->
                 <section id="sec-dashboard" class="space-y-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-blue-600">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl border-l-4 border-l-blue-600">
                             <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Karyawan Aktif</p>
-                            <h3 class="text-3xl font-extrabold text-slate-900" id="stat-total-karyawan">0</h3>
+                            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900" id="stat-total-karyawan">0</h3>
                             <p class="text-xs text-green-600 font-medium mt-2"><i class="fa-solid fa-arrow-up"></i> Terdaftar di sistem</p>
                         </div>
-                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl border-l-4 border-l-emerald-500">
                             <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Hadir Terekam GPS</p>
-                            <h3 class="text-3xl font-extrabold text-slate-900" id="stat-hadir">0</h3>
+                            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900" id="stat-hadir">0</h3>
                             <p class="text-xs text-slate-500 mt-2">Terverifikasi dalam radius</p>
                         </div>
-                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-amber-500">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl border-l-4 border-l-amber-500">
                             <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Tugas Lapangan (FTTH)</p>
-                            <h3 class="text-3xl font-extrabold text-slate-900">18</h3>
+                            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900">18</h3>
                             <p class="text-xs text-amber-600 font-medium mt-2">Pekanbaru, Padang, dsk</p>
                         </div>
-                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-indigo-500">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl border-l-4 border-l-indigo-500">
                             <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Titik Basecamp</p>
-                            <h3 class="text-3xl font-extrabold text-slate-900"><span id="stat-basecamp-count">0</span></h3>
+                            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-900"><span id="stat-basecamp-count">0</span></h3>
                             <p class="text-xs text-indigo-600 font-medium mt-2">Titik Absen Aktif</p>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 glass-card p-6 rounded-2xl space-y-4">
+                        <div class="lg:col-span-2 glass-card p-5 sm:p-6 rounded-2xl space-y-4">
                             <div class="flex justify-between items-center">
-                                <h3 class="text-base font-bold text-slate-900">Aktivitas Check-In Real-Time</h3>
+                                <h3 class="text-sm sm:text-base font-bold text-slate-900">Aktivitas Check-In Real-Time</h3>
                                 <button onclick="switchTab('rekap')" class="text-xs text-blue-600 font-bold hover:underline">Lihat Semua Data</button>
                             </div>
                             <div id="recent-activity-list" class="space-y-3">
@@ -186,11 +202,11 @@
                             </div>
                         </div>
 
-                        <div class="glass-card p-6 rounded-2xl space-y-4">
-                            <h3 class="text-base font-bold text-slate-900">Informasi Proyek Aktif</h3>
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl space-y-4">
+                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Informasi Proyek Aktif</h3>
                             <div class="space-y-3 text-sm">
                                 <div class="p-3 bg-blue-50/70 rounded-xl border border-blue-100">
-                                    <p class="font-bold text-blue-900">PT YOFC International Indonesia</p>
+                                    <p class="font-bold text-blue-900 text-xs sm:text-sm">PT YOFC International Indonesia</p>
                                     <p class="text-xs text-blue-700 mt-1">FTTH Regional Deployment Project</p>
                                 </div>
                                 <div class="space-y-2 text-xs text-slate-600">
@@ -208,13 +224,13 @@
                 <!-- SECTION: LIVE GPS CHECK-IN -->
                 <section id="sec-live-gps" class="hidden space-y-6">
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="glass-card p-6 rounded-2xl space-y-6">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl space-y-6">
                             <div>
-                                <h3 class="text-lg font-bold text-slate-900">Validasi Absensi GPS</h3>
+                                <h3 class="text-base sm:text-lg font-bold text-slate-900">Validasi Absensi GPS</h3>
                                 <p class="text-xs text-slate-500 mt-1">Sistem akan memindai apakah Anda berada dalam radius salah satu basecamp terdaftar.</p>
                             </div>
 
-                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-sm">
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-xs sm:text-sm">
                                 <div class="flex justify-between">
                                     <span class="text-slate-500">Jumlah Basecamp:</span>
                                     <span id="target-basecamp-name" class="font-bold text-slate-800">Memuat...</span>
@@ -233,7 +249,7 @@
                                 </div>
                             </div>
 
-                            <button onclick="performCheckIn()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                            <button onclick="performCheckIn()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 sm:py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm sm:text-base">
                                 <i class="fa-solid fa-location-arrow"></i> LAKUKAN CHECK-IN SEKARANG
                             </button>
                         </div>
@@ -247,30 +263,30 @@
                 <!-- SECTION: REKAP DATA ABSENSI -->
                 <section id="sec-rekap" class="hidden space-y-6">
                     <div class="glass-card rounded-2xl overflow-hidden">
-                        <div class="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="p-5 sm:p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div>
-                                <h3 class="text-lg font-bold text-slate-900">Rekap Data Kehadiran Karyawan</h3>
+                                <h3 class="text-base sm:text-lg font-bold text-slate-900">Rekap Data Kehadiran Karyawan</h3>
                                 <p class="text-xs text-slate-500">Data absensi real-time seluruh personel lapangan</p>
                             </div>
                             <div class="flex flex-wrap gap-3 w-full md:w-auto items-center">
                                 <!-- Date Range Picker Filter -->
                                 <div class="flex items-center gap-2 w-full md:w-auto">
-                                    <input type="date" id="startDate" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="date" id="startDate" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
                                     <span class="text-xs text-slate-400">s/d</span>
-                                    <input type="date" id="endDate" title="Sampai Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="date" id="endDate" title="Sampai Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
                                 </div>
                                 <div class="relative w-full md:w-64">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                                    <input type="text" id="searchInput" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="text" id="searchInput" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
-                                <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm w-full md:w-auto justify-center">
+                                <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-sm w-full md:w-auto justify-center">
                                     <i class="fa-solid fa-download"></i> Export CSV
                                 </button>
                             </div>
                         </div>
 
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse">
+                            <table class="w-full text-left border-collapse min-w-[650px]">
                                <thead>
                                     <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wider font-semibold">
                                         <th class="p-4">Karyawan</th>
@@ -291,9 +307,9 @@
                 <!-- SECTION: PENGATURAN SISTEM -->
                 <section id="sec-settings" class="hidden space-y-8">
                     <!-- 1. MANAJEMEN BASECAMP -->
-                    <div class="glass-card p-8 rounded-2xl space-y-6">
+                    <div class="glass-card p-5 sm:p-8 rounded-2xl space-y-6">
                         <div>
-                            <h3 class="text-lg font-bold text-slate-900">Manajemen Lokasi Basecamp</h3>
+                            <h3 class="text-base sm:text-lg font-bold text-slate-900">Manajemen Lokasi Basecamp</h3>
                             <p class="text-xs text-slate-500 mt-1">Tambahkan atau edit titik koordinat basecamp geofencing.</p>
                         </div>
 
@@ -317,10 +333,10 @@
                         </div>
 
                         <div class="flex flex-col md:flex-row gap-3">
-                            <button id="btn-save-basecamp" onclick="saveBasecamp()" class="w-full md:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                            <button id="btn-save-basecamp" onclick="saveBasecamp()" class="w-full md:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-plus"></i> TAMBAH BASECAMP BARU
                             </button>
-                            <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden w-full md:w-auto px-8 bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                            <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden w-full md:w-auto px-8 bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-xmark"></i> BATAL EDIT
                             </button>
                         </div>
@@ -330,7 +346,7 @@
                         <div>
                             <h4 class="text-sm font-bold text-slate-800 mb-4">Daftar Basecamp Tersimpan</h4>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                                <table class="w-full text-left border-collapse">
+                                <table class="w-full text-left border-collapse min-w-[550px]">
                                     <thead>
                                         <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold">
                                             <th class="p-3">Nama Basecamp</th>
@@ -348,9 +364,9 @@
                     </div>
 
                     <!-- 2. MANAJEMEN DATA KARYAWAN -->
-                    <div class="glass-card p-8 rounded-2xl space-y-6">
+                    <div class="glass-card p-5 sm:p-8 rounded-2xl space-y-6">
                         <div>
-                            <h3 class="text-lg font-bold text-slate-900">Manajemen Data Karyawan & Role</h3>
+                            <h3 class="text-base sm:text-lg font-bold text-slate-900">Manajemen Data Karyawan & Role</h3>
                             <p class="text-xs text-slate-500 mt-1">Tambah, edit, atau hapus data karyawan, posisi/role, serta password akses login.</p>
                         </div>
 
@@ -374,10 +390,10 @@
                         </div>
 
                         <div class="flex flex-col md:flex-row gap-3">
-                            <button id="btn-save-employee" onclick="saveEmployee()" class="w-full md:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                            <button id="btn-save-employee" onclick="saveEmployee()" class="w-full md:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-user-plus"></i> TAMBAH KARYAWAN BARU
                             </button>
-                            <button id="btn-cancel-emp-edit" onclick="cancelEmployeeEdit()" class="hidden w-full md:w-auto px-8 bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                            <button id="btn-cancel-emp-edit" onclick="cancelEmployeeEdit()" class="hidden w-full md:w-auto px-8 bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 text-sm">
                                 <i class="fa-solid fa-xmark"></i> BATAL EDIT
                             </button>
                         </div>
@@ -387,7 +403,7 @@
                         <div>
                             <h4 class="text-sm font-bold text-slate-800 mb-4">Daftar Karyawan Tersimpan</h4>
                             <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                                <table class="w-full text-left border-collapse">
+                                <table class="w-full text-left border-collapse min-w-[650px]">
                                     <thead>
                                         <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold">
                                             <th class="p-3">ID Karyawan</th>
@@ -569,6 +585,14 @@
             return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
+        // ================= MOBILE SIDEBAR TOGGLE =================
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('app-sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
         // ================= 2. STATE APLIKASI & SEEDING OTOMATIS =================
         let currentUser = null;
         let editingBasecampId = null;
@@ -673,7 +697,7 @@
         function updateClock() {
             const now = new Date();
             document.getElementById('current-time').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
-            document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
         }
         setInterval(updateClock, 1000);
         updateClock();
@@ -841,6 +865,16 @@
             if (tabId === 'settings' && !isPMOrAdmin) { Swal.fire('Akses Ditolak', 'Hanya Project Manager / Admin.', 'warning'); return; }
             if (tabId === 'rekap' && !isPMOrAdmin && !isAdmin) { Swal.fire('Akses Ditolak', 'Hanya Admin.', 'warning'); return; }
 
+            // Auto close mobile sidebar when tab is switched
+            if (window.innerWidth < 768) {
+                const sidebar = document.getElementById('app-sidebar');
+                const backdrop = document.getElementById('sidebar-backdrop');
+                if (!sidebar.classList.contains('-translate-x-full')) {
+                    sidebar.classList.add('-translate-x-full');
+                    backdrop.classList.add('hidden');
+                }
+            }
+
             ['dashboard', 'live-gps', 'rekap', 'settings'].forEach(t => {
                 const sec = document.getElementById('sec-' + t);
                 const nav = document.getElementById('nav-' + t);
@@ -858,16 +892,11 @@
                 if (!map) {
                     initMap();
                 } else {
-                    // PENGAMATAN MEMORI & RENDER MAP: Pemanggilan invalidateSize secara konsisten untuk mencegah glitch/area abu-abu saat berpindah tab
                     setTimeout(() => {
-                        if (map) {
-                            map.invalidateSize(true);
-                        }
+                        if (map) { map.invalidateSize(true); }
                     }, 100);
                     setTimeout(() => {
-                        if (map) {
-                            map.invalidateSize(true);
-                        }
+                        if (map) { map.invalidateSize(true); }
                     }, 300);
                 }
             }
@@ -906,20 +935,15 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
             
             setTimeout(() => {
-                if (map) {
-                    map.invalidateSize(true);
-                }
+                if (map) { map.invalidateSize(true); }
             }, 200);
         }
 
-        // Penambahan window resize handler untuk memastikan peta selalu menyesuaikan ukuran container dengan sempurna
         window.addEventListener('resize', () => {
-            if (map) {
-                map.invalidateSize(true);
-            }
+            if (map) { map.invalidateSize(true); }
         });
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION, TELEPORT DETECTION & OFFLINE QUEUE) =================
+        // ================= 6. CHECK-IN =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -959,7 +983,7 @@
                             const distanceMeters = currentLatLng.distanceTo(lastLatLng);
 
                             if (timeDiffSeconds < 120 && distanceMeters > 2000) {
-                                statusEl.textContent = "Terdeteksi LonCATAN Lokasi Tidak Wajar";
+                                statusEl.textContent = "Terdeteksi Loncatan Lokasi Tidak Wajar";
                                 statusEl.className = "font-bold text-red-600";
                                 distEl.textContent = `Loncatan: ${Math.round(distanceMeters)}m dalam ${Math.round(timeDiffSeconds)} dtk`;
 
@@ -1221,23 +1245,23 @@
             }
             employees.forEach((emp, index) => {
                 const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2);
-                const hasDevice = emp.deviceId ? '<span class="text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-medium">Terikat HP</span>' : '<span class="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Belum Terikat</span>';
+                const hasDevice = emp.deviceId ? '<span class="text-[10px] sm:text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-medium">Terikat HP</span>' : '<span class="text-[10px] sm:text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Belum Terikat</span>';
                 
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="p-3 font-mono text-xs text-slate-500">${emp.id}</td>
                         <td class="p-3 font-semibold text-slate-800">
                             <div class="flex items-center gap-3">
-                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">${initials}</div>
+                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${initials}</div>
                                 <div>
-                                    <span>${emp.name}</span>
+                                    <span class="text-xs sm:text-sm">${emp.name}</span>
                                     <div class="mt-0.5">${hasDevice}</div>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-3 text-slate-600">${emp.role}</td>
+                        <td class="p-3 text-xs sm:text-sm text-slate-600">${emp.role}</td>
                         <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? 'Ter-enkripsi' : '-'}</td>
-                        <td class="p-3 text-center">
+                        <td class="p-3 text-center whitespace-nowrap">
                             <button onclick="editEmployee(${index})" title="Edit Karyawan" class="text-blue-500 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
                             <button onclick="resetDeviceBinding('${emp.id}')" title="Reset HP / Perangkat" class="text-amber-500 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-mobile-screen-button"></i></button>
                             <button onclick="removeEmployee(${index})" title="Hapus Karyawan" class="text-red-500 hover:bg-red-50 px-2.5 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
@@ -1325,10 +1349,10 @@
             basecamps.forEach((bc, index) => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-3 font-semibold text-slate-800">${bc.name}</td>
+                        <td class="p-3 font-semibold text-xs sm:text-sm text-slate-800">${bc.name}</td>
                         <td class="p-3 font-mono text-xs text-slate-500">${bc.lat}, ${bc.lng}</td>
-                        <td class="p-3 text-slate-600">${bc.radius}m</td>
-                        <td class="p-3 text-center">
+                        <td class="p-3 text-xs sm:text-sm text-slate-600">${bc.radius}m</td>
+                        <td class="p-3 text-center whitespace-nowrap">
                             <button onclick="editBasecamp(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
                             <button onclick="removeBasecamp(${index})" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
                         </td>
@@ -1385,17 +1409,17 @@
                     <tr class="hover:bg-slate-50/60 transition-colors">
                         <td class="p-4">
                             <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">${initials}</div>
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${initials}</div>
                                 <div>
-                                    <p class="font-bold text-slate-900">${r.name}</p>
-                                    <p class="text-xs text-slate-400">ID: ${r.id}</p>
+                                    <p class="font-bold text-xs sm:text-sm text-slate-900">${r.name}</p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400">ID: ${r.id}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-4 text-slate-600">${r.role}</td>
-                        <td class="p-4 text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp}</td>
-                        <td class="p-4 font-mono text-slate-700">${r.time}</td>
-                        <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
+                        <td class="p-4 text-xs sm:text-sm text-slate-600">${r.role}</td>
+                        <td class="p-4 text-xs sm:text-sm text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp}</td>
+                        <td class="p-4 font-mono text-xs sm:text-sm text-slate-700">${r.time}</td>
+                        <td class="p-4"><span class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
                     </tr>
                 `;
             });
@@ -1428,15 +1452,15 @@
                 const badgeBg = isLate ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200";
                 
                 recentContainer.innerHTML += `
-                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">${initials}</div>
-                            <div>
-                                <p class="text-sm font-bold text-slate-900">${r.name} <span class="text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-2 font-normal">${r.status}</span></p>
-                                <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp} • ${r.time}</p>
+                    <div class="flex items-center justify-between p-3.5 sm:p-4 bg-slate-50 rounded-xl border border-slate-100 gap-2">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs sm:text-sm shrink-0">${initials}</div>
+                            <div class="overflow-hidden">
+                                <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">${r.name} <span class="text-[10px] sm:text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-1 font-normal inline-block">${r.status}</span></p>
+                                <p class="text-[10px] sm:text-xs text-slate-500 truncate"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp} • ${r.time}</p>
                             </div>
                         </div>
-                        <span class="text-xs font-mono font-bold ${isLate ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'} px-3 py-1 rounded-lg border">${isLate ? 'LATE' : 'OK'}</span>
+                        <span class="text-[10px] sm:text-xs font-mono font-bold ${isLate ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'} px-2.5 py-1 rounded-lg border shrink-0">${isLate ? 'LATE' : 'OK'}</span>
                     </div>
                 `;
             });
