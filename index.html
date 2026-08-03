@@ -698,7 +698,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY & DUPLICATE VALIDATION) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -787,13 +787,41 @@
         async function processDirectCheckIn(validBasecamp) {
             try {
                 Swal.fire({
+                    title: 'Memeriksa Data...',
+                    text: 'Memverifikasi status kehadiran hari ini...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+
+                // Pengecekan Duplikat Absensi Hari Ini di Firestore
+                const duplicateCheck = await db.collection("attendance")
+                    .where("employeeId", "==", currentUser.id)
+                    .where("dateStr", "==", dateStr)
+                    .get();
+
+                if (!duplicateCheck.empty) {
+                    Swal.fire({
+                        title: 'Check-In Ditolak',
+                        text: 'Anda sudah melakukan check-in hari ini. Sistem mencegah absensi ganda.',
+                        icon: 'warning',
+                        confirmButtonColor: '#3b82f6'
+                    });
+                    return;
+                }
+
+                Swal.fire({
                     title: 'Menyimpan Absensi...',
                     text: 'Menyimpan data kehadiran ke database...',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
 
-                const now = new Date();
                 const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
 
                 const currentHours = now.getHours();
@@ -814,6 +842,7 @@
                     basecamp: validBasecamp.name,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     timeStr: nowTime,
+                    dateStr: dateStr,
                     status: attendanceStatus
                 });
 
