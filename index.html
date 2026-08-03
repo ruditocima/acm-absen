@@ -61,11 +61,17 @@
                     </select>
                 </div>
 
-                <div id="employee-selection-group">
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Pilih Identitas Karyawan</label>
-                    <select id="login-employee-id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
-                        <!-- Dipopulasi Dinamis via JS -->
-                    </select>
+                <div id="employee-selection-group" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Pilih Identitas Karyawan</label>
+                        <select id="login-employee-id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                            <!-- Dipopulasi Dinamis via JS -->
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Password Karyawan</label>
+                        <input type="password" id="employee-pass" placeholder="Masukkan password karyawan..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                    </div>
                 </div>
 
                 <div id="admin-password-group" class="hidden">
@@ -352,11 +358,11 @@
                     <div class="glass-card p-8 rounded-2xl space-y-6">
                         <div>
                             <h3 class="text-lg font-bold text-slate-900">Manajemen Data Karyawan & Role</h3>
-                            <p class="text-xs text-slate-500 mt-1">Tambah, edit, atau hapus data karyawan dan posisi/role yang terdaftar dalam sistem.</p>
+                            <p class="text-xs text-slate-500 mt-1">Tambah, edit, atau hapus data karyawan, posisi/role, serta password akses login.</p>
                         </div>
 
                         <!-- Form Tambah/Edit Karyawan -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">ID Karyawan</label>
                                 <input type="text" id="setting-emp-id" placeholder="Contoh: ACM-106" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
@@ -368,6 +374,10 @@
                             <div>
                                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Posisi / Role</label>
                                 <input type="text" id="setting-emp-role" placeholder="Contoh: Field Engineer" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Password Akses</label>
+                                <input type="text" id="setting-emp-password" placeholder="Password login..." class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             </div>
                         </div>
 
@@ -391,6 +401,7 @@
                                             <th class="p-3">ID Karyawan</th>
                                             <th class="p-3">Karyawan</th>
                                             <th class="p-3">Posisi / Role</th>
+                                            <th class="p-3">Password</th>
                                             <th class="p-3 text-center">Aksi</th>
                                         </tr>
                                     </thead>
@@ -410,21 +421,21 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // Global App State
+        // Global App State & LocalStorage Persistence Initialization
         let currentUser = null;
         let editingBasecampId = null;
         let editingEmployeeId = null;
         
-        // ARRAY KARYAWAN DINAMIS (Mencakup contoh berbagai role)
-        let employees = [
-            { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer" },
-            { id: "ACM-024", name: "Tari Indah", role: "Project Manager" },
-            { id: "ACM-042", name: "Fikri Akbar", role: "Admin" },
-            { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer" }
+        // ARRAY KARYAWAN DINAMIS (Didukung LocalStorage)
+        let employees = JSON.parse(localStorage.getItem('opstrack_employees')) || [
+            { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", password: "123" },
+            { id: "ACM-024", name: "Tari Indah", role: "Project Manager", password: "123" },
+            { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: "123" },
+            { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: "123" }
         ];
 
-        // ARRAY BASECAMP DINAMIS
-        let basecamps = [
+        // ARRAY BASECAMP DINAMIS (Didukung LocalStorage)
+        let basecamps = JSON.parse(localStorage.getItem('opstrack_basecamps')) || [
             { id: 1, name: "Pekanbaru HQ (Utama)", lat: 0.507100, lng: 101.447800, radius: 150 },
             { id: 2, name: "Palembang Site", lat: -2.990900, lng: 104.756700, radius: 150 },
             { id: 3, name: "Padang Site", lat: -0.947100, lng: 100.369600, radius: 150 },
@@ -433,12 +444,19 @@
             { id: 6, name: "Aceh Site", lat: 5.548300, lng: 95.323800, radius: 150 }
         ];
 
-        let attendanceRecords = [
+        let attendanceRecords = JSON.parse(localStorage.getItem('opstrack_attendance')) || [
             { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", basecamp: "Pekanbaru HQ (Utama)", time: "07:15:22 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
             { id: "ACM-024", name: "Tari Indah", role: "Project Manager", basecamp: "Palembang Site", time: "07:45:10 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
             { id: "ACM-042", name: "Fikri Akbar", role: "Admin", basecamp: "Padang Site", time: "08:12:05 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
             { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", basecamp: "Dumai Site", time: "07:55:30 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" }
         ];
+
+        // Helper fungsi menyimpan data permanen ke LocalStorage
+        function saveData() {
+            localStorage.setItem('opstrack_employees', JSON.stringify(employees));
+            localStorage.setItem('opstrack_basecamps', JSON.stringify(basecamps));
+            localStorage.setItem('opstrack_attendance', JSON.stringify(attendanceRecords));
+        }
 
         // Inisialisasi awal saat halaman dimuat
         renderEmployeeSelect();
@@ -474,12 +492,15 @@
         // Login Logic & Input Toggling
         function toggleLoginInputs() {
             const role = document.getElementById('login-role-select').value;
+            const empGroup = document.getElementById('employee-selection-group');
+            const adminGroup = document.getElementById('admin-password-group');
+
             if (role === 'admin' || role === 'pm') {
-                document.getElementById('employee-selection-group').classList.add('hidden');
-                document.getElementById('admin-password-group').classList.remove('hidden');
+                empGroup.classList.add('hidden');
+                adminGroup.classList.remove('hidden');
             } else {
-                document.getElementById('employee-selection-group').classList.remove('hidden');
-                document.getElementById('admin-password-group').classList.add('hidden');
+                empGroup.classList.remove('hidden');
+                adminGroup.classList.add('hidden');
             }
         }
 
@@ -502,9 +523,15 @@
                 currentUser = { name: "System Admin", role: "Admin", id: "ADM-001", type: "admin" };
             } else {
                 const empId = document.getElementById('login-employee-id').value;
+                const empPass = document.getElementById('employee-pass').value;
                 const foundEmp = employees.find(e => e.id === empId);
+                
                 if (!foundEmp) {
                     Swal.fire('Error', 'Pilih identitas karyawan yang valid.', 'error');
+                    return;
+                }
+                if (foundEmp.password && foundEmp.password !== empPass) {
+                    Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
                     return;
                 }
                 currentUser = { ...foundEmp, type: "employee" };
@@ -549,21 +576,18 @@
             const isAdmin = type === 'admin' || (role.includes('admin') && !isPMOrAdmin);
 
             if (isPMOrAdmin) {
-                // 1. Project Manager atau Administrator: Bisa membuka semua fitur
                 navDashboard.style.display = 'flex';
                 navLiveGps.style.display = 'flex';
                 navRekap.style.display = 'flex';
                 navSettings.style.display = 'flex';
                 switchTab('dashboard');
             } else if (isAdmin) {
-                // 2. Admin: Bisa membuka fitur 'Rekap Absensi' dan 'Live Check-In (GPS)'
                 navDashboard.style.display = 'none';
                 navLiveGps.style.display = 'flex';
                 navRekap.style.display = 'flex';
                 navSettings.style.display = 'none';
                 switchTab('live-gps');
             } else {
-                // 3. Selain Project Manager atau Administrator: Hanya bisa membuka fitur 'Live Check-In (GPS)'
                 navDashboard.style.display = 'none';
                 navLiveGps.style.display = 'flex';
                 navRekap.style.display = 'none';
@@ -742,6 +766,7 @@
                             else { attendanceRecords.unshift(newRecord); }
 
                             renderTable();
+                            saveData();
 
                             Swal.fire({
                                 title: 'Check-In Berhasil!',
@@ -779,16 +804,17 @@
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
             const role = document.getElementById('setting-emp-role').value.trim();
+            const password = document.getElementById('setting-emp-password').value.trim();
 
-            if (!id || !name || !role) {
-                Swal.fire('Gagal', 'Mohon isi ID, Nama, dan Posisi/Role karyawan secara lengkap.', 'warning');
+            if (!id || !name || !role || !password) {
+                Swal.fire('Gagal', 'Mohon isi ID, Nama, Posisi/Role, dan Password karyawan secara lengkap.', 'warning');
                 return;
             }
 
             if (editingEmployeeId) {
                 const index = employees.findIndex(e => e.id === editingEmployeeId);
                 if (index !== -1) {
-                    employees[index] = { id, name, role };
+                    employees[index] = { id, name, role, password };
                 }
                 Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui.`, 'success');
             } else {
@@ -796,7 +822,7 @@
                     Swal.fire('Gagal', `ID Karyawan ${id} sudah terdaftar. Gunakan ID unik lain.`, 'error');
                     return;
                 }
-                employees.push({ id, name, role });
+                employees.push({ id, name, role, password });
                 Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan ke dalam sistem.`, 'success');
             }
 
@@ -804,6 +830,7 @@
             renderAdminEmployeeTable();
             renderEmployeeSelect();
             updateDashboardCounters();
+            saveData();
         }
 
         function editEmployee(index) {
@@ -813,6 +840,7 @@
             document.getElementById('setting-emp-id').value = emp.id;
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
+            document.getElementById('setting-emp-password').value = emp.password || '';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
@@ -828,6 +856,7 @@
             document.getElementById('setting-emp-id').value = '';
             document.getElementById('setting-emp-name').value = '';
             document.getElementById('setting-emp-role').value = '';
+            document.getElementById('setting-emp-password').value = '';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-user-plus"></i> TAMBAH KARYAWAN BARU';
@@ -855,6 +884,7 @@
                     renderAdminEmployeeTable();
                     renderEmployeeSelect();
                     updateDashboardCounters();
+                    saveData();
                 }
             });
         }
@@ -864,7 +894,7 @@
             tbody.innerHTML = '';
             
             if (employees.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada karyawan terdaftar.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada karyawan terdaftar.</td></tr>`;
                 return;
             }
 
@@ -880,6 +910,7 @@
                             </div>
                         </td>
                         <td class="p-3 text-slate-600">${emp.role}</td>
+                        <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? '••••••' : '-'}</td>
                         <td class="p-3 text-center">
                             <button onclick="editEmployee(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors mr-1" title="Edit">
                                 <i class="fa-solid fa-pen-to-square"></i>
@@ -923,6 +954,7 @@
             renderAdminBasecampTable();
             updateDashboardCounters();
             initMap();
+            saveData();
         }
 
         function editBasecamp(index) {
@@ -973,6 +1005,7 @@
                     renderAdminBasecampTable();
                     updateDashboardCounters();
                     initMap();
+                    saveData();
                 }
             });
         }
