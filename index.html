@@ -596,8 +596,8 @@
             ];
             for (const e of defaultEmployees) {
                 await db.collection("employees").doc(e.id).set(e, { merge: true });
-                // Pastikan akun juga terdaftar di Firebase Auth untuk kelancaran migrasi otomatis
-                const email = e.id.toLowerCase() + '@acm-absensi.internal';
+                // Menggunakan format email baru (_v2) agar akun terdaftar baru di Firebase Auth tanpa konflik
+                const email = 'auth_' + e.id.toLowerCase() + '_v2@acm-absensi.internal';
                 const defaultRawPass = e.id === 'ACM-YOFC-001' ? 'Ounyenk2018#' : '123';
                 try {
                     let secondaryApp = firebase.apps.find(app => app.name === "Secondary") || firebase.initializeApp(firebaseConfig, "Secondary");
@@ -732,17 +732,19 @@
                 return;
             }
 
-            // Autentikasi menggunakan Firebase Authentication
-            const email = targetEmpId.toLowerCase() + '@acm-absensi.internal';
+            // Autentikasi menggunakan Firebase Authentication dengan format email (_v2)
+            const email = 'auth_' + targetEmpId.toLowerCase() + '_v2@acm-absensi.internal';
 
             try {
                 await auth.signInWithEmailAndPassword(email, pass);
             } catch (authErr) {
-                // Fallback untuk migrasi mulus jika password di Firestore cocok dengan input hash
+                // Fallback untuk registrasi otomatis jika akun belum ada di Firebase Auth
                 const hashedInputPass = await hashPassword(pass);
                 if (foundEmp.password && foundEmp.password === hashedInputPass) {
                     try {
-                        await auth.createUserWithEmailAndPassword(email, pass);
+                        let secondaryApp = firebase.apps.find(app => app.name === "Secondary") || firebase.initializeApp(firebaseConfig, "Secondary");
+                        await secondaryApp.auth().createUserWithEmailAndPassword(email, pass);
+                        await auth.signInWithEmailAndPassword(email, pass);
                     } catch (e) {
                         Swal.fire('Gagal Login', 'Password salah atau autentikasi gagal.', 'error');
                         return;
@@ -1090,7 +1092,7 @@
 
             const hashedPassword = await hashPassword(passwordInput);
             const empData = { id, name, role, password: hashedPassword };
-            const email = id.toLowerCase() + '@acm-absensi.internal';
+            const email = 'auth_' + id.toLowerCase() + '_v2@acm-absensi.internal';
 
             try {
                 let secondaryApp;
