@@ -182,16 +182,7 @@
                                 <button onclick="switchTab('rekap')" class="text-xs text-blue-600 font-bold hover:underline">Lihat Semua Data</button>
                             </div>
                             <div id="recent-activity-list" class="space-y-3">
-                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">RS</div>
-                                        <div>
-                                            <p class="text-sm font-bold text-slate-900">Reza Syahputra <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md ml-2 font-normal">Check-In Valid</span></p>
-                                            <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> Pekanbaru HQ (Utama) • 07:15 WIB</p>
-                                        </div>
-                                    </div>
-                                    <span class="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">OK</span>
-                                </div>
+                                <!-- Populated dynamically by script now -->
                             </div>
                         </div>
 
@@ -462,10 +453,12 @@
             appId: "1:48936624614:web:37afb53b6418f0995c7627"
         };
 
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
         const db = firebase.firestore();
 
-        // ================= 2. STATE APLIKASI =================
+        // ================= 2. STATE APLIKASI (Sinkron dengan Firestore) =================
         let currentUser = null;
         let editingBasecampId = null;
         let editingEmployeeId = null;
@@ -475,39 +468,88 @@
         let currentValidBasecamp = null;
         let map, userMarker;
         
-        // Data tersimpan di LocalStorage
-        let employees = JSON.parse(localStorage.getItem('opstrack_employees')) || [
-            { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", password: "123" },
-            { id: "ACM-024", name: "Tari Indah", role: "Project Manager", password: "123" },
-            { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: "123" },
-            { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: "123" }
-        ];
+        // Array kosongan yang akan selalu diperbarui oleh Firestore Real-time
+        let employees = [];
+        let basecamps = [];
+        let attendanceRecords = [];
 
-        let basecamps = JSON.parse(localStorage.getItem('opstrack_basecamps')) || [
-            { id: 1, name: "Pekanbaru HQ (Utama)", lat: 0.507100, lng: 101.447800, radius: 150 },
-            { id: 2, name: "Palembang Site", lat: -2.990900, lng: 104.756700, radius: 150 },
-            { id: 3, name: "Padang Site", lat: -0.947100, lng: 100.369600, radius: 150 },
-            { id: 4, name: "Dumai Site", lat: 1.667100, lng: 101.447400, radius: 150 },
-            { id: 5, name: "Sidoarjo Site", lat: -7.447800, lng: 112.718300, radius: 150 },
-            { id: 6, name: "Aceh Site", lat: 5.548300, lng: 95.323800, radius: 150 }
-        ];
+        // --- SKRIP SEEDING (Mengisi Data Awal Jika Firestore Kosong) ---
+        async function seedInitialData() {
+            const empSnap = await db.collection("employees").get();
+            if (empSnap.empty) {
+                const defaultEmployees = [
+                    { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", password: "123" },
+                    { id: "ACM-024", name: "Tari Indah", role: "Project Manager", password: "123" },
+                    { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: "123" },
+                    { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: "123" }
+                ];
+                defaultEmployees.forEach(e => db.collection("employees").doc(e.id).set(e));
+            }
 
-        let attendanceRecords = JSON.parse(localStorage.getItem('opstrack_attendance')) || [
-            { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", basecamp: "Pekanbaru HQ (Utama)", time: "07:15:22 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
-            { id: "ACM-024", name: "Tari Indah", role: "Project Manager", basecamp: "Palembang Site", time: "07:45:10 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" }
-        ];
-
-        function saveData() {
-            localStorage.setItem('opstrack_employees', JSON.stringify(employees));
-            localStorage.setItem('opstrack_basecamps', JSON.stringify(basecamps));
-            localStorage.setItem('opstrack_attendance', JSON.stringify(attendanceRecords));
+            const bcSnap = await db.collection("basecamps").get();
+            if (bcSnap.empty) {
+                const defaultBasecamps = [
+                    { id: 1, name: "Pekanbaru HQ (Utama)", lat: 0.507100, lng: 101.447800, radius: 150 },
+                    { id: 2, name: "Palembang Site", lat: -2.990900, lng: 104.756700, radius: 150 },
+                    { id: 3, name: "Padang Site", lat: -0.947100, lng: 100.369600, radius: 150 },
+                    { id: 4, name: "Dumai Site", lat: 1.667100, lng: 101.447400, radius: 150 },
+                    { id: 5, name: "Sidoarjo Site", lat: -7.447800, lng: 112.718300, radius: 150 },
+                    { id: 6, name: "Aceh Site", lat: 5.548300, lng: 95.323800, radius: 150 }
+                ];
+                defaultBasecamps.forEach(b => db.collection("basecamps").doc(b.id.toString()).set(b));
+            }
         }
+        seedInitialData();
+        // ----------------------------------------------------------------
 
-        // ================= 3. INIT & UI LOGIC =================
+        // ================= 3. FIRESTORE REAL-TIME LISTENERS =================
+        // Mendengarkan perubahan data Karyawan di server secara instan
+        db.collection("employees").onSnapshot((snapshot) => {
+            employees = [];
+            snapshot.forEach((doc) => { employees.push(doc.data()); });
+            if (currentUser && (currentUser.type === 'admin' || currentUser.type === 'pm')) {
+                renderAdminEmployeeTable();
+            }
+            updateDashboardCounters();
+        });
+
+        // Mendengarkan perubahan Basecamp (Titik Absen)
+        db.collection("basecamps").onSnapshot((snapshot) => {
+            basecamps = [];
+            snapshot.forEach((doc) => { basecamps.push(doc.data()); });
+            if (currentUser) {
+                if (map) initMap(); // Refresh map dengan titik baru
+                renderAdminBasecampTable();
+            }
+            updateDashboardCounters();
+        });
+
+        // Mendengarkan perubahan Histori Absensi secara urut
+        db.collection("attendance").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
+            attendanceRecords = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                attendanceRecords.push({
+                    id: data.employeeId,
+                    name: data.name,
+                    role: data.role,
+                    basecamp: data.basecamp,
+                    time: data.timeStr,
+                    status: data.status,
+                    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                    photoUrl: data.photoUrl
+                });
+            });
+            if (currentUser) {
+                renderTable();
+                renderRecentActivity();
+            }
+            updateDashboardCounters();
+        });
+
+
+        // ================= 4. INIT & UI LOGIC =================
         toggleLoginInputs();
-        renderAdminEmployeeTable();
-        renderAdminBasecampTable();
-        updateDashboardCounters();
 
         function updateClock() {
             const now = new Date();
@@ -547,11 +589,11 @@
             } else if (loginType === 'admin') {
                 if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
                 const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
-                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan!`, 'error'); return; }
+                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak terdaftar di Server!`, 'error'); return; }
                 
                 const userRole = (foundEmp.role || '').toLowerCase();
                 if (!userRole.includes('admin')) {
-                    Swal.fire('Akses Ditolak', `ID Karyawan '${empId}' (${foundEmp.name}) bukan berstatus Admin!`, 'error');
+                    Swal.fire('Akses Ditolak', `ID '${empId}' bukan berstatus Admin!`, 'error');
                     return;
                 }
                 if (foundEmp.password && foundEmp.password !== pass) {
@@ -562,7 +604,7 @@
             } else {
                 if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
                 const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
-                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan!`, 'error'); return; }
+                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan di Server!`, 'error'); return; }
                 if (foundEmp.password && foundEmp.password !== pass) {
                     Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
                     return;
@@ -579,9 +621,7 @@
             document.getElementById('app-container').classList.remove('hidden');
 
             applyRolePermissions();
-            renderTable();
             initMap();
-            updateDashboardCounters();
             
             Swal.fire({
                 title: `Selamat Datang, ${currentUser.name}!`,
@@ -664,7 +704,7 @@
             if (tabId === 'live-gps' && map) { setTimeout(() => { map.invalidateSize(); }, 250); }
         }
 
-        // ================= 4. LEAFLET MAP & GEOFENCE LOGIC =================
+        // ================= 5. LEAFLET MAP & GEOFENCE LOGIC =================
         function initMap() {
             if (map) { map.remove(); }
             map = L.map('map');
@@ -684,16 +724,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371000;
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // ================= 5. CHECK-IN (HIBRIDA: MAP + WEBCAM) =================
+        // ================= 6. CHECK-IN (HIBRIDA: MAP + WEBCAM) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -705,13 +736,16 @@
                     (position) => {
                         const userLat = position.coords.latitude;
                         const userLng = position.coords.longitude;
+                        const userLatLng = L.latLng(userLat, userLng);
                         
                         let validBasecamp = null;
                         let nearestBasecamp = null;
                         let shortestDistance = Infinity;
 
                         basecamps.forEach(bc => {
-                            const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                            const bcLatLng = L.latLng(bc.lat, bc.lng);
+                            const distance = map.distance(userLatLng, bcLatLng); // Menggunakan library Leaflet untuk kalkulasi akurat
+                            
                             if (distance < shortestDistance) {
                                 shortestDistance = distance;
                                 nearestBasecamp = bc;
@@ -720,11 +754,10 @@
                         });
 
                         // 1. Update Marker di Peta
-                        const userLatLng = [userLat, userLng];
-                        map.setView(userLatLng, 16);
+                        map.setView([userLat, userLng], 16);
 
                         if (userMarker) map.removeLayer(userMarker);
-                        userMarker = L.marker(userLatLng, {
+                        userMarker = L.marker([userLat, userLng], {
                             icon: L.divIcon({
                                 className: 'custom-user-icon',
                                 html: '<div style="background:#2563eb; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);"></div>'
@@ -764,7 +797,7 @@
             }
         }
 
-        // ================= 6. WEBCAM LOGIC =================
+        // ================= 7. WEBCAM LOGIC (Dengan Perbaikan Cropping) =================
         async function openWebcamModal() {
             const modal = document.getElementById('webcam-modal');
             const video = document.getElementById('webcam-stream');
@@ -794,14 +827,20 @@
             const canvas = document.getElementById('photo-canvas');
             const ctx = canvas.getContext('2d');
             
-            // Diperkecil ke 250x250 piksel agar file sangat ringan & cepat di-upload
             const size = 150; 
             canvas.width = size; 
             canvas.height = size;
-            ctx.drawImage(video, 0, 0, size, size);
 
-            // Kompresi kualitas diturunkan ke 0.4 untuk mempercepat pengiriman di jaringan lambat
-            capturedBase64Image = canvas.toDataURL('image/jpeg', 0.3);
+            // Center-cropping agar gambar tidak gepeng (distorsi rasio)
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
+            const minDim = Math.min(videoWidth, videoHeight);
+            const startX = (videoWidth - minDim) / 2;
+            const startY = (videoHeight - minDim) / 2;
+            
+            ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, size, size);
+
+            capturedBase64Image = canvas.toDataURL('image/jpeg', 0.4);
 
             video.classList.add('hidden');
             canvas.classList.remove('hidden');
@@ -824,13 +863,12 @@
             document.getElementById('webcam-modal').classList.add('hidden');
         }
 
-        // ================= 7. UPLOAD & SIMPAN ABSEN =================
+        // ================= 8. UPLOAD & SIMPAN ABSEN =================
         async function uploadToCloudinary(base64Data) {
             const formData = new FormData();
             formData.append("file", base64Data);
             formData.append("upload_preset", CLOUDINARY_PRESET);
 
-            // Proteksi Timeout 20 Detik (Mencegah Hanging/Macet Berjam-jam)
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 20000);
 
@@ -859,16 +897,15 @@
             try {
                 Swal.fire({
                     title: 'Mengirim Absensi...',
-                    text: 'Mengunggah foto selfie & mengamankan data...',
+                    text: 'Mengunggah foto selfie & menyimpan data ke cloud...',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
 
-                // 1. Upload ke Cloudinary (dengan proteksi timeout)
                 const photoUrl = await uploadToCloudinary(capturedBase64Image);
-
-                // 2. Simpan ke Firestore
                 const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
+
+                // Simpan ke Firestore (Tabel akan otomatis ter-update oleh onSnapshot)
                 await db.collection("attendance").add({
                     employeeId: currentUser.id,
                     name: currentUser.name,
@@ -880,24 +917,6 @@
                     status: "Valid (Geofence)"
                 });
 
-                // 3. Simpan ke LocalStorage agar UI Rekap terupdate
-                const existingIndex = attendanceRecords.findIndex(r => r.id === currentUser.id);
-                const newRecord = {
-                    id: currentUser.id,
-                    name: currentUser.name,
-                    role: currentUser.role,
-                    basecamp: currentValidBasecamp.name,
-                    time: nowTime,
-                    status: "Valid (Geofence)",
-                    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200"
-                };
-
-                if (existingIndex >= 0) { attendanceRecords[existingIndex] = newRecord; } 
-                else { attendanceRecords.unshift(newRecord); }
-
-                renderTable();
-                saveData();
-                updateDashboardCounters();
                 closeWebcamModal();
 
                 Swal.fire({
@@ -918,8 +937,8 @@
             }
         }
 
-        // ================= 8. MANAJEMEN KARYAWAN =================
-        function saveEmployee() {
+        // ================= 9. MANAJEMEN KARYAWAN (Via Firestore) =================
+        async function saveEmployee() {
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
             const role = document.getElementById('setting-emp-role').value.trim();
@@ -927,26 +946,30 @@
 
             if (!id || !name || !role || !password) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
 
-            if (editingEmployeeId) {
-                const index = employees.findIndex(e => e.id === editingEmployeeId);
-                if (index !== -1) { employees[index] = { id, name, role, password }; }
-                Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui.`, 'success');
-            } else {
-                if (employees.some(e => e.id === id)) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar.', 'error'); return; }
-                employees.push({ id, name, role, password });
-                Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
-            }
+            const empData = { id, name, role, password };
 
-            cancelEmployeeEdit();
-            renderAdminEmployeeTable();
-            updateDashboardCounters();
-            saveData();
+            try {
+                if (editingEmployeeId) {
+                    await db.collection("employees").doc(editingEmployeeId).set(empData);
+                    Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
+                } else {
+                    const existingCheck = employees.find(e => e.id === id);
+                    if (existingCheck) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); return; }
+                    
+                    await db.collection("employees").doc(id).set(empData);
+                    Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
+                }
+                cancelEmployeeEdit();
+            } catch(e) {
+                Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
+            }
         }
 
         function editEmployee(index) {
             const emp = employees[index];
             editingEmployeeId = emp.id;
             document.getElementById('setting-emp-id').value = emp.id;
+            document.getElementById('setting-emp-id').disabled = true; // Kunci ID saat edit
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
             document.getElementById('setting-emp-password').value = emp.password || '';
@@ -961,6 +984,7 @@
         function cancelEmployeeEdit() {
             editingEmployeeId = null;
             document.getElementById('setting-emp-id').value = '';
+            document.getElementById('setting-emp-id').disabled = false;
             document.getElementById('setting-emp-name').value = '';
             document.getElementById('setting-emp-role').value = '';
             document.getElementById('setting-emp-password').value = '';
@@ -975,19 +999,17 @@
         function removeEmployee(index) {
             Swal.fire({
                 title: 'Hapus Karyawan?',
-                text: "Karyawan ini tidak akan bisa melakukan login absensi lagi.",
+                text: "Karyawan ini akan dihapus dari server dan tidak bisa login lagi.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Ya, Hapus!'
-            }).then((result) => {
+            }).then(async (result) => {
                 if (result.isConfirmed) {
-                    if (editingEmployeeId === employees[index].id) { cancelEmployeeEdit(); }
-                    employees.splice(index, 1);
-                    renderAdminEmployeeTable();
-                    updateDashboardCounters();
-                    saveData();
+                    const empId = employees[index].id;
+                    if (editingEmployeeId === empId) cancelEmployeeEdit();
+                    await db.collection("employees").doc(empId).delete();
                 }
             });
         }
@@ -1021,29 +1043,25 @@
             });
         }
 
-        // ================= 9. MANAJEMEN BASECAMP =================
-        function saveBasecamp() {
+        // ================= 10. MANAJEMEN BASECAMP (Via Firestore) =================
+        async function saveBasecamp() {
             const name = document.getElementById('setting-bc-name').value;
             const lat = parseFloat(document.getElementById('setting-lat').value);
             const lng = parseFloat(document.getElementById('setting-lng').value);
             const radius = parseInt(document.getElementById('setting-radius').value);
 
-            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) { Swal.fire('Gagal', 'Mohon isi semua parameter.', 'warning'); return; }
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) { Swal.fire('Gagal', 'Mohon isi semua parameter koordinat.', 'warning'); return; }
 
-            if (editingBasecampId) {
-                const index = basecamps.findIndex(b => b.id === editingBasecampId);
-                if (index !== -1) { basecamps[index] = { id: editingBasecampId, name, lat, lng, radius }; }
-                Swal.fire('Berhasil!', `Basecamp ${name} diperbarui.`, 'success');
-            } else {
-                basecamps.push({ id: Date.now(), name, lat, lng, radius });
-                Swal.fire('Berhasil!', `Basecamp ${name} ditambahkan.`, 'success');
+            const bcId = editingBasecampId ? editingBasecampId.toString() : Date.now().toString();
+            const bcData = { id: bcId, name, lat, lng, radius };
+
+            try {
+                await db.collection("basecamps").doc(bcId).set(bcData);
+                Swal.fire('Berhasil!', `Basecamp ${name} berhasil disinkronkan ke server.`, 'success');
+                cancelEdit();
+            } catch(e) {
+                Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
             }
-
-            cancelEdit();
-            renderAdminBasecampTable();
-            updateDashboardCounters();
-            initMap();
-            saveData();
         }
 
         function editBasecamp(index) {
@@ -1078,20 +1096,17 @@
         function removeBasecamp(index) {
             Swal.fire({
                 title: 'Hapus Basecamp?',
-                text: "Karyawan tidak akan bisa check-in di titik ini lagi.",
+                text: "Dihapus dari server! Karyawan tidak akan bisa check-in di titik ini lagi.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Ya, Hapus!'
-            }).then((result) => {
+            }).then(async (result) => {
                 if (result.isConfirmed) {
-                    if (editingBasecampId === basecamps[index].id) cancelEdit();
-                    basecamps.splice(index, 1);
-                    renderAdminBasecampTable();
-                    updateDashboardCounters();
-                    initMap();
-                    saveData();
+                    const bcId = basecamps[index].id.toString();
+                    if (editingBasecampId === bcId) cancelEdit();
+                    await db.collection("basecamps").doc(bcId).delete();
                 }
             });
         }
@@ -1118,10 +1133,12 @@
             });
         }
 
-        // ================= 10. REKAP & DASHBOARD =================
+        // ================= 11. REKAP & DASHBOARD =================
         function updateDashboardCounters() {
             document.getElementById('stat-basecamp-count').textContent = basecamps.length;
-            document.getElementById('stat-hadir').textContent = attendanceRecords.length;
+            // Menghitung unik yang hadir berdasarkan ID karyawan yang absen hari ini (sederhana)
+            const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
+            document.getElementById('stat-hadir').textContent = uniqueAttendance.length;
             document.getElementById('stat-total-karyawan').textContent = employees.length;
         }
 
@@ -1152,9 +1169,37 @@
                         <td class="p-4 font-mono text-slate-700">${r.time}</td>
                         <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
                         <td class="p-4 text-center">
-                            <button class="text-slate-400 hover:text-blue-600 transition-colors"><i class="fa-solid fa-ellipsis-vertical px-2"></i></button>
+                            ${r.photoUrl ? `<a href="${r.photoUrl}" target="_blank" class="text-blue-500 hover:text-blue-700 text-xs font-bold"><i class="fa-solid fa-image"></i> Foto</a>` : '-'}
                         </td>
                     </tr>
+                `;
+            });
+        }
+
+        function renderRecentActivity() {
+            const recentContainer = document.getElementById('recent-activity-list');
+            if(!recentContainer) return;
+            recentContainer.innerHTML = '';
+            
+            // Ambil 3 absen terakhir untuk dashboard
+            const recent = attendanceRecords.slice(0, 3);
+            if(recent.length === 0) {
+                recentContainer.innerHTML = '<p class="text-sm text-slate-400">Belum ada aktivitas hari ini.</p>';
+            }
+
+            recent.forEach(r => {
+                const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
+                recentContainer.innerHTML += `
+                    <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">${initials}</div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-900">${r.name} <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md ml-2 font-normal">Check-In</span></p>
+                                <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp} • ${r.time}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">OK</span>
+                    </div>
                 `;
             });
         }
@@ -1164,9 +1209,10 @@
         });
 
         function exportCSV() {
-            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
+            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status,Link Foto\n';
             attendanceRecords.forEach(r => {
-                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}"\n`;
+                const photoStr = r.photoUrl ? r.photoUrl : '';
+                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}","${photoStr}"\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
