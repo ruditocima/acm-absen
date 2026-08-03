@@ -429,6 +429,130 @@
         }
         const db = firebase.firestore();
 
+        // ================= PWA & SERVICE WORKER SETUP =================
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'acm-absensi-pwa-v1';
+                const urlsToCache = [
+                    './',
+                    'https://cdn.tailwindcss.com',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+                    'https://cdn.jsdelivr.net/npm/sweetalert2@11',
+                    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+                ];
+
+                self.addEventListener('install', event => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME).then(cache => {
+                            return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
+                        })
+                    );
+                    self.skipWaiting();
+                });
+
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                    self.clients.claim();
+                });
+
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request).then(response => {
+                            return response || fetch(event.request).catch(() => {
+                                // Fallback handler if offline
+                            });
+                        })
+                    );
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'text/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl)
+                .then(reg => console.log('PWA Service Worker registered successfully!', reg))
+                .catch(err => console.log('PWA Service Worker registration failed:', err));
+        }
+
+        // Dynamic Web App Manifest Injection
+        const manifestData = {
+            "name": "ACM Absensi Lapangan",
+            "short_name": "ACM Absensi",
+            "start_url": "./",
+            "display": "standalone",
+            "background_color": "#f1f5f9",
+            "theme_color": "#0f172a",
+            "icons": [
+                {
+                    "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/fingerprint.svg",
+                    "sizes": "512x512",
+                    "type": "image/svg+xml"
+                }
+            ]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
+        const linkTag = document.createElement('link');
+        linkTag.setAttribute('rel', 'manifest');
+        linkTag.setAttribute('href', manifestURL);
+        document.head.appendChild(linkTag);
+
+        // Listen to online event to trigger auto-sync of offline attendance queue
+        window.addEventListener('online', async () => {
+            await syncOfflineQueue();
+        });
+
+        async function syncOfflineQueue() {
+            const queueStr = localStorage.getItem('acm_offline_attendance_queue');
+            if (!queueStr) return;
+            const queue = JSON.parse(queueStr);
+            if (queue.length === 0) return;
+
+            Swal.fire({
+                title: 'Menyinkronkan Data...',
+                text: `Mengirim ${queue.length} data absensi offline ke server...`,
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+            });
+
+            const remainingQueue = [];
+            for (const item of queue) {
+                try {
+                    await db.collection("attendance").add({
+                        employeeId: item.employeeId,
+                        name: item.name,
+                        role: item.role,
+                        basecamp: item.basecamp,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        timeStr: item.timeStr,
+                        status: item.status
+                    });
+                } catch (err) {
+                    remainingQueue.push(item);
+                }
+            }
+
+            localStorage.setItem('acm_offline_attendance_queue', JSON.stringify(remainingQueue));
+
+            if (remainingQueue.length === 0) {
+                Swal.fire('Sinkronisasi Berhasil!', 'Semua data absensi offline telah berhasil dikirim ke server.', 'success');
+            } else {
+                Swal.fire('Sinkronisasi Sebagian', `${queue.length - remainingQueue.length} data terkirim, ${remainingQueue.length} data gagal.`, 'warning');
+            }
+        }
+
         // ================= HELPER: SHA-256 PASSWORD HASHING =================
         async function hashPassword(string) {
             const encoder = new TextEncoder();
@@ -711,7 +835,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION & OFFLINE QUEUE) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -798,6 +922,41 @@
         }
 
         async function processDirectCheckIn(validBasecamp) {
+            const now = new Date();
+            const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
+
+            const currentHours = now.getHours();
+            const currentMinutes = now.getMinutes();
+            const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
+            
+            const limitMinutes = (9 * 60) + 35; 
+
+            let attendanceStatus = "Valid (Geofence)";
+            if (totalCurrentMinutes > limitMinutes) {
+                attendanceStatus = "Terlambat";
+            }
+
+            const attendancePayload = {
+                employeeId: currentUser.id,
+                name: currentUser.name,
+                role: currentUser.role,
+                basecamp: validBasecamp.name,
+                timeStr: nowTime,
+                status: attendanceStatus
+            };
+
+            // Jika offline, simpan langsung ke local queue
+            if (!navigator.onLine) {
+                saveToOfflineQueue(attendancePayload);
+                Swal.fire({
+                    title: 'Mode Offline Aktif',
+                    html: `Koneksi internet tidak terdeteksi.<br>Absensi untuk basecamp <b>${validBasecamp.name}</b> telah disimpan secara lokal (queued) dan akan disinkronkan otomatis saat online.`,
+                    icon: 'info',
+                    confirmButtonColor: '#3b82f6'
+                });
+                return;
+            }
+
             try {
                 Swal.fire({
                     title: 'Menyimpan Absensi...',
@@ -806,28 +965,9 @@
                     didOpen: () => Swal.showLoading()
                 });
 
-                const now = new Date();
-                const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
-
-                const currentHours = now.getHours();
-                const currentMinutes = now.getMinutes();
-                const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
-                
-                const limitMinutes = (9 * 60) + 35; 
-
-                let attendanceStatus = "Valid (Geofence)";
-                if (totalCurrentMinutes > limitMinutes) {
-                    attendanceStatus = "Terlambat";
-                }
-
                 await db.collection("attendance").add({
-                    employeeId: currentUser.id,
-                    name: currentUser.name,
-                    role: currentUser.role,
-                    basecamp: validBasecamp.name,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    timeStr: nowTime,
-                    status: attendanceStatus
+                    ...attendancePayload,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 Swal.fire({
@@ -838,14 +978,22 @@
                 });
 
             } catch (error) {
-                console.error(error);
+                console.error('Firestore error, saving to offline queue:', error);
+                saveToOfflineQueue(attendancePayload);
                 Swal.fire({
-                    title: 'Gagal Absen',
-                    text: error.message || 'Terjadi masalah koneksi saat menyimpan absensi.',
-                    icon: 'error',
-                    confirmButtonColor: '#ef4444'
+                    title: 'Tersimpan Offline',
+                    html: `Gagal terhubung ke server database.<br>Absensi disimpan secara lokal (queued) dan akan disinkronkan otomatis saat terhubung kembali.`,
+                    icon: 'warning',
+                    confirmButtonColor: '#3b82f6'
                 });
             }
+        }
+
+        function saveToOfflineQueue(payload) {
+            const queueStr = localStorage.getItem('acm_offline_attendance_queue');
+            const queue = queueStr ? JSON.parse(queueStr) : [];
+            queue.push(payload);
+            localStorage.setItem('acm_offline_attendance_queue', JSON.stringify(queue));
         }
 
         // ================= 7. MANAJEMEN KARYAWAN =================
