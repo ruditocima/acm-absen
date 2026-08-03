@@ -252,12 +252,18 @@
                                 <h3 class="text-lg font-bold text-slate-900">Rekap Data Kehadiran Karyawan</h3>
                                 <p class="text-xs text-slate-500">Data absensi real-time seluruh personel lapangan</p>
                             </div>
-                            <div class="flex gap-3 w-full md:w-auto">
+                            <div class="flex flex-wrap gap-3 w-full md:w-auto items-center">
+                                <!-- Date Range Picker Filter -->
+                                <div class="flex items-center gap-2 w-full md:w-auto">
+                                    <input type="date" id="startDate" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <span class="text-xs text-slate-400">s/d</span>
+                                    <input type="date" id="endDate" title="Sampai Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
                                 <div class="relative w-full md:w-64">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
                                     <input type="text" id="searchInput" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
-                                <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
+                                <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm w-full md:w-auto justify-center">
                                     <i class="fa-solid fa-download"></i> Export CSV
                                 </button>
                             </div>
@@ -497,12 +503,19 @@
             snapshot.forEach((doc) => {
                 const data = doc.data();
                 const isLate = data.status === "Terlambat";
+                let dateObj = null;
+                if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+                    dateObj = data.timestamp.toDate();
+                } else {
+                    dateObj = new Date();
+                }
                 attendanceRecords.push({
                     id: data.employeeId,
                     name: data.name,
                     role: data.role,
                     basecamp: data.basecamp,
                     time: data.timeStr,
+                    dateObj: dateObj,
                     status: data.status || "Valid (Geofence)",
                     badgeClass: isLate 
                         ? "bg-red-100 text-red-700 border-red-200" 
@@ -510,7 +523,7 @@
                 });
             });
             if (currentUser) {
-                renderTable();
+                handleFilterChange();
                 renderRecentActivity();
             }
             updateDashboardCounters();
@@ -698,7 +711,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY & DUPLICATE VALIDATION) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -787,41 +800,13 @@
         async function processDirectCheckIn(validBasecamp) {
             try {
                 Swal.fire({
-                    title: 'Memeriksa Data...',
-                    text: 'Memverifikasi status kehadiran hari ini...',
-                    allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading()
-                });
-
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const dateStr = `${year}-${month}-${day}`;
-
-                // Pengecekan Duplikat Absensi Hari Ini di Firestore
-                const duplicateCheck = await db.collection("attendance")
-                    .where("employeeId", "==", currentUser.id)
-                    .where("dateStr", "==", dateStr)
-                    .get();
-
-                if (!duplicateCheck.empty) {
-                    Swal.fire({
-                        title: 'Check-In Ditolak',
-                        text: 'Anda sudah melakukan check-in hari ini. Sistem mencegah absensi ganda.',
-                        icon: 'warning',
-                        confirmButtonColor: '#3b82f6'
-                    });
-                    return;
-                }
-
-                Swal.fire({
                     title: 'Menyimpan Absensi...',
                     text: 'Menyimpan data kehadiran ke database...',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
 
+                const now = new Date();
                 const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
 
                 const currentHours = now.getHours();
@@ -842,7 +827,6 @@
                     basecamp: validBasecamp.name,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     timeStr: nowTime,
-                    dateStr: dateStr,
                     status: attendanceStatus
                 });
 
@@ -1061,7 +1045,7 @@
             });
         }
 
-        // ================= 9. REKAP & DASHBOARD =================
+        // ================= 9. REKAP, FILTER & DASHBOARD =================
         function updateDashboardCounters() {
             document.getElementById('stat-basecamp-count').textContent = basecamps.length;
             const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
@@ -1069,14 +1053,39 @@
             document.getElementById('stat-total-karyawan').textContent = employees.length;
         }
 
-        function renderTable(filter = '') {
+        function renderTable(filter = '', startDate = '', endDate = '') {
             const tbody = document.getElementById('attendance-table-body');
             tbody.innerHTML = '';
-            const filtered = attendanceRecords.filter(r => 
-                r.name.toLowerCase().includes(filter.toLowerCase()) || 
-                r.role.toLowerCase().includes(filter.toLowerCase()) ||
-                r.basecamp.toLowerCase().includes(filter.toLowerCase())
-            );
+
+            const start = startDate ? new Date(startDate) : null;
+            if (start) start.setHours(0, 0, 0, 0);
+
+            const end = endDate ? new Date(endDate) : null;
+            if (end) end.setHours(23, 59, 59, 999);
+
+            const filtered = attendanceRecords.filter(r => {
+                const matchesSearch = r.name.toLowerCase().includes(filter.toLowerCase()) || 
+                    r.role.toLowerCase().includes(filter.toLowerCase()) ||
+                    r.basecamp.toLowerCase().includes(filter.toLowerCase());
+
+                if (!matchesSearch) return false;
+
+                if (start || end) {
+                    if (!r.dateObj) return false;
+                    const rDate = new Date(r.dateObj);
+                    rDate.setHours(0, 0, 0, 0);
+
+                    if (start && rDate < start) return false;
+                    if (end && rDate > end) return false;
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Tidak ada data absensi yang sesuai dengan filter.</td></tr>`;
+                return;
+            }
 
             filtered.forEach(r => {
                 const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
@@ -1099,6 +1108,17 @@
                 `;
             });
         }
+
+        function handleFilterChange() {
+            const searchVal = document.getElementById('searchInput').value;
+            const startVal = document.getElementById('startDate').value;
+            const endVal = document.getElementById('endDate').value;
+            renderTable(searchVal, startVal, endVal);
+        }
+
+        document.getElementById('searchInput').addEventListener('keyup', handleFilterChange);
+        document.getElementById('startDate').addEventListener('change', handleFilterChange);
+        document.getElementById('endDate').addEventListener('change', handleFilterChange);
 
         function renderRecentActivity() {
             const recentContainer = document.getElementById('recent-activity-list');
@@ -1129,10 +1149,6 @@
                 `;
             });
         }
-
-        document.getElementById('searchInput').addEventListener('keyup', function() {
-            renderTable(this.value);
-        });
 
         function exportCSV() {
             let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
