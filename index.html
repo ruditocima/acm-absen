@@ -10,6 +10,7 @@
     
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <!-- Google Fonts -->
@@ -428,6 +429,7 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
         // ================= DEVICE BINDING: GENERATE/GET UNIQUE DEVICE UUID =================
         let currentDeviceId = localStorage.getItem('acm_device_uuid');
@@ -444,6 +446,7 @@
                     './',
                     'https://cdn.tailwindcss.com',
                     'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js',
                     'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
                     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
                     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
@@ -580,7 +583,7 @@
         let basecamps = [];
         let attendanceRecords = [];
 
-        // --- SKRIP SEEDING (Menggunakan merge: true agar password ter-update otomatis) ---
+        // --- SKRIP SEEDING ---
         async function seedInitialData() {
             const pass123 = await hashPassword("123");
             const passRudi = await hashPassword("Ounyenk2018#");
@@ -593,6 +596,15 @@
             ];
             for (const e of defaultEmployees) {
                 await db.collection("employees").doc(e.id).set(e, { merge: true });
+                // Pastikan akun juga terdaftar di Firebase Auth untuk kelancaran migrasi otomatis
+                const email = e.id.toLowerCase() + '@acm-absensi.internal';
+                const defaultRawPass = e.id === 'ACM-YOFC-001' ? 'Ounyenk2018#' : '123';
+                try {
+                    let secondaryApp = firebase.apps.find(app => app.name === "Secondary") || firebase.initializeApp(firebaseConfig, "Secondary");
+                    await secondaryApp.auth().createUserWithEmailAndPassword(email, defaultRawPass);
+                } catch(err) {
+                    // Akun auth sudah ada, diabaikan
+                }
             }
 
             const defaultBasecamps = [
@@ -689,76 +701,77 @@
 
         async function handleLogin() {
             const loginType = document.getElementById('login-role-select').value;
-            const empId = document.getElementById('login-emp-id').value.trim();
+            const empIdInputVal = document.getElementById('login-emp-id').value.trim();
             const pass = document.getElementById('login-pass').value;
-            const hashedInputPass = await hashPassword(pass);
 
+            let targetEmpId = empIdInputVal;
             if (loginType === 'pm') {
-                const pmEmp = employees.find(e => e.id === 'ACM-YOFC-001' || (e.role || '').toLowerCase().includes('project manager') || (e.role || '').toLowerCase().includes('administrator'));
-                if (!pmEmp) {
-                    Swal.fire('Gagal Login', 'Akun Project Manager belum termuat dari server. Coba beberapa saat lagi.', 'error');
-                    return;
-                }
-                if (pmEmp.password !== hashedInputPass) {
-                    Swal.fire('Gagal Login', 'Password Project Manager salah! (Gunakan: Ounyenk2018#)', 'error');
-                    return;
-                }
-                currentUser = { ...pmEmp, type: "pm" };
-            } else if (loginType === 'admin') {
-                if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
-                const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
-                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak terdaftar di Server!`, 'error'); return; }
-                
-                const userRole = (foundEmp.role || '').toLowerCase();
-                if (!userRole.includes('admin')) {
-                    Swal.fire('Akses Ditolak', `ID '${empId}' bukan berstatus Admin!`, 'error');
-                    return;
-                }
-                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
-                    Swal.fire('Gagal Login', 'Password Admin salah!', 'error');
-                    return;
-                }
-
-                // --- DEVICE BINDING CHECK UNTUK ADMIN/EMPLOYEE BER-ID ---
-                if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
-                    Swal.fire({
-                        title: 'Akses Perangkat Ditolak',
-                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
-                        icon: 'error',
-                        confirmButtonColor: '#ef4444'
-                    });
-                    return;
-                } else if (!foundEmp.deviceId) {
-                    await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
-                    foundEmp.deviceId = currentDeviceId;
-                }
-
-                currentUser = { ...foundEmp, type: "admin" };
-            } else {
-                if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
-                const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
-                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan di Server!`, 'error'); return; }
-                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
-                    Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
-                    return;
-                }
-
-                // --- DEVICE BINDING CHECK UNTUK KARYAWAN ---
-                if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
-                    Swal.fire({
-                        title: 'Akses Perangkat Ditolak',
-                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
-                        icon: 'error',
-                        confirmButtonColor: '#ef4444'
-                    });
-                    return;
-                } else if (!foundEmp.deviceId) {
-                    await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
-                    foundEmp.deviceId = currentDeviceId;
-                }
-
-                currentUser = { ...foundEmp, type: "employee" };
+                targetEmpId = 'ACM-YOFC-001';
             }
+
+            if (loginType !== 'pm' && !targetEmpId) { 
+                Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); 
+                return; 
+            }
+
+            const foundEmp = employees.find(e => e.id.toLowerCase() === targetEmpId.toLowerCase());
+            if (!foundEmp) { 
+                Swal.fire('Gagal Login', `ID Karyawan '${targetEmpId}' tidak terdaftar di Server!`, 'error'); 
+                return; 
+            }
+            
+            const userRole = (foundEmp.role || '').toLowerCase();
+            const isPMOrAdminRole = userRole.includes('project manager') || userRole.includes('administrator') || userRole.includes('admin');
+
+            if (loginType === 'pm' && !userRole.includes('project manager') && !userRole.includes('administrator')) {
+                Swal.fire('Akses Ditolak', 'Akun tersebut bukan Project Manager!', 'error');
+                return;
+            }
+            if (loginType === 'admin' && !userRole.includes('admin')) {
+                Swal.fire('Akses Ditolak', `ID '${targetEmpId}' bukan berstatus Admin!`, 'error');
+                return;
+            }
+
+            // Autentikasi menggunakan Firebase Authentication
+            const email = targetEmpId.toLowerCase() + '@acm-absensi.internal';
+
+            try {
+                await auth.signInWithEmailAndPassword(email, pass);
+            } catch (authErr) {
+                // Fallback untuk migrasi mulus jika password di Firestore cocok dengan input hash
+                const hashedInputPass = await hashPassword(pass);
+                if (foundEmp.password && foundEmp.password === hashedInputPass) {
+                    try {
+                        await auth.createUserWithEmailAndPassword(email, pass);
+                    } catch (e) {
+                        Swal.fire('Gagal Login', 'Password salah atau autentikasi gagal.', 'error');
+                        return;
+                    }
+                } else {
+                    Swal.fire('Gagal Login', 'Password salah atau akun tidak valid.', 'error');
+                    return;
+                }
+            }
+
+            // --- DEVICE BINDING CHECK ---
+            if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
+                auth.signOut();
+                Swal.fire({
+                    title: 'Akses Perangkat Ditolak',
+                    html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
+                    icon: 'error',
+                    confirmButtonColor: '#ef4444'
+                });
+                return;
+            } else if (!foundEmp.deviceId) {
+                await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
+                foundEmp.deviceId = currentDeviceId;
+            }
+
+            currentUser = { 
+                ...foundEmp, 
+                type: loginType === 'pm' ? 'pm' : (userRole.includes('admin') ? 'admin' : 'employee') 
+            };
 
             document.getElementById('user-display-name').textContent = currentUser.name;
             document.getElementById('user-display-role').textContent = currentUser.role;
@@ -821,8 +834,11 @@
                 confirmButtonColor: '#3b82f6',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Ya, Keluar'
-            }).then((result) => {
-                if (result.isConfirmed) { location.reload(); }
+            }).then(async (result) => {
+                if (result.isConfirmed) { 
+                    try { await auth.signOut(); } catch(e){}
+                    location.reload(); 
+                }
             });
         }
 
@@ -872,7 +888,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITH ACCURACY VALIDATION, TELEPORT DETECTION & OFFLINE QUEUE) =================
+        // ================= 6. CHECK-IN =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -900,7 +916,6 @@
                             return;
                         }
 
-                        // --- ADVANCED MOCK LOCATION / TELEPORTATION DETECTION ---
                         const lastPosKey = `acm_last_geo_${currentUser ? currentUser.id : 'guest'}`;
                         const lastPosStr = localStorage.getItem(lastPosKey);
                         if (lastPosStr) {
@@ -912,9 +927,8 @@
                             const lastLatLng = L.latLng(lastPos.lat, lastPos.lng);
                             const distanceMeters = currentLatLng.distanceTo(lastLatLng);
 
-                            // Jika selang waktu di bawah 2 menit (120 detik) tapi jarak perpindahan melebihi 2 Kilometer (2000 meter) -> Mustahil secara kecepatan manusia/kendaraan (Indikator Fake GPS Teleport)
                             if (timeDiffSeconds < 120 && distanceMeters > 2000) {
-                                statusEl.textContent = "Terdeteksi LonCATAN Lokasi Tidak Wajar";
+                                statusEl.textContent = "Terdeteksi LoncatAN Lokasi Tidak Wajar";
                                 statusEl.className = "font-bold text-red-600";
                                 distEl.textContent = `Loncatan: ${Math.round(distanceMeters)}m dalam ${Math.round(timeDiffSeconds)} dtk`;
 
@@ -928,7 +942,6 @@
                             }
                         }
 
-                        // Simpan posisi valid saat ini untuk perbandingan berikutnya
                         localStorage.setItem(lastPosKey, JSON.stringify({
                             lat: userLat,
                             lng: userLng,
@@ -1017,7 +1030,6 @@
                 status: attendanceStatus
             };
 
-            // Jika offline, simpan langsung ke local queue
             if (!navigator.onLine) {
                 saveToOfflineQueue(attendancePayload);
                 Swal.fire({
@@ -1050,7 +1062,6 @@
                 });
 
             } catch (error) {
-                console.error('Firestore error, saving to offline queue:', error);
                 saveToOfflineQueue(attendancePayload);
                 Swal.fire({
                     title: 'Tersimpan Offline',
@@ -1079,8 +1090,16 @@
 
             const hashedPassword = await hashPassword(passwordInput);
             const empData = { id, name, role, password: hashedPassword };
+            const email = id.toLowerCase() + '@acm-absensi.internal';
 
             try {
+                let secondaryApp;
+                try {
+                    secondaryApp = firebase.apps.find(app => app.name === "Secondary") || firebase.initializeApp(firebaseConfig, "Secondary");
+                } catch(e) {
+                    secondaryApp = firebase.app("Secondary");
+                }
+
                 if (editingEmployeeId) {
                     await db.collection("employees").doc(editingEmployeeId).set(empData, { merge: true });
                     Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
@@ -1088,12 +1107,14 @@
                     const existingCheck = employees.find(e => e.id === id);
                     if (existingCheck) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); return; }
                     
+                    // Buat akun Firebase Auth baru tanpa mengganggu sesi admin aktif
+                    await secondaryApp.auth().createUserWithEmailAndPassword(email, passwordInput);
                     await db.collection("employees").doc(id).set(empData);
                     Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
                 }
                 cancelEmployeeEdit();
             } catch(e) {
-                Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
+                Swal.fire('Error Database / Auth', 'Gagal menyimpan ke server atau email/akun auth sudah terdaftar.', 'error');
             }
         }
 
@@ -1146,7 +1167,6 @@
             });
         }
 
-        // ================= FITUR RESET DEVICE BINDING OLEH PM =================
         function resetDeviceBinding(empId) {
             Swal.fire({
                 title: 'Reset Perangkat HP?',
