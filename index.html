@@ -272,7 +272,6 @@
                                         <th class="p-4">Lokasi Basecamp</th>
                                         <th class="p-4">Waktu Check-In</th>
                                         <th class="p-4">Status Geofence</th>
-                                        <th class="p-4 text-center">Aksi</th>
                                     </tr>
                                </thead>
                                <tbody id="attendance-table-body" class="text-sm divide-y divide-slate-100">
@@ -404,46 +403,12 @@
         </main>
     </div>
 
-    <!-- MODAL POPUP WEBCAM SELFIE -->
-    <div id="webcam-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
-        <div class="glass-card max-w-md w-full p-6 rounded-3xl shadow-2xl space-y-4 text-center">
-            <h3 class="text-lg font-bold text-slate-900">Foto Selfie Check-In</h3>
-            <p class="text-xs text-slate-500">Posisikan wajah Anda dengan jelas di dalam bingkai.</p>
-
-            <div class="relative w-full aspect-square bg-black rounded-2xl overflow-hidden border-2 border-blue-500 shadow-inner flex items-center justify-center">
-                <video id="webcam-stream" autoplay playsinline class="w-full h-full object-cover"></video>
-                <canvas id="photo-canvas" class="hidden w-full h-full object-cover"></canvas>
-            </div>
-
-            <div class="flex gap-3">
-                <button id="btn-capture" onclick="takeSnapshot()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-camera"></i> Ambil Foto
-                </button>
-                <button id="btn-retake" onclick="retakePhoto()" class="hidden flex-1 bg-slate-600 hover:bg-slate-700 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-rotate-left"></i> Foto Ulang
-                </button>
-            </div>
-
-            <div class="flex gap-2">
-                <button onclick="closeWebcamModal()" class="w-1/3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 rounded-xl text-xs font-semibold">
-                    Batal
-                </button>
-                <button id="btn-submit-absent" onclick="processFinalCheckIn()" disabled class="w-2/3 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2">
-                    <i class="fa-solid fa-paper-plane"></i> KIRIM ABSENSI
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <!-- MAIN JAVASCRIPT LOGIC -->
     <script>
-        // ================= 1. KONFIGURASI FIREBASE & CLOUDINARY =================
-        const CLOUDINARY_CLOUD_NAME = "sozzmhut"; 
-        const CLOUDINARY_PRESET = "preset_absensi"; 
-
+        // ================= 1. KONFIGURASI FIREBASE =================
         const firebaseConfig = {
             apiKey: "AIzaSyDEE6HvoB0yox9aAHNaTR6mAmkNeRjy0Mk",
             authDomain: "acm-absensi.firebaseapp.com",
@@ -463,12 +428,8 @@
         let editingBasecampId = null;
         let editingEmployeeId = null;
         
-        let videoStream = null;
-        let capturedBase64Image = null;
-        let currentValidBasecamp = null;
         let map, userMarker;
         
-        // Array kosongan yang akan selalu diperbarui oleh Firestore Real-time
         let employees = [];
         let basecamps = [];
         let attendanceRecords = [];
@@ -500,10 +461,8 @@
             }
         }
         seedInitialData();
-        // ----------------------------------------------------------------
 
         // ================= 3. FIRESTORE REAL-TIME LISTENERS =================
-        // Mendengarkan perubahan data Karyawan di server secara instan
         db.collection("employees").onSnapshot((snapshot) => {
             employees = [];
             snapshot.forEach((doc) => { employees.push(doc.data()); });
@@ -513,18 +472,16 @@
             updateDashboardCounters();
         });
 
-        // Mendengarkan perubahan Basecamp (Titik Absen)
         db.collection("basecamps").onSnapshot((snapshot) => {
             basecamps = [];
             snapshot.forEach((doc) => { basecamps.push(doc.data()); });
             if (currentUser) {
-                if (map) initMap(); // Refresh map dengan titik baru
+                if (map) initMap();
                 renderAdminBasecampTable();
             }
             updateDashboardCounters();
         });
 
-        // Mendengarkan perubahan Histori Absensi secara urut
         db.collection("attendance").orderBy("timestamp", "desc").onSnapshot((snapshot) => {
             attendanceRecords = [];
             snapshot.forEach((doc) => {
@@ -536,8 +493,7 @@
                     basecamp: data.basecamp,
                     time: data.timeStr,
                     status: data.status,
-                    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
-                    photoUrl: data.photoUrl
+                    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200"
                 });
             });
             if (currentUser) {
@@ -546,7 +502,6 @@
             }
             updateDashboardCounters();
         });
-
 
         // ================= 4. INIT & UI LOGIC =================
         toggleLoginInputs();
@@ -724,7 +679,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (HIBRIDA: MAP + WEBCAM) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITHOUT WEBCAM) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -744,7 +699,7 @@
 
                         basecamps.forEach(bc => {
                             const bcLatLng = L.latLng(bc.lat, bc.lng);
-                            const distance = map.distance(userLatLng, bcLatLng); // Menggunakan library Leaflet untuk kalkulasi akurat
+                            const distance = map.distance(userLatLng, bcLatLng);
                             
                             if (distance < shortestDistance) {
                                 shortestDistance = distance;
@@ -753,7 +708,6 @@
                             if (distance <= bc.radius) { validBasecamp = bc; }
                         });
 
-                        // 1. Update Marker di Peta
                         map.setView([userLat, userLng], 16);
 
                         if (userMarker) map.removeLayer(userMarker);
@@ -764,14 +718,13 @@
                             })
                         }).addTo(map).bindPopup('Lokasi Anda Saat Ini').openPopup();
 
-                        // 2. Evaluasi Validitas & Buka Kamera
                         if (validBasecamp) {
-                            currentValidBasecamp = validBasecamp;
                             statusEl.textContent = `Valid (${validBasecamp.name})`;
                             statusEl.className = "font-bold text-emerald-600";
                             distEl.textContent = `${Math.round(shortestDistance)}m dari ${validBasecamp.name}`;
                             
-                            openWebcamModal(); // Memicu proses selfie
+                            // Langsung proses simpan absensi
+                            processDirectCheckIn(validBasecamp);
                         } else {
                             statusEl.textContent = "Diluar Semua Radius Basecamp!";
                             statusEl.className = "font-bold text-red-600";
@@ -797,131 +750,30 @@
             }
         }
 
-        // ================= 7. WEBCAM LOGIC (Dengan Perbaikan Cropping) =================
-        async function openWebcamModal() {
-            const modal = document.getElementById('webcam-modal');
-            const video = document.getElementById('webcam-stream');
-            const canvas = document.getElementById('photo-canvas');
-            
-            modal.classList.remove('hidden');
-            video.classList.remove('hidden');
-            canvas.classList.add('hidden');
-            
-            document.getElementById('btn-capture').classList.remove('hidden');
-            document.getElementById('btn-retake').classList.add('hidden');
-            document.getElementById('btn-submit-absent').disabled = true;
-
-            try {
-                videoStream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 640 } }, audio: false 
-                });
-                video.srcObject = videoStream;
-            } catch (err) {
-                Swal.fire('Kamera Ditolak', 'Mohon beri izin akses kamera untuk absensi.', 'error');
-                closeWebcamModal();
-            }
-        }
-
-        function takeSnapshot() {
-            const video = document.getElementById('webcam-stream');
-            const canvas = document.getElementById('photo-canvas');
-            const ctx = canvas.getContext('2d');
-            
-            const size = 150; 
-            canvas.width = size; 
-            canvas.height = size;
-
-            // Center-cropping agar gambar tidak gepeng (distorsi rasio)
-            const videoWidth = video.videoWidth;
-            const videoHeight = video.videoHeight;
-            const minDim = Math.min(videoWidth, videoHeight);
-            const startX = (videoWidth - minDim) / 2;
-            const startY = (videoHeight - minDim) / 2;
-            
-            ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, size, size);
-
-            capturedBase64Image = canvas.toDataURL('image/jpeg', 0.4);
-
-            video.classList.add('hidden');
-            canvas.classList.remove('hidden');
-            document.getElementById('btn-capture').classList.add('hidden');
-            document.getElementById('btn-retake').classList.remove('hidden');
-            document.getElementById('btn-submit-absent').disabled = false;
-        }
-
-        function retakePhoto() {
-            capturedBase64Image = null;
-            document.getElementById('webcam-stream').classList.remove('hidden');
-            document.getElementById('photo-canvas').classList.add('hidden');
-            document.getElementById('btn-capture').classList.remove('hidden');
-            document.getElementById('btn-retake').classList.add('hidden');
-            document.getElementById('btn-submit-absent').disabled = true;
-        }
-
-        function closeWebcamModal() {
-            if (videoStream) { videoStream.getTracks().forEach(track => track.stop()); }
-            document.getElementById('webcam-modal').classList.add('hidden');
-        }
-
-        // ================= 8. UPLOAD & SIMPAN ABSEN =================
-        async function uploadToCloudinary(base64Data) {
-            const formData = new FormData();
-            formData.append("file", base64Data);
-            formData.append("upload_preset", CLOUDINARY_PRESET);
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-            try {
-                const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
-                    method: "POST", 
-                    body: formData,
-                    signal: controller.signal
-                });
-                clearTimeout(timeoutId);
-
-                if (!response.ok) throw new Error("Gagal mengunggah foto ke Cloudinary");
-                const data = await response.json();
-                return data.secure_url; 
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    throw new Error("Waktu unggah habis (Timeout). Koneksi internet/seluler Anda terlalu lambat.");
-                }
-                throw error;
-            }
-        }
-
-        async function processFinalCheckIn() {
-            if (!capturedBase64Image || !currentValidBasecamp) return;
-
+        async function processDirectCheckIn(validBasecamp) {
             try {
                 Swal.fire({
-                    title: 'Mengirim Absensi...',
-                    text: 'Mengunggah foto selfie & menyimpan data ke cloud...',
+                    title: 'Menyimpan Absensi...',
+                    text: 'Menyimpan data kehadiran ke database...',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
 
-                const photoUrl = await uploadToCloudinary(capturedBase64Image);
                 const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
 
-                // Simpan ke Firestore (Tabel akan otomatis ter-update oleh onSnapshot)
                 await db.collection("attendance").add({
                     employeeId: currentUser.id,
                     name: currentUser.name,
                     role: currentUser.role,
-                    basecamp: currentValidBasecamp.name,
-                    photoUrl: photoUrl,
+                    basecamp: validBasecamp.name,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     timeStr: nowTime,
                     status: "Valid (Geofence)"
                 });
 
-                closeWebcamModal();
-
                 Swal.fire({
                     title: 'Absensi Berhasil!',
-                    html: `Foto terunggah & data tersimpan untuk basecamp <b>${currentValidBasecamp.name}</b>.`,
+                    html: `Kehadiran berhasil dicatat untuk basecamp <b>${validBasecamp.name}</b>.`,
                     icon: 'success',
                     confirmButtonColor: '#3b82f6'
                 });
@@ -930,14 +782,14 @@
                 console.error(error);
                 Swal.fire({
                     title: 'Gagal Absen',
-                    text: error.message || 'Terjadi masalah koneksi saat mengunggah absensi.',
+                    text: error.message || 'Terjadi masalah koneksi saat menyimpan absensi.',
                     icon: 'error',
                     confirmButtonColor: '#ef4444'
                 });
             }
         }
 
-        // ================= 9. MANAJEMEN KARYAWAN (Via Firestore) =================
+        // ================= 7. MANAJEMEN KARYAWAN (Via Firestore) =================
         async function saveEmployee() {
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
@@ -969,7 +821,7 @@
             const emp = employees[index];
             editingEmployeeId = emp.id;
             document.getElementById('setting-emp-id').value = emp.id;
-            document.getElementById('setting-emp-id').disabled = true; // Kunci ID saat edit
+            document.getElementById('setting-emp-id').disabled = true;
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
             document.getElementById('setting-emp-password').value = emp.password || '';
@@ -1043,7 +895,7 @@
             });
         }
 
-        // ================= 10. MANAJEMEN BASECAMP (Via Firestore) =================
+        // ================= 8. MANAJEMEN BASECAMP (Via Firestore) =================
         async function saveBasecamp() {
             const name = document.getElementById('setting-bc-name').value;
             const lat = parseFloat(document.getElementById('setting-lat').value);
@@ -1133,10 +985,9 @@
             });
         }
 
-        // ================= 11. REKAP & DASHBOARD =================
+        // ================= 9. REKAP & DASHBOARD =================
         function updateDashboardCounters() {
             document.getElementById('stat-basecamp-count').textContent = basecamps.length;
-            // Menghitung unik yang hadir berdasarkan ID karyawan yang absen hari ini (sederhana)
             const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
             document.getElementById('stat-hadir').textContent = uniqueAttendance.length;
             document.getElementById('stat-total-karyawan').textContent = employees.length;
@@ -1168,9 +1019,6 @@
                         <td class="p-4 text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp}</td>
                         <td class="p-4 font-mono text-slate-700">${r.time}</td>
                         <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
-                        <td class="p-4 text-center">
-                            ${r.photoUrl ? `<a href="${r.photoUrl}" target="_blank" class="text-blue-500 hover:text-blue-700 text-xs font-bold"><i class="fa-solid fa-image"></i> Foto</a>` : '-'}
-                        </td>
                     </tr>
                 `;
             });
@@ -1181,7 +1029,6 @@
             if(!recentContainer) return;
             recentContainer.innerHTML = '';
             
-            // Ambil 3 absen terakhir untuk dashboard
             const recent = attendanceRecords.slice(0, 3);
             if(recent.length === 0) {
                 recentContainer.innerHTML = '<p class="text-sm text-slate-400">Belum ada aktivitas hari ini.</p>';
@@ -1209,10 +1056,9 @@
         });
 
         function exportCSV() {
-            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status,Link Foto\n';
+            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
             attendanceRecords.forEach(r => {
-                const photoStr = r.photoUrl ? r.photoUrl : '';
-                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}","${photoStr}"\n`;
+                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}"\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
