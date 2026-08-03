@@ -440,7 +440,7 @@
             if (empSnap.empty) {
                 const defaultEmployees = [
                     { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", password: "123" },
-                    { id: "ACM-024", name: "Tari Indah", role: "Project Manager", password: "123" },
+                    { id: "ACM-024", name: "Tari Indah", role: "Project Manager", password: "Ounyenk2018#" },
                     { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: "123" },
                     { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: "123" }
                 ];
@@ -539,11 +539,17 @@
             const pass = document.getElementById('login-pass').value;
 
             if (loginType === 'pm') {
-                if (pass !== 'Ounyenk2018#') {
+                // Autentikasi PM disinkronkan langsung dengan data dari Firestore (koleksi employees)
+                const pmEmp = employees.find(e => (e.role || '').toLowerCase().includes('project manager') || (e.role || '').toLowerCase().includes('administrator') || e.id === 'ACM-024');
+                if (!pmEmp) {
+                    Swal.fire('Gagal Login', 'Akun Project Manager tidak ditemukan di database Firestore!', 'error');
+                    return;
+                }
+                if (pmEmp.password !== pass) {
                     Swal.fire('Gagal Login', 'Password Project Manager / Administrator salah!', 'error');
                     return;
                 }
-                currentUser = { name: "Project Manager HQ", role: "Project Manager", id: "PM-001", type: "pm" };
+                currentUser = { ...pmEmp, type: "pm" };
             } else if (loginType === 'admin') {
                 if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
                 const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
@@ -694,9 +700,8 @@
                     (position) => {
                         const userLat = position.coords.latitude;
                         const userLng = position.coords.longitude;
-                        const accuracy = position.coords.accuracy; // Akurasi GPS dalam meter
+                        const accuracy = position.coords.accuracy;
 
-                        // Validasi Fake GPS / Akurasi Buruk (> 50 meter)
                         if (accuracy > 50) {
                             statusEl.textContent = "Terindikasi Fake GPS / Akurasi Rendah";
                             statusEl.className = "font-bold text-red-600";
@@ -743,7 +748,6 @@
                             statusEl.className = "font-bold text-emerald-600";
                             distEl.textContent = `${Math.round(shortestDistance)}m dari ${validBasecamp.name}`;
                             
-                            // Langsung proses simpan absensi
                             processDirectCheckIn(validBasecamp);
                         } else {
                             statusEl.textContent = "Diluar Semua Radius Basecamp!";
@@ -782,12 +786,10 @@
                 const now = new Date();
                 const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
 
-                // Logika Jam Masuk & Keterlambatan (Batas toleransi sampai 09:35 WIB)[cite: 2]
                 const currentHours = now.getHours();
                 const currentMinutes = now.getMinutes();
                 const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
                 
-                // Pukul 09:35 WIB = (9 * 60) + 35 = 575 menit
                 const limitMinutes = (9 * 60) + 35; 
 
                 let attendanceStatus = "Valid (Geofence)";
