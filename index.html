@@ -271,7 +271,7 @@
                                         <th class="p-4">Posisi / Role</th>
                                         <th class="p-4">Lokasi Basecamp</th>
                                         <th class="p-4">Waktu Check-In</th>
-                                        <th class="p-4">Status Geofence</th>
+                                        <th class="p-4">Status Kehadiran</th>
                                     </tr>
                                </thead>
                                <tbody id="attendance-table-body" class="text-sm divide-y divide-slate-100">
@@ -486,14 +486,17 @@
             attendanceRecords = [];
             snapshot.forEach((doc) => {
                 const data = doc.data();
+                const isLate = data.status === "Terlambat";
                 attendanceRecords.push({
                     id: data.employeeId,
                     name: data.name,
                     role: data.role,
                     basecamp: data.basecamp,
                     time: data.timeStr,
-                    status: data.status,
-                    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    status: data.status || "Valid (Geofence)",
+                    badgeClass: isLate 
+                        ? "bg-red-100 text-red-700 border-red-200" 
+                        : "bg-emerald-100 text-emerald-700 border-emerald-200"
                 });
             });
             if (currentUser) {
@@ -776,7 +779,21 @@
                     didOpen: () => Swal.showLoading()
                 });
 
-                const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
+                const now = new Date();
+                const nowTime = now.toLocaleTimeString('id-ID') + ' WIB';
+
+                // Logika Jam Masuk & Keterlambatan (Batas toleransi sampai 09:35 WIB)[cite: 2]
+                const currentHours = now.getHours();
+                const currentMinutes = now.getMinutes();
+                const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
+                
+                // Pukul 09:35 WIB = (9 * 60) + 35 = 575 menit
+                const limitMinutes = (9 * 60) + 35; 
+
+                let attendanceStatus = "Valid (Geofence)";
+                if (totalCurrentMinutes > limitMinutes) {
+                    attendanceStatus = "Terlambat";
+                }
 
                 await db.collection("attendance").add({
                     employeeId: currentUser.id,
@@ -785,12 +802,12 @@
                     basecamp: validBasecamp.name,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     timeStr: nowTime,
-                    status: "Valid (Geofence)"
+                    status: attendanceStatus
                 });
 
                 Swal.fire({
                     title: 'Absensi Berhasil!',
-                    html: `Kehadiran berhasil dicatat untuk basecamp <b>${validBasecamp.name}</b>.`,
+                    html: `Kehadiran berhasil dicatat untuk basecamp <b>${validBasecamp.name}</b>.<br>Status: <span class="font-bold ${attendanceStatus === 'Terlambat' ? 'text-red-600' : 'text-emerald-600'}">${attendanceStatus}</span>`,
                     icon: 'success',
                     confirmButtonColor: '#3b82f6'
                 });
@@ -1053,16 +1070,19 @@
 
             recent.forEach(r => {
                 const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
+                const isLate = r.status === "Terlambat";
+                const badgeBg = isLate ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200";
+                
                 recentContainer.innerHTML += `
                     <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">${initials}</div>
                             <div>
-                                <p class="text-sm font-bold text-slate-900">${r.name} <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md ml-2 font-normal">Check-In</span></p>
+                                <p class="text-sm font-bold text-slate-900">${r.name} <span class="text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-2 font-normal">${r.status}</span></p>
                                 <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp} • ${r.time}</p>
                             </div>
                         </div>
-                        <span class="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">OK</span>
+                        <span class="text-xs font-mono font-bold ${isLate ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'} px-3 py-1 rounded-lg border">${isLate ? 'LATE' : 'OK'}</span>
                     </div>
                 `;
             });
