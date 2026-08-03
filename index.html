@@ -3,1933 +3,850 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AURA Enterprise - Executive ERP Suite</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js for interactivity -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- FontAwesome for Premium Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Enterprise Presence & Geofencing System | OpsTrack Pro</title>
     
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        heading: ['Plus Jakarta Sans', 'sans-serif'],
-                    },
-                    colors: {
-                        luxury: {
-                            50: '#f8f7f4',
-                            100: '#edeae1',
-                            200: '#d9d2c1',
-                            300: '#beb199',
-                            400: '#a39174',
-                            500: '#8c7654',
-                            600: '#756045',
-                            700: '#5e4c37',
-                            800: '#4b3c2c',
-                            900: '#3d3124',
-                            950: '#221b14',
-                        },
-                        obsidian: {
-                            900: '#0b0f19',
-                            800: '#111827',
-                            700: '#1f2937',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f4f5f7;
-            color: #1f2937;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .map-container { height: 420px; z-index: 10; border-radius: 0.75rem; }
         .glass-card {
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
         }
-        .dark-glass {
-            background: rgba(17, 24, 39, 0.75);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 3px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
+        .nav-item.active { background-color: #0f172a; border-left: 4px solid #3b82f6; color: #ffffff; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
-<body x-data="{ 
-    currentTab: 'dashboard',
-    activeSubTab: '',
-    sidebarOpen: true,
-    notificationsOpen: false,
-    userMenuOpen: false,
-    
-    // Modals Control State
-    projectModal: false,
-    budgetModal: false,
-    journalModal: false,
-    invoiceModal: false,
-    warehouseModal: false,
-    isEditWarehouse: false,
-    editWarehouseIdx: null,
-    
-    itemModal: false,
-    isEditItem: false,
-    editItemIdx: null,
+<body class="text-slate-800 h-screen flex overflow-hidden">
 
-    transactionModal: false,
-    isEditTransaction: false,
-    editTransactionIdx: null,
+    <!-- LOGIN MODAL / SCREEN -->
+    <div id="login-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full p-8 rounded-3xl shadow-2xl space-y-6">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto flex items-center justify-center text-white shadow-xl shadow-blue-500/30 mb-4">
+                    <i class="fa-solid fa-fingerprint text-3xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">OpsTrack Enterprise</h2>
+                <p class="text-sm text-slate-500 mt-1">Sistem Absensi & Geofencing Lapangan</p>
+            </div>
 
-    toastMessage: '',
-    showToast(msg) {
-        this.toastMessage = msg;
-        setTimeout(() => { this.toastMessage = ''; }, 3500);
-    },
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Pilih Role / Akun Akses</label>
+                    <select id="login-role-select" onchange="toggleLoginInputs()" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm font-medium">
+                        <option value="employee">Karyawan / Field Engineer</option>
+                        <option value="admin">Administrator / Project Manager</option>
+                    </select>
+                </div>
 
-    // Variabel & Fungsi Tambahan Stok Barang
-    selectedWarehouseFilter: '', 
-    stockBreakdownModal: false,  
-    selectedBreakdown: { itemCode: '', itemName: '', sisa: 0 },
-    
-    openStockBreakdown(stock) {
-        this.selectedBreakdown = {
-            itemCode: stock.itemCode,
-            itemName: stock.itemName,
-            sisa: stock.sisa
-        };
-        this.stockBreakdownModal = true;
-    },
+                <div id="employee-selection-group">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Pilih Identitas Karyawan</label>
+                    <select id="login-employee-id" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                        <option value="ACM-001">Reza Syahputra (Field Engineer - Pekanbaru)</option>
+                        <option value="ACM-024">Tari Indah (Project Coordinator - Palembang)</option>
+                        <option value="ACM-042">Fikri Akbar (Splicer Technician - Padang)</option>
+                        <option value="ACM-105">Hendra Setiawan (Fiber Installer - Dumai)</option>
+                    </select>
+                </div>
 
-    // Variabel & Fungsi Stok Project
-    selectedProjectRegion: '',
-    selectedProjectCode: '',
-    projectStockBreakdownModal: false,
-    selectedProjectBreakdownItem: { itemCode: '', itemName: '', sisa: 0 },
+                <div id="admin-password-group" class="hidden">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Password Administrator</label>
+                    <input type="password" id="admin-pass" placeholder="Masukkan password admin..." value="admin123" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm">
+                </div>
 
-    openProjectStockBreakdown(stock) {
-        this.selectedProjectBreakdownItem = {
-            itemCode: stock.itemCode,
-            itemName: stock.itemName,
-            sisa: stock.netto
-        };
-        this.projectStockBreakdownModal = true;
-    },
-
-    calculatedProjectStocks() {
-        let result = {};
-        this.items.forEach(item => {
-            result[item.code] = {
-                itemCode: item.code,
-                itemName: item.name,
-                masuk: 0,
-                keluar: 0,
-                netto: 0
-            };
-        });
-
-        this.transactions.forEach(t => {
-            if (this.selectedProjectCode !== '' && t.code !== this.selectedProjectCode) return;
-            if (this.selectedProjectRegion !== '') {
-                let proj = this.projects.find(p => p.code === t.code);
-                if (!proj || proj.region !== this.selectedProjectRegion) return;
-            }
-
-            if (!result[t.itemCode]) return;
-            let qty = parseInt(t.qty) || 0;
-
-            if (t.type === 'Masuk') {
-                result[t.itemCode].masuk += qty;
-                result[t.itemCode].netto += qty;
-            } else if (t.type === 'Keluar') {
-                result[t.itemCode].keluar += qty;
-                result[t.itemCode].netto -= qty;
-            } else if (t.type === 'Transfer') {
-                if (t.code === this.selectedProjectCode || this.selectedProjectCode === '') {
-                    result[t.itemCode].masuk += qty;
-                    result[t.itemCode].netto += qty;
-                }
-            }
-        });
-
-        return Object.values(result);
-    },
-
-    calculatedStocks() {
-        let result = {};
-        this.items.forEach(item => {
-            result[item.code] = {
-                itemCode: item.code,
-                itemName: item.name,
-                masuk: 0,
-                keluar: 0,
-                transferMasuk: 0,
-                transferKeluar: 0,
-                sisa: 0
-            };
-        });
-
-        this.transactions.forEach(t => {
-            if (!result[t.itemCode]) return;
-
-            let qty = parseInt(t.qty) || 0;
-            let isDest = this.selectedWarehouseFilter === '' || t.dest === this.selectedWarehouseFilter;
-            let isOrigin = this.selectedWarehouseFilter === '' || t.origin === this.selectedWarehouseFilter;
-
-            if (t.type === 'Masuk' && isDest) {
-                result[t.itemCode].masuk += qty;
-                result[t.itemCode].sisa += qty;
-            } else if (t.type === 'Keluar' && isOrigin) {
-                result[t.itemCode].keluar += qty;
-                result[t.itemCode].sisa -= qty;
-            } else if (t.type === 'Transfer') {
-                if (isDest && (this.selectedWarehouseFilter === '' || t.dest === this.selectedWarehouseFilter)) {
-                    result[t.itemCode].transferMasuk += qty;
-                    result[t.itemCode].sisa += qty;
-                }
-                if (isOrigin && (this.selectedWarehouseFilter === '' || t.origin === this.selectedWarehouseFilter)) {
-                    result[t.itemCode].transferKeluar += qty;
-                    result[t.itemCode].sisa -= qty;
-                }
-            }
-        });
-
-        return Object.values(result);
-    },
-
-    // Reactive Data Collections
-    projects: [
-        { periode: '2026-Q1', type: 'FTTH', region: 'Jabodetabek', code: 'PRJ-ALPHA-01', po: 'PO/2026/001', name: 'Project Alpha Tower', boq: 'Rp 24.500.000.000', poStatus: 'Approved', permit: 'Completed', snd: 'SND 1', projectStatus: 'On Progress (68%)', docStatus: 'Complete' },
-        { periode: '2026-Q2', type: 'FTTB', region: 'Jawa Barat', code: 'PRJ-BETA-02', po: 'PO/2026/042', name: 'Pembangunan Plaza Sudirman', boq: 'Rp 18.000.000.000', poStatus: 'Pending', permit: 'In Review', snd: 'SND 2', projectStatus: 'Planning', docStatus: 'Draft' },
-        { periode: '2026-Q1', type: 'Internal', region: 'DKI Jakarta', code: 'PRJ-GAMMA-03', po: 'PO/2026/015', name: 'Renovasi Kantor Pusat', boq: 'Rp 6.000.000.000', poStatus: 'Approved', permit: 'Completed', snd: 'SND 1', projectStatus: 'Finishing (92%)', docStatus: 'Complete' }
-    ],
-    newProject: { periode: '2026-Q2', type: 'FTTH', region: '', code: '', po: '', name: '', boq: '', poStatus: 'Approved', permit: 'In Review', snd: 'SND 1', projectStatus: 'Planning', docStatus: 'Draft' },
-    addProject() {
-        if(!this.newProject.code || !this.newProject.name) {
-            this.showToast('Kode dan Nama Project wajib diisi!');
-            return;
-        }
-        this.projects.push({...this.newProject});
-        this.projectModal = false;
-        this.showToast('Project baru berhasil ditambahkan!');
-        this.newProject = { periode: '2026-Q2', type: 'FTTH', region: '', code: '', po: '', name: '', boq: '', poStatus: 'Approved', permit: 'In Review', snd: 'SND 1', projectStatus: 'Planning', docStatus: 'Draft' };
-    },
-
-    budgets: [
-        { code: 'PRJ-ALPHA-01', name: 'Alpha Tower', total: 'Rp 24.500.000.000', percentage: 78, remaining: 'Rp 5.390.000.000', status: 'Aman' },
-        { code: 'PRJ-BETA-02', name: 'Plaza Sudirman', total: 'Rp 18.000.000.000', percentage: 35, remaining: 'Rp 11.700.000.000', status: 'Procurement' },
-        { code: 'PRJ-GAMMA-03', name: 'Renovasi Kantor', total: 'Rp 6.000.000.000', percentage: 95, remaining: 'Rp 300.000.000', status: 'Hampir Habis' }
-    ],
-    newBudget: { code: 'PRJ-DELTA-04', name: '', total: '', percentage: 10, remaining: 'Rp 5.000.000.000', status: 'Aman' },
-    addBudget() {
-        if(!this.newBudget.code || !this.newBudget.total) {
-            this.showToast('Kode Project dan Total Budget wajib diisi!');
-            return;
-        }
-        this.budgets.push({...this.newBudget});
-        this.budgetModal = false;
-        this.showToast('Alokasi budget baru berhasil ditambahkan!');
-        this.newBudget = { code: 'PRJ-DELTA-04', name: '', total: '', percentage: 10, remaining: 'Rp 5.000.000.000', status: 'Aman' };
-    },
-
-    journals: [
-        { no: '#JUR-2026-401', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: 'Pembelian Material Gudang Utama (Project Alpha) - Ref: PO-9921', debit: '45.000.000', credit: '-' },
-        { no: '#JUR-2026-402', date: '30/07/2026', code: 'PRJ-BETA-02', desc: 'Penerimaan Termin Pembayaran Klien - Ref: INV-2026-04', debit: '-', credit: '1.250.000.000' },
-        { no: '#JUR-2026-403', date: '29/07/2026', code: 'PRJ-GAMMA-03', desc: 'Pembayaran Biaya Operasional & Renovasi Kantor Pusat', debit: '185.000.000', credit: '-' }
-    ],
-    newJournal: { no: '#JUR-2026-404', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: '', amount: '', type: 'debit' },
-    addJournal() {
-        if(!this.newJournal.desc || !this.newJournal.amount) {
-            this.showToast('Keterangan dan Nominal wajib diisi!');
-            return;
-        }
-        let entry = {
-            no: this.newJournal.no,
-            date: this.newJournal.date,
-            code: this.newJournal.code,
-            desc: this.newJournal.desc,
-            debit: this.newJournal.type === 'debit' ? this.newJournal.amount : '-',
-            credit: this.newJournal.type === 'credit' ? this.newJournal.amount : '-'
-        };
-        this.journals.unshift(entry);
-        this.journalModal = false;
-        this.showToast('Entri jurnal baru berhasil disimpan!');
-        this.newJournal = { no: '#JUR-2026-405', date: '31/07/2026', code: 'PRJ-ALPHA-01', desc: '', amount: '', type: 'debit' };
-    },
-
-    invoices: [
-        { no: 'INV-2026-08', project: 'Project Alpha Tower', desc: 'Termin 3 (Progress 70%)', nominal: 'Rp 3.500.000.000', status: 'Lunas (Paid)' },
-        { no: 'INV-2026-09', project: 'Plaza Sudirman', desc: 'Termin 1 (Uang Muka / DP)', nominal: 'Rp 1.250.000.000', status: 'Pending Payment' }
-    ],
-    newInvoice: { no: 'INV-2026-10', project: '', desc: '', nominal: '', status: 'Pending Payment' },
-    addInvoice() {
-        if(!this.newInvoice.no || !this.newInvoice.nominal) {
-            this.showToast('No Invoice dan Nominal wajib diisi!');
-            return;
-        }
-        this.invoices.push({...this.newInvoice});
-        this.invoiceModal = false;
-        this.showToast('Invoice baru berhasil dibuat!');
-        this.newInvoice = { no: 'INV-2026-11', project: '', desc: '', nominal: '', status: 'Pending Payment' };
-    },
-
-    warehouses: [
-        { code: 'ACH-01', name: 'Gudang Utama Aceh', location: 'Kawasan Industri Aceh Blok A-12', pic: 'Pak Joko' },
-        { code: 'WH-02', name: 'Gudang Project Alpha', location: 'Site Area Alpha Tower, Jakarta Selatan', pic: 'Pak Hendra' },
-        { code: 'WH-03', name: 'Gudang Transit Sudirman', location: 'Basement Plaza Sudirman, Jakarta Pusat', pic: 'Pak Doni' }
-    ],
-    newWarehouse: { code: 'WH-04', name: '', location: '', pic: '' },
-    openWarehouseModal(edit = false, index = null) {
-        this.isEditWarehouse = edit;
-        if (edit && index !== null) {
-            this.editWarehouseIdx = index;
-            this.newWarehouse = { ...this.warehouses[index] };
-        } else {
-            this.editWarehouseIdx = null;
-            this.newWarehouse = { code: 'WH-04', name: '', location: '', pic: '' };
-        }
-        this.warehouseModal = true;
-    },
-    saveWarehouse() {
-        if(!this.newWarehouse.code || !this.newWarehouse.name) {
-            this.showToast('Kode dan Nama Gudang wajib diisi!');
-            return;
-        }
-        if (this.isEditWarehouse && this.editWarehouseIdx !== null) {
-            this.warehouses[this.editWarehouseIdx] = { ...this.newWarehouse };
-            this.showToast('Data gudang berhasil diperbarui!');
-        } else {
-            this.warehouses.push({...this.newWarehouse});
-            this.showToast('Gudang baru berhasil ditambahkan!');
-        }
-        this.warehouseModal = false;
-    },
-    deleteWarehouse(index) {
-        if (confirm('Apakah Anda yakin ingin menghapus gudang ini?')) {
-            this.warehouses.splice(index, 1);
-            this.showToast('Gudang berhasil dihapus!');
-        }
-    },
-
-    items: [
-        { category: 'Bahan Konstruksi', type: 'Material Struktur', code: 'SKU-BESI-12', name: 'Besi Beton Ulir 12mm SNI', price: 'Rp 90.000' },
-        { category: 'Bahan Konstruksi', type: 'Material Finishing', code: 'SKU-SEMEN-50', name: 'Semen Portland Gresik 50kg', price: 'Rp 65.000' },
-        { category: 'Instalasi & Utilitas', type: 'Elektrikal', code: 'SKU-KABEL-NYY', name: 'Kabel NYY 4x10mm Supreme', price: 'Rp 45.000' }
-    ],
-    newItem: { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' },
-    openItemModal(edit = false, index = null) {
-        this.isEditItem = edit;
-        if (edit && index !== null) {
-            this.editItemIdx = index;
-            this.newItem = { ...this.items[index] };
-        } else {
-            this.editItemIdx = null;
-            this.newItem = { category: 'Bahan Konstruksi', type: 'Material Struktur', code: '', name: '', price: '' };
-        }
-        this.itemModal = true;
-    },
-    saveItem() {
-        if(!this.newItem.code || !this.newItem.name) {
-            this.showToast('Kode dan Nama Barang wajib diisi!');
-            return;
-        }
-        if (this.isEditItem && this.editItemIdx !== null) {
-            this.items[this.editItemIdx] = { ...this.newItem };
-            this.showToast('Data barang berhasil diperbarui!');
-        } else {
-            this.items.push({...this.newItem});
-            this.showToast('Barang baru berhasil ditambahkan ke katalog!');
-        }
-        this.itemModal = false;
-    },
-    deleteItem(index) {
-        if (confirm('Apakah Anda yakin ingin menghapus barang ini?')) {
-            this.items.splice(index, 1);
-            this.showToast('Barang berhasil dihapus!');
-        }
-    },
-
-    transactions: [
-        { date: '31/07/2026', doc: 'ACM/WH-/VII/2026-0001', do: 'DO-9921', type: 'Keluar', origin: 'Gudang Utama Aceh', dest: 'Gudang Project Alpha', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Struktur', itemCode: 'SKU-BESI-12', itemName: 'Besi Beton Ulir 12mm SNI', qty: 50, pickup: 'Budi', approved: 'Pak Joko', known: 'Manager Proyek', desc: 'Pengiriman material tahap 1' },
-        { date: '30/07/2026', doc: 'ACM/WH-/VII/2026-0002', do: 'DO-8840', type: 'Masuk', origin: 'Supplier Gresik', dest: 'Gudang Utama Aceh', code: 'PRJ-ALPHA-01', cat: 'Bahan Konstruksi', kind: 'Material Finishing', itemCode: 'SKU-SEMEN-50', itemName: 'Semen Portland Gresik 50kg', qty: 500, pickup: 'Andi', approved: 'Pak Hendra', known: 'Bagian Gudang', desc: 'Restock bulanan gudang pusat' }
-    ],
-    
-    newTransaction: { 
-        date: '31/07/2026', 
-        doc: '', 
-        do: '', 
-        type: 'Keluar', 
-        origin: 'Gudang Utama Aceh', 
-        dest: 'Gudang Transit Sudirman', 
-        code: 'PRJ-ALPHA-01', 
-        pickup: '', 
-        approved: '', 
-        known: '', 
-        desc: '',
-        items: [
-            { cat: '', kind: '', itemCode: '', itemName: '', qty: '' }
-        ]
-    },
-
-    openTransactionModal(edit = false, index = null) {
-        this.isEditTransaction = edit;
-        if (edit && index !== null) {
-            this.editTransactionIdx = index;
-            let t = this.transactions[index];
-            this.newTransaction = {
-                date: t.date,
-                doc: t.doc,
-                do: t.do,
-                type: t.type,
-                origin: t.origin,
-                dest: t.dest,
-                code: t.code,
-                pickup: t.pickup,
-                approved: t.approved,
-                known: t.known,
-                desc: t.desc,
-                items: [
-                    { cat: t.cat, kind: t.kind, itemCode: t.itemCode, itemName: t.itemName, qty: t.qty }
-                ]
-            };
-        } else {
-            this.editTransactionIdx = null;
-            this.resetTransactionForm();
-        }
-        this.transactionModal = true;
-    },
-
-    getFilteredProjects() {
-        let whName = this.newTransaction.origin;
-        if (!whName) return this.projects;
-        let foundWh = this.warehouses.find(w => w.name === whName);
-        if (!foundWh || !foundWh.code) return this.projects;
-        
-        let prefix = foundWh.code.substring(0, 3).toUpperCase();
-        
-        if (this.newTransaction.type === 'Keluar' || this.newTransaction.type === 'Transfer') {
-            let filtered = this.projects.filter(p => {
-                let regUpper = (p.region || '').toUpperCase();
-                return regUpper.includes(prefix) || prefix.includes(regUpper.substring(0, 3));
-            });
-            return filtered.length > 0 ? filtered : this.projects;
-        }
-        return this.projects;
-    },
-
-    getUniqueCategories() {
-        return [...new Set(this.items.map(i => i.category))];
-    },
-    getFilteredTypes(cat) {
-        if (!cat) return [];
-        return [...new Set(this.items.filter(i => i.category === cat).map(i => i.type))];
-    },
-    getFilteredItems(cat, kind) {
-        if (!cat || !kind) return [];
-        return this.items.filter(i => i.category === cat && i.type === kind);
-    },
-    onCategoryChange(item) {
-        item.kind = '';
-        item.itemCode = '';
-        item.itemName = '';
-    },
-    onTypeChange(item) {
-        item.itemCode = '';
-        item.itemName = '';
-    },
-    onItemCodeChange(item) {
-        let found = this.items.find(i => i.code === item.itemCode);
-        if (found) {
-            item.itemName = found.name;
-        } else {
-            item.itemName = '';
-        }
-    },
-
-    deleteTransaction(index) {
-        if (confirm('Apakah Anda yakin ingin menghapus transaksi ini?')) {
-            this.transactions.splice(index, 1);
-            this.showToast('Transaksi gudang berhasil dihapus!');
-        }
-    },
-
-    getRomanMonth(monthNum) {
-        const roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
-        return roman[parseInt(monthNum, 10)] || 'I';
-    },
-
-    updateDocNumber() {
-        let whName = (this.newTransaction.type === 'Masuk') ? this.newTransaction.dest : this.newTransaction.origin;
-        let ach = 'GEN';
-        if (whName) {
-            let foundWh = this.warehouses.find(w => w.name === whName);
-            if (foundWh && foundWh.code) {
-                ach = foundWh.code.substring(0, 3).toUpperCase();
-            }
-        }
-        let parts = this.newTransaction.date.split('/');
-        let month = '07';
-        let year = '2026';
-        if (parts.length === 3) {
-            month = parts[1];
-            year = parts[2];
-        }
-        let romanMonth = this.getRomanMonth(month);
-
-        let yearTransactions = this.transactions.filter(t => {
-            return t.doc && t.doc.includes('/' + year + '-');
-        });
-        let seq = yearTransactions.length + 1;
-        let seqStr = String(seq).padStart(4, '0');
-
-        this.newTransaction.doc = `ACM/${ach}/${romanMonth}/${year}-${seqStr}`;
-    },
-
-    saveTransaction() {
-        if(!this.newTransaction.do || this.newTransaction.do.trim() === '') {
-            this.showToast('No DO wajib diisi!');
-            return;
-        }
-        if(!this.newTransaction.items || this.newTransaction.items.length === 0) {
-            this.showToast('Minimal 1 item material wajib diisi!');
-            return;
-        }
-        for(let item of this.newTransaction.items) {
-            if(!item.itemCode || !item.qty || item.qty <= 0) {
-                this.showToast('Pastikan semua Kategori, Jenis, Kode Barang, dan Qty terisi dengan benar!');
-                return;
-            }
-        }
-        if(!this.newTransaction.desc || this.newTransaction.desc.trim() === '') {
-            this.showToast('Keterangan / Catatan wajib diisi!');
-            return;
-        }
-        
-        if (!this.isEditTransaction) {
-            this.updateDocNumber();
-        }
-
-        if (this.isEditTransaction && this.editTransactionIdx !== null) {
-            let item = this.newTransaction.items[0];
-            this.transactions[this.editTransactionIdx] = {
-                date: this.newTransaction.date,
-                doc: this.newTransaction.doc,
-                do: this.newTransaction.do,
-                type: this.newTransaction.type,
-                origin: this.newTransaction.origin || '-',
-                dest: this.newTransaction.dest || '-',
-                code: this.newTransaction.code,
-                cat: item.cat,
-                kind: item.kind,
-                itemCode: item.itemCode,
-                itemName: item.itemName,
-                qty: parseInt(item.qty) || 0,
-                pickup: this.newTransaction.pickup,
-                approved: this.newTransaction.approved,
-                known: this.newTransaction.known,
-                desc: this.newTransaction.desc
-            };
-            this.showToast('Data transaksi gudang berhasil diperbarui!');
-        } else {
-            this.newTransaction.items.forEach(item => {
-                let entry = {
-                    date: this.newTransaction.date,
-                    doc: this.newTransaction.doc,
-                    do: this.newTransaction.do,
-                    type: this.newTransaction.type,
-                    origin: this.newTransaction.origin || '-',
-                    dest: this.newTransaction.dest || '-',
-                    code: this.newTransaction.code,
-                    cat: item.cat,
-                    kind: item.kind,
-                    itemCode: item.itemCode,
-                    itemName: item.itemName,
-                    qty: parseInt(item.qty) || 0,
-                    pickup: this.newTransaction.pickup,
-                    approved: this.newTransaction.approved,
-                    known: this.newTransaction.known,
-                    desc: this.newTransaction.desc
-                };
-                this.transactions.unshift(entry);
-            });
-            this.showToast('Transaksi gudang beserta beberapa item material berhasil dicatat!');
-        }
-
-        this.transactionModal = false;
-        this.resetTransactionForm();
-    },
-
-    resetTransactionForm() {
-        this.newTransaction = { 
-            date: '31/07/2026', 
-            doc: '', 
-            do: '', 
-            type: 'Keluar', 
-            origin: 'Gudang Utama Aceh', 
-            dest: 'Gudang Transit Sudirman', 
-            code: 'PRJ-ALPHA-01', 
-            pickup: '', 
-            approved: '', 
-            known: '', 
-            desc: '',
-            items: [
-                { cat: '', kind: '', itemCode: '', itemName: '', qty: '' }
-            ]
-        };
-        this.updateDocNumber();
-    },
-
-    init() {
-        this.updateDocNumber();
-    }
-}" x-init="init()" class="antialiased selection:bg-amber-500 selection:text-white">
-
-    <!-- Toast Notification -->
-    <div x-show="toastMessage" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 transform translate-y-2"
-         x-transition:enter-end="opacity-100 transform translate-y-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 transform translate-y-0"
-         x-transition:leave-end="opacity-0 transform translate-y-2"
-         class="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-6 py-4 rounded-xl shadow-2xl border border-amber-500/30 flex items-center space-x-3"
-         style="display: none;">
-        <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400">
-            <i class="fa-solid fa-bell"></i>
-        </div>
-        <div>
-            <p class="text-xs text-slate-400 font-medium">SISTEM NOTIFIKASI</p>
-            <p class="text-sm font-semibold" x-text="toastMessage"></p>
+                <button onclick="handleLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i> MASUK KE SISTEM
+                </button>
+            </div>
+            <p class="text-xs text-center text-slate-400">Terintegrasi dengan Validasi GPS & Multi-Radius Basecamp</p>
         </div>
     </div>
 
-    <div class="flex h-screen overflow-hidden">
-        
-        <!-- SIDEBAR -->
-        <aside :class="sidebarOpen ? 'w-72' : 'w-20'" class="transition-all duration-300 ease-in-out bg-obsidian-900 text-slate-300 flex flex-col z-40 border-r border-slate-800 shadow-2xl">
-            <div class="h-20 flex items-center px-6 border-b border-slate-800/80 bg-obsidian-900/50">
-                <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-amber-500 to-amber-300 flex items-center justify-center shadow-lg shadow-amber-500/20 shrink-0">
-                        <i class="fa-solid fa-cubes text-obsidian-900 text-lg font-bold"></i>
+    <!-- MAIN APP CONTAINER -->
+    <div id="app-container" class="flex h-screen w-full overflow-hidden hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-20">
+            <div class="p-6 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <i class="fa-solid fa-satellite-dish text-lg"></i>
                     </div>
-                    <div x-show="sidebarOpen" x-transition.opacity class="flex flex-col">
-                        <span class="font-heading font-extrabold text-lg text-white tracking-wider">AURA<span class="text-amber-400">ERP</span></span>
-                        <span class="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Enterprise Suite v4.2</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-6">
-                <div>
-                    <div x-show="sidebarOpen" class="px-3 mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Core Dashboard</div>
-                    <a @click="currentTab = 'dashboard'; activeSubTab = ''" 
-                       :class="currentTab === 'dashboard' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500 shadow-inner' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                       class="flex items-center px-3 py-3 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                        <div class="w-6 flex justify-center text-lg shrink-0">
-                            <i class="fa-solid fa-chart-pie group-hover:scale-110 transition-transform"></i>
-                        </div>
-                        <span x-show="sidebarOpen" class="ml-3 text-sm font-medium tracking-wide">Executive Overview</span>
-                    </a>
-                </div>
-
-                <!-- 1. PROJECT -->
-                <div x-data="{ open: true }">
-                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
-                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">1. Project Management</span>
-                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
-                    </div>
-                    <div class="space-y-1 mt-1">
-                        <a @click="currentTab = 'project'; activeSubTab = 'master'" 
-                           :class="currentTab === 'project' && activeSubTab === 'master' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-diagram-project"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Master Project</span>
-                        </a>
-                        <a @click="currentTab = 'project'; activeSubTab = 'budget'" 
-                           :class="currentTab === 'project' && activeSubTab === 'budget' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-wallet"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Project Budget</span>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 2. FINANCE -->
-                <div x-data="{ open: true }">
-                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
-                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">2. Finance & Accounting</span>
-                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
-                    </div>
-                    <div class="space-y-1 mt-1">
-                        <a @click="currentTab = 'finance'; activeSubTab = 'accounting'" 
-                           :class="currentTab === 'finance' && activeSubTab === 'accounting' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-scale-balanced"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Accounting</span>
-                        </a>
-                        <a @click="currentTab = 'finance'; activeSubTab = 'billing'" 
-                           :class="currentTab === 'finance' && activeSubTab === 'billing' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-file-invoice-dollar"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Billing</span>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 3. WAREHOUSE -->
-                <div x-data="{ open: true }">
-                    <div class="flex items-center justify-between px-3 mb-2 cursor-pointer" @click="open = !open">
-                        <span x-show="sidebarOpen" class="text-[10px] font-bold uppercase tracking-wider text-slate-500">3. Warehouse & Inventory</span>
-                        <i x-show="sidebarOpen" :class="open ? 'rotate-90' : ''" class="fa-solid fa-chevron-right text-[10px] text-slate-600 transition-transform"></i>
-                    </div>
-                    <div class="space-y-1 mt-1">
-                        <a @click="currentTab = 'warehouse'; activeSubTab = 'gudang'" 
-                           :class="currentTab === 'warehouse' && activeSubTab === 'gudang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-warehouse"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Gudang</span>
-                        </a>
-                        <a @click="currentTab = 'warehouse'; activeSubTab = 'barang'" 
-                           :class="currentTab === 'warehouse' && activeSubTab === 'barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-boxes-stacked"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Barang</span>
-                        </a>
-                        <a @click="currentTab = 'warehouse'; activeSubTab = 'transaksi'" 
-                           :class="currentTab === 'warehouse' && activeSubTab === 'transaksi' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-right-left"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Transaksi Gudang</span>
-                        </a>
-                        <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_barang'" 
-                           :class="currentTab === 'warehouse' && activeSubTab === 'stok_barang' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-chart-line"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Barang</span>
-                        </a>
-                        <a @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" 
-                           :class="currentTab === 'warehouse' && activeSubTab === 'stok_project' ? 'bg-amber-500/10 text-amber-400 border-l-4 border-amber-500' : 'hover:bg-slate-800/60 text-slate-400 hover:text-white'"
-                           class="flex items-center px-3 py-2.5 rounded-r-xl rounded-l-md transition-all duration-200 cursor-pointer group">
-                            <div class="w-6 flex justify-center text-sm shrink-0"><i class="fa-solid fa-network-wired"></i></div>
-                            <span x-show="sidebarOpen" class="ml-3 text-sm font-medium">Stok Project</span>
-                        </a>
+                    <div>
+                        <h1 class="text-base font-bold tracking-wide">OpsTrack Pro</h1>
+                        <p class="text-xs text-slate-400">FTTH Enterprise System</p>
                     </div>
                 </div>
             </div>
 
-            <div class="p-4 border-t border-slate-800 bg-obsidian-900/80">
-                <div class="flex items-center space-x-3">
-                    <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=250&auto=format&fit=crop" alt="Avatar" class="w-10 h-10 rounded-xl object-cover border border-amber-500/30 shrink-0">
-                    <div x-show="sidebarOpen" class="overflow-hidden">
-                        <h4 class="text-xs font-bold text-white truncate">Rudi</h4>
-                        <p class="text-[11px] text-amber-400/90 truncate">PM Divisi YOFC</p>
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="#" onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-chart-pie w-5"></i> Dashboard
+                </a>
+                <a href="#" onclick="switchTab('live-gps')" id="nav-live-gps" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-map-location-dot w-5"></i> Live Check-In (GPS)
+                </a>
+                <a href="#" onclick="switchTab('rekap')" id="nav-rekap" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-users-rectangle w-5"></i> Rekap Absensi
+                </a>
+                <a href="#" onclick="switchTab('settings')" id="nav-settings" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-gear w-5"></i> Pengaturan Basecamp
+                </a>
+            </nav>
+
+            <div class="p-4 m-4 bg-slate-800/50 rounded-2xl border border-slate-800">
+                <div class="flex items-center gap-3 mb-3">
+                    <div id="user-avatar" class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-sm">RS</div>
+                    <div class="overflow-hidden">
+                        <p id="user-display-name" class="text-sm font-semibold truncate">Reza Syahputra</p>
+                        <p id="user-display-role" class="text-xs text-slate-400 truncate">Field Engineer</p>
                     </div>
                 </div>
+                <button onclick="handleLogout()" class="w-full bg-slate-700 hover:bg-red-600 text-slate-200 hover:text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-power-off"></i> Keluar Akun
+                </button>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT CONTAINER -->
-        <div class="flex-1 flex flex-col overflow-hidden">
-            
-            <!-- TOP NAVBAR -->
-            <header class="h-20 bg-white/85 backdrop-blur-md border-b border-slate-200 px-8 flex items-center justify-between z-30 shadow-sm">
-                <div class="flex items-center space-x-4">
-                    <button @click="sidebarOpen = !sidebarOpen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors">
-                        <i class="fa-solid fa-bars-staggered"></i>
-                    </button>
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider" x-text="currentTab"></span>
-                            <span class="text-slate-300">/</span>
-                            <span class="text-xs font-medium text-slate-500 uppercase tracking-wider" x-text="activeSubTab || 'Overview'"></span>
-                        </div>
-                        <h1 class="text-xl font-extrabold text-slate-900 font-heading">
-                            <template x-if="currentTab === 'dashboard'">Executive Intelligence Dashboard</template>
-                            <template x-if="currentTab === 'project' && activeSubTab === 'master'">Master Project Portfolios</template>
-                            <template x-if="currentTab === 'project' && activeSubTab === 'budget'">Project Financial Budgeting & Cost Control</template>
-                            <template x-if="currentTab === 'finance' && activeSubTab === 'accounting'">General Ledger & Financial Accounting</template>
-                            <template x-if="currentTab === 'finance' && activeSubTab === 'billing'">Client Billing & Invoice Management</template>
-                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'gudang'">Warehouse Facility Hub</template>
-                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'barang'">Master Catalog Barang & SKU</template>
-                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'transaksi'">Logistics & Warehouse Transactions</template>
-                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'stok_barang'">Real-time Stok Barang Analytics</template>
-                            <template x-if="currentTab === 'warehouse' && activeSubTab === 'stok_project'">Project Material Allocation & Tracking</template>
-                        </h1>
-                    </div>
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col h-full relative overflow-y-auto bg-slate-100">
+            <!-- Top Header -->
+            <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 px-8 py-4 flex justify-between items-center shadow-sm">
+                <div>
+                    <h2 id="page-title" class="text-xl font-bold text-slate-900">Dashboard Utama</h2>
+                    <p class="text-xs text-slate-500">Sistem Manajemen Kehadiran Berbasis Geofencing Multi-Radius</p>
                 </div>
-
-                <div class="flex items-center space-x-4">
-                    <div class="relative hidden md:block">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                            <i class="fa-solid fa-magnifying-glass text-xs"></i>
-                        </span>
-                        <input type="text" placeholder="Cari project, SKU, atau invoice..." class="w-64 pl-10 pr-4 py-2.5 text-sm bg-slate-100 border border-transparent rounded-xl focus:bg-white focus:border-amber-500 focus:outline-none transition-all">
+                <div class="flex items-center gap-6">
+                    <div class="text-right">
+                        <p class="text-xs font-semibold text-slate-500" id="current-date"></p>
+                        <p class="text-base font-bold text-blue-600 font-mono" id="current-time"></p>
                     </div>
-
-                    <div class="relative">
-                        <button @click="notificationsOpen = !notificationsOpen" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors relative">
-                            <i class="fa-regular fa-bell"></i>
-                            <span class="absolute top-2 right-2 w-2.5 h-2.5 bg-amber-500 rounded-full ring-2 ring-white"></span>
-                        </button>
-                        <div x-show="notificationsOpen" @click.outside="notificationsOpen = false" 
-                             class="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50" style="display: none;">
-                            <div class="px-4 pb-2 border-b border-slate-100 flex items-center justify-between">
-                                <span class="font-heading font-bold text-sm text-slate-800">Notifikasi Sistem</span>
-                                <span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">3 Baru</span>
-                            </div>
-                            <div class="divide-y divide-slate-100 max-h-72 overflow-y-auto">
-                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                                    <p class="text-xs font-semibold text-slate-800">Budget Project Alpha Hampir Habis</p>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">Penggunaan mencapai 85% dari total alokasi.</p>
-                                    <span class="text-[9px] text-slate-400 mt-1 block">10 menit lalu</span>
-                                </div>
-                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                                    <p class="text-xs font-semibold text-slate-800">Mutasi Gudang #TRX-998 Disetujui</p>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">Transfer material ke Site Project Beta sukses.</p>
-                                    <span class="text-[9px] text-slate-400 mt-1 block">1 jam lalu</span>
-                                </div>
-                                <div class="p-3 hover:bg-slate-50 cursor-pointer transition-colors">
-                                    <p class="text-xs font-semibold text-slate-800">Invoice #INV-2026-04 Lunas</p>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">Pembayaran diterima dari PT Megah Semesta.</p>
-                                    <span class="text-[9px] text-slate-400 mt-1 block">3 jam lalu</span>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                        <i class="fa-solid fa-bell"></i>
                     </div>
-
-                    <button @click="showToast('Sinkronisasi data ERP berhasil diperbarui.')" class="bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-500/25 flex items-center space-x-2 transition-all">
-                        <i class="fa-solid fa-arrows-rotate text-xs"></i>
-                        <span>Sync ERP</span>
-                    </button>
                 </div>
             </header>
 
-            <!-- CONTENT BODY AREA -->
-            <main class="flex-1 overflow-y-auto p-8 bg-slate-50/50">
-                
-                <!-- DASHBOARD -->
-                <div x-show="currentTab === 'dashboard'" class="space-y-8">
+            <div class="p-8 space-y-8">
+                <!-- SECTION: DASHBOARD -->
+                <section id="sec-dashboard" class="space-y-6">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
-                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-50 rounded-full flex items-center justify-center text-amber-500/20 group-hover:scale-125 transition-transform">
-                                <i class="fa-solid fa-diagram-project text-5xl"></i>
-                            </div>
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Active Projects</span>
-                            <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading" x-text="projects.length"></h3>
-                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-trend-up"></i> +2.4%</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mt-3">Portfolio terintegrasi aktif</p>
+                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-blue-600">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Karyawan Aktif</p>
+                            <h3 class="text-3xl font-extrabold text-slate-900">124</h3>
+                            <p class="text-xs text-green-600 font-medium mt-2"><i class="fa-solid fa-arrow-up"></i> +4 bulan ini</p>
                         </div>
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
-                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center text-blue-500/20 group-hover:scale-125 transition-transform">
-                                <i class="fa-solid fa-wallet text-5xl"></i>
-                            </div>
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Project Budget</span>
-                            <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">Rp 48.5 M</h3>
-                                <span class="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Alokasi Optimal</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mt-3">Real-time Cost Control Active</p>
+                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-emerald-500">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Hadir Terekam GPS</p>
+                            <h3 class="text-3xl font-extrabold text-slate-900" id="stat-hadir">98</h3>
+                            <p class="text-xs text-slate-500 mt-2">Terverifikasi dalam radius</p>
                         </div>
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
-                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-500/20 group-hover:scale-125 transition-transform">
-                                <i class="fa-solid fa-scale-balanced text-5xl"></i>
-                            </div>
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Net Revenue (YTD)</span>
-                            <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading">Rp 12.8 M</h3>
-                                <span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full"><i class="fa-solid fa-arrow-trend-up"></i> +14.2%</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mt-3">Billing & Accounting Audited</p>
+                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-amber-500">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Tugas Lapangan (FTTH)</p>
+                            <h3 class="text-3xl font-extrabold text-slate-900">18</h3>
+                            <p class="text-xs text-amber-600 font-medium mt-2">Pekanbaru, Padang, dsk</p>
                         </div>
-                        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden group hover:border-amber-500/50 transition-all">
-                            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-purple-50 rounded-full flex items-center justify-center text-purple-500/20 group-hover:scale-125 transition-transform">
-                                <i class="fa-solid fa-warehouse text-5xl"></i>
-                            </div>
-                            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Warehouse Utilization</span>
-                            <div class="flex items-baseline space-x-3 mt-2">
-                                <h3 class="text-3xl font-extrabold text-slate-900 font-heading" x-text="warehouses.length + ' Gudang'"></h3>
-                                <span class="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">Pusat & Transit</span>
-                            </div>
-                            <p class="text-xs text-slate-500 mt-3">Stok Barang & Project Terintegrasi</p>
+                        <div class="glass-card p-6 rounded-2xl border-l-4 border-l-indigo-500">
+                            <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Total Titik Basecamp</p>
+                            <h3 class="text-3xl font-extrabold text-slate-900"><span id="stat-basecamp-count">0</span></h3>
+                            <p class="text-xs text-indigo-600 font-medium mt-2">Titik Absen Aktif</p>
                         </div>
                     </div>
 
-                    <div class="bg-gradient-to-r from-obsidian-900 via-obsidian-800 to-obsidian-900 rounded-3xl p-8 text-white relative overflow-hidden shadow-xl border border-amber-500/20">
-                        <div class="absolute right-0 top-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
-                        <div class="relative z-10 max-w-2xl">
-                            <span class="text-xs font-bold uppercase tracking-widest text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">Executive Architecture</span>
-                            <h2 class="text-2xl font-extrabold font-heading mt-4">Korelasi Terpadu Project, Finance, & Warehouse</h2>
-                            <p class="text-slate-300 text-sm mt-2 leading-relaxed">
-                                Sistem ERP ini menghubungkan setiap Master Project dengan <b>Project Budget</b>. Alokasi material dari <b>Warehouse</b> langsung memotong anggaran secara real-time dan tercatat dalam <b>Accounting & Billing</b>.
-                            </p>
-                            <div class="flex items-center space-x-4 mt-6">
-                                <button @click="currentTab = 'project'; activeSubTab = 'master'" class="bg-amber-500 hover:bg-amber-600 text-obsidian-900 font-bold px-6 py-3 rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20">
-                                    Kelola Project <i class="fa-solid fa-arrow-right ml-2"></i>
-                                </button>
-                                <button @click="currentTab = 'warehouse'; activeSubTab = 'stok_project'" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold px-6 py-3 rounded-xl text-sm border border-slate-700 transition-all">
-                                    Lihat Stok Project
-                                </button>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 glass-card p-6 rounded-2xl space-y-4">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-base font-bold text-slate-900">Aktivitas Check-In Real-Time</h3>
+                                <button onclick="switchTab('rekap')" class="text-xs text-blue-600 font-bold hover:underline">Lihat Semua Data</button>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PROJECT: MASTER -->
-                <div x-show="currentTab === 'project' && activeSubTab === 'master'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Project</h2>
-                            <p class="text-xs text-slate-500">Kelola portofolio project, status pengerjaan, dan penanggung jawab.</p>
-                        </div>
-                        <button @click="projectModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Tambah Project Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-2.5 px-4">Periode</th>
-                                        <th class="py-2.5 px-4">Type</th>
-                                        <th class="py-2.5 px-4">Region</th>
-                                        <th class="py-2.5 px-4">Kode Project</th>
-                                        <th class="py-2.5 px-4">No PR-PO</th>
-                                        <th class="py-2.5 px-4">Nama Project</th>
-                                        <th class="py-2.5 px-4">Nilai BoQ</th>
-                                        <th class="py-2.5 px-4">Status PO</th>
-                                        <th class="py-2.5 px-4">Permit</th>
-                                        <th class="py-2.5 px-4">Status SND</th>
-                                        <th class="py-2.5 px-4">Status Proyek</th>
-                                        <th class="py-2.5 px-4">Status Doc</th>
-                                        <th class="py-2.5 px-4 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="p in projects">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-2.5 px-4 text-slate-600 font-medium" x-text="p.periode"></td>
-                                            <td class="py-2.5 px-4 text-slate-600" x-text="p.type"></td>
-                                            <td class="py-2.5 px-4 text-slate-600" x-text="p.region"></td>
-                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="p.code"></td>
-                                            <td class="py-2.5 px-4 font-mono text-[11px] text-slate-700" x-text="p.po"></td>
-                                            <td class="py-2.5 px-4 font-bold text-slate-900" x-text="p.name"></td>
-                                            <td class="py-2.5 px-4 font-semibold text-slate-900" x-text="p.boq"></td>
-                                            <td class="py-2.5 px-4"><span class="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2 py-0.5 rounded-full" x-text="p.poStatus"></span></td>
-                                            <td class="py-2.5 px-4"><span class="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2 py-0.5 rounded-full" x-text="p.permit"></span></td>
-                                            <td class="py-2.5 px-4 text-slate-700 font-medium" x-text="p.snd"></td>
-                                            <td class="py-2.5 px-4"><span class="bg-emerald-50 text-emerald-700 text-[11px] font-semibold px-2.5 py-1 rounded-full" x-text="p.projectStatus"></span></td>
-                                            <td class="py-2.5 px-4"><span class="bg-purple-50 text-purple-700 text-[11px] font-semibold px-2 py-0.5 rounded-full" x-text="p.docStatus"></span></td>
-                                            <td class="py-2.5 px-4 text-right">
-                                                <button @click="showToast('Membuka detail ' + p.name)" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all">Detail</button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PROJECT: BUDGET -->
-                <div x-show="currentTab === 'project' && activeSubTab === 'budget'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Project Budget & Cost Control</h2>
-                            <p class="text-xs text-slate-500">Korelasi anggaran project dengan realisasi penarikan material warehouse & finance.</p>
-                        </div>
-                        <button @click="budgetModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Alokasi Budget Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs">
-                        <template x-for="b in budgets">
-                            <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md" x-text="b.code"></span>
-                                    <span class="text-slate-500 font-medium" x-text="b.name"></span>
-                                </div>
-                                <div>
-                                    <h4 class="text-base font-bold text-slate-900" x-text="b.total"></h4>
-                                    <p class="text-[11px] text-slate-500">Total Approved Budget</p>
-                                </div>
-                                <div class="space-y-1.5">
-                                    <div class="flex justify-between font-semibold">
-                                        <span class="text-slate-600">Realisasi</span>
-                                        <span class="text-amber-600" x-text="b.percentage + '%'"></span>
+                            <div id="recent-activity-list" class="space-y-3">
+                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-sm">RS</div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-900">Reza Syahputra <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md ml-2 font-normal">Check-In Valid</span></p>
+                                            <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> Basecamp Pekanbaru (Akurasi ±5m) • 07:15 WIB</p>
+                                        </div>
                                     </div>
-                                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                                        <div class="bg-amber-500 h-full rounded-full" :style="'width: ' + b.percentage + '%'"></div>
+                                    <span class="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">OK</span>
+                                </div>
+                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 font-bold flex items-center justify-center text-sm">TI</div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-900">Tari Indah <span class="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-md ml-2 font-normal">Check-In Valid</span></p>
+                                            <p class="text-xs text-slate-500"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> Basecamp Palembang • 07:45 WIB</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <div class="pt-2 border-t border-slate-100 flex justify-between text-[11px] text-slate-500">
-                                    <span x-text="'Sisa: ' + b.remaining"></span>
-                                    <span class="text-emerald-600 font-semibold" x-text="b.status"></span>
+                                    <span class="text-xs font-mono font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">OK</span>
                                 </div>
                             </div>
-                        </template>
-                    </div>
-                </div>
-
-                <!-- FINANCE: ACCOUNTING -->
-                <div x-show="currentTab === 'finance' && activeSubTab === 'accounting'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">General Ledger & Accounting</h2>
-                            <p class="text-xs text-slate-500">Pencatatan jurnal umum, neraca saldo, dan laba rugi perusahaan secara real-time.</p>
                         </div>
-                        <button @click="journalModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Entri Jurnal Baru</span>
-                        </button>
-                    </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-2.5 px-4">No. Jurnal</th>
-                                        <th class="py-2.5 px-4">Tanggal</th>
-                                        <th class="py-2.5 px-4">Kode Project</th>
-                                        <th class="py-2.5 px-4">Keterangan</th>
-                                        <th class="py-2.5 px-4 text-right">Debit (Rp)</th>
-                                        <th class="py-2.5 px-4 text-right">Kredit (Rp)</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="j in journals">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="j.no"></td>
-                                            <td class="py-2.5 px-4 text-slate-600 font-medium" x-text="j.date"></td>
-                                            <td class="py-2.5 px-4 font-bold text-slate-800" x-text="j.code"></td>
-                                            <td class="py-2.5 px-4 text-slate-700" x-text="j.desc"></td>
-                                            <td class="py-2.5 px-4 text-right font-semibold text-slate-900" x-text="j.debit"></td>
-                                            <td class="py-2.5 px-4 text-right font-semibold text-slate-900" x-text="j.credit"></td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
+                        <div class="glass-card p-6 rounded-2xl space-y-4">
+                            <h3 class="text-base font-bold text-slate-900">Informasi Proyek Aktif</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="p-3 bg-blue-50/70 rounded-xl border border-blue-100">
+                                    <p class="font-bold text-blue-900">PT YOFC International Indonesia</p>
+                                    <p class="text-xs text-blue-700 mt-1">FTTH Regional Deployment Project</p>
+                                </div>
+                                <div class="space-y-2 text-xs text-slate-600">
+                                    <p class="flex justify-between"><span>Pekanbaru Site:</span> <strong class="text-slate-800">HQ / Active</strong></p>
+                                    <p class="flex justify-between"><span>Palembang Site:</span> <strong class="text-slate-800">Active</strong></p>
+                                    <p class="flex justify-between"><span>Padang Site:</span> <strong class="text-slate-800">Active</strong></p>
+                                    <p class="flex justify-between"><span>Dumai Site:</span> <strong class="text-slate-800">Active</strong></p>
+                                    <p class="flex justify-between"><span>Sidoarjo Site:</span> <strong class="text-slate-800">Active</strong></p>
+                                    <p class="flex justify-between"><span>Aceh Site:</span> <strong class="text-slate-800">Active</strong></p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- FINANCE: BILLING -->
-                <div x-show="currentTab === 'finance' && activeSubTab === 'billing'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Billing & Invoice Management</h2>
-                            <p class="text-xs text-slate-500">Penagihan termin project kepada klien korporat dan status pembayaran.</p>
-                        </div>
-                        <button @click="invoiceModal = true" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Buat Invoice Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-2.5 px-4">No. Invoice</th>
-                                        <th class="py-2.5 px-4">Project & Klien</th>
-                                        <th class="py-2.5 px-4">Termin / Keterangan</th>
-                                        <th class="py-2.5 px-4">Nominal (Rp)</th>
-                                        <th class="py-2.5 px-4">Status</th>
-                                        <th class="py-2.5 px-4 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="inv in invoices">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="inv.no"></td>
-                                            <td class="py-2.5 px-4 font-semibold text-slate-800" x-text="inv.project"></td>
-                                            <td class="py-2.5 px-4 text-slate-600" x-text="inv.desc"></td>
-                                            <td class="py-2.5 px-4 font-bold text-slate-900" x-text="inv.nominal"></td>
-                                            <td class="py-2.5 px-4"><span class="bg-amber-50 text-amber-700 text-[11px] font-semibold px-2 py-0.5 rounded-full" x-text="inv.status"></span></td>
-                                            <td class="py-2.5 px-4 text-right">
-                                                <button @click="showToast('Mengunduh Invoice PDF')" class="px-2.5 py-1 bg-slate-100 hover:bg-amber-500 hover:text-white text-slate-700 rounded-lg text-xs font-semibold transition-all"><i class="fa-solid fa-download"></i></button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- WAREHOUSE: GUDANG -->
-                <div x-show="currentTab === 'warehouse' && activeSubTab === 'gudang'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Data Gudang</h2>
-                            <p class="text-xs text-slate-500">Daftar fasilitas pusat penyimpanan dan gudang transit di setiap site project.</p>
-                        </div>
-                        <button @click="openWarehouseModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Tambah Gudang Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-2.5 px-4">Kode Gudang</th>
-                                        <th class="py-2.5 px-4">Nama Gudang</th>
-                                        <th class="py-2.5 px-4">Lokasi</th>
-                                        <th class="py-2.5 px-4">Penanggung Jawab</th>
-                                        <th class="py-2.5 px-4 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="(w, index) in warehouses" :key="index">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="w.code"></td>
-                                            <td class="py-2.5 px-4 font-semibold text-slate-900" x-text="w.name"></td>
-                                            <td class="py-2.5 px-4 text-slate-600" x-text="w.location"></td>
-                                            <td class="py-2.5 px-4 font-medium" x-text="w.pic"></td>
-                                            <td class="py-2.5 px-4 text-right space-x-1">
-                                                <button @click="openWarehouseModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
-                                                    <i class="fa-solid fa-pen-to-square"></i>
-                                                </button>
-                                                <button @click="deleteWarehouse(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- WAREHOUSE: BARANG -->
-                <div x-show="currentTab === 'warehouse' && activeSubTab === 'barang'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Master Catalog Barang & SKU</h2>
-                            <p class="text-xs text-slate-500">Daftar material, spesifikasi, dan standar satuan barang konstruksi.</p>
-                        </div>
-                        <button @click="openItemModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Tambah Barang Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-2.5 px-4">Kategori</th>
-                                        <th class="py-2.5 px-4">Jenis</th>
-                                        <th class="py-2.5 px-4">Kode Barang</th>
-                                        <th class="py-2.5 px-4">Nama Barang</th>
-                                        <th class="py-2.5 px-4">Harga Satuan</th>
-                                        <th class="py-2.5 px-4 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="(item, index) in items" :key="index">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-2.5 px-4 text-slate-600" x-text="item.category"></td>
-                                            <td class="py-2.5 px-4 font-medium" x-text="item.type"></td>
-                                            <td class="py-2.5 px-4 font-bold text-amber-600" x-text="item.code"></td>
-                                            <td class="py-2.5 px-4 font-semibold text-slate-900" x-text="item.name"></td>
-                                            <td class="py-2.5 px-4 font-medium" x-text="item.price"></td>
-                                            <td class="py-2.5 px-4 text-right space-x-1">
-                                                <button @click="openItemModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
-                                                    <i class="fa-solid fa-pen-to-square"></i>
-                                                </button>
-                                                <button @click="deleteItem(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- WAREHOUSE: TRANSAKSI GUDANG -->
-                <div x-show="currentTab === 'warehouse' && activeSubTab === 'transaksi'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Transaksi Gudang (In / Out / Transfer)</h2>
-                        </div>
-                        <button @click="openTransactionModal(false)" class="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-amber-600/20 flex items-center space-x-2 transition-all">
-                            <i class="fa-solid fa-plus text-xs"></i>
-                            <span>Transaksi Baru</span>
-                        </button>
-                    </div>
-
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse whitespace-nowrap text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-3">Tanggal</th>
-                                        <th class="py-3 px-3">No Doc</th>
-                                        <th class="py-3 px-3">No DO</th>
-                                        <th class="py-3 px-3">Tipe Trans</th>
-                                        <th class="py-3 px-3">Gudang Asal</th>
-                                        <th class="py-3 px-3">Gudang Tujuan</th>
-                                        <th class="py-3 px-3">Kode Project</th>
-                                        <th class="py-3 px-3">Kategori</th>
-                                        <th class="py-3 px-3">Jenis</th>
-                                        <th class="py-3 px-3">Kode Barang</th>
-                                        <th class="py-3 px-3">Nama Barang</th>
-                                        <th class="py-3 px-3">Jumlah</th>
-                                        <th class="py-3 px-3">Pickup</th>
-                                        <th class="py-3 px-3">Disetujui</th>
-                                        <th class="py-3 px-3">Diketahui</th>
-                                        <th class="py-3 px-3">Keterangan</th>
-                                        <th class="py-3 px-3 text-right">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="(t, index) in transactions" :key="index">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-3 px-3" x-text="t.date"></td>
-                                            <td class="py-3 px-3 font-mono" x-text="t.doc"></td>
-                                            <td class="py-3 px-3 font-mono text-amber-600 font-bold" x-text="t.do"></td>
-                                            <td class="py-3 px-3"><span class="bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full" x-text="t.type"></span></td>
-                                            <td class="py-3 px-3" x-text="t.origin"></td>
-                                            <td class="py-3 px-3" x-text="t.dest"></td>
-                                            <td class="py-3 px-3 font-bold text-amber-600" x-text="t.code"></td>
-                                            <td class="py-3 px-3" x-text="t.cat"></td>
-                                            <td class="py-3 px-3" x-text="t.kind"></td>
-                                            <td class="py-3 px-3 font-mono font-semibold" x-text="t.itemCode"></td>
-                                            <td class="py-3 px-3 font-semibold text-slate-900" x-text="t.itemName"></td>
-                                            <td class="py-3 px-3 font-semibold" x-text="t.qty"></td>
-                                            <td class="py-3 px-3" x-text="t.pickup"></td>
-                                            <td class="py-3 px-3" x-text="t.approved"></td>
-                                            <td class="py-3 px-3" x-text="t.known"></td>
-                                            <td class="py-3 px-3 text-slate-500" x-text="t.desc"></td>
-                                            <td class="py-3 px-3 text-right space-x-1">
-                                                <button @click="openTransactionModal(true, index)" class="px-2.5 py-1 bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-700 rounded-lg font-semibold transition-all" title="Edit">
-                                                    <i class="fa-solid fa-pen-to-square"></i>
-                                                </button>
-                                                <button @click="deleteTransaction(index)" class="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg font-semibold transition-all" title="Hapus">
-                                                    <i class="fa-solid fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- WAREHOUSE: STOK BARANG -->
-                <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_barang'" class="space-y-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Stok Barang Real-time</h2>
-                            <p class="text-xs text-slate-500">Monitor ketersediaan fisik barang berdasarkan filter gudang.</p>
-                        </div>
-                        <div class="flex items-center space-x-3">
-                            <div class="relative flex items-center">
-                                <i class="fa-solid fa-warehouse absolute left-3 text-slate-400 text-xs"></i>
-                                <select x-model="selectedWarehouseFilter" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm appearance-none cursor-pointer">
-                                    <option value="">Semua Gudang (Rekap Total)</option>
-                                    <template x-for="w in warehouses" :key="w.code">
-                                        <option :value="w.name" x-text="w.name"></option>
-                                    </template>
-                                </select>
+                <!-- SECTION: LIVE GPS CHECK-IN -->
+                <section id="sec-live-gps" class="hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="glass-card p-6 rounded-2xl space-y-6">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Validasi Absensi GPS</h3>
+                                <p class="text-xs text-slate-500 mt-1">Sistem akan memindai apakah Anda berada dalam radius salah satu basecamp terdaftar.</p>
                             </div>
 
-                            <button @click="showToast('Mengunduh Laporan Stok Barang')" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center space-x-2 transition-all">
-                                <i class="fa-solid fa-download"></i>
-                                <span>Export Laporan</span>
+                            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Jumlah Basecamp:</span>
+                                    <span id="target-basecamp-name" class="font-bold text-slate-800">Memuat...</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Batas Radius:</span>
+                                    <span id="target-radius-display" class="font-bold text-blue-600">Sesuai Konfigurasi</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Status GPS Anda:</span>
+                                    <span id="gps-status" class="font-bold text-amber-600">Menunggu Verifikasi...</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-500">Jarak ke Terdekat:</span>
+                                    <span id="gps-distance" class="font-bold text-slate-800 font-mono">-</span>
+                                </div>
+                            </div>
+
+                            <button onclick="performCheckIn()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-location-arrow"></i> LAKUKAN CHECK-IN SEKARANG
                             </button>
                         </div>
-                    </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+                        <div class="lg:col-span-2 glass-card p-2 rounded-2xl">
+                            <div id="map" class="map-container"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: REKAP DATA ABSENSI -->
+                <section id="sec-rekap" class="hidden space-y-6">
+                    <div class="glass-card rounded-2xl overflow-hidden">
+                        <div class="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                            <div>
+                                <h3 class="text-lg font-bold text-slate-900">Rekap Data Kehadiran Karyawan</h3>
+                                <p class="text-xs text-slate-500">Data absensi real-time seluruh personel lapangan</p>
+                            </div>
+                            <div class="flex gap-3 w-full md:w-auto">
+                                <div class="relative w-full md:w-64">
+                                    <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                                    <input type="text" id="searchInput" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm">
+                                    <i class="fa-solid fa-download"></i> Export CSV
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Nama Barang</th>
-                                        <th class="py-3 px-4 text-center">Masuk</th>
-                                        <th class="py-3 px-4 text-center">Keluar</th>
-                                        <th class="py-3 px-4 text-center">Transfer Masuk</th>
-                                        <th class="py-3 px-4 text-center">Transfer Keluar</th>
-                                        <th class="py-3 px-4 text-center font-bold text-slate-900">Sisa</th>
+                            <table class="w-full text-left border-collapse">
+                               <thead>
+                                    <tr class="bg-slate-50 text-slate-400 text-xs uppercase tracking-wider font-semibold">
+                                        <th class="p-4">Karyawan</th>
+                                        <th class="p-4">Posisi / Role</th>
+                                        <th class="p-4">Lokasi Basecamp</th>
+                                        <th class="p-4">Waktu Check-In</th>
+                                        <th class="p-4">Status Geofence</th>
+                                        <th class="p-4 text-center">Aksi</th>
                                     </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="stock in calculatedStocks()" :key="stock.itemCode">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-3 px-4">
-                                                <p class="font-bold text-slate-900" x-text="stock.itemName"></p>
-                                                <p class="text-[11px] text-amber-600" x-text="stock.itemCode"></p>
-                                            </td>
-                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.masuk"></td>
-                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.keluar"></td>
-                                            <td class="py-3 px-4 text-center font-medium text-blue-600" x-text="stock.transferMasuk"></td>
-                                            <td class="py-3 px-4 text-center font-medium text-rose-600" x-text="stock.transferKeluar"></td>
-                                            <td class="py-3 px-4 text-center">
-                                                <button @click="openStockBreakdown(stock)" 
-                                                        class="font-extrabold text-slate-900 bg-amber-100 border border-amber-300 hover:bg-amber-500 hover:text-white hover:border-amber-500 px-3 py-1 rounded-lg transition-colors cursor-pointer shadow-sm w-16"
-                                                        x-text="stock.sisa" title="Klik untuk lihat Breakdown">
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    </template>
-                                </tbody>
+                               </thead>
+                               <tbody id="attendance-table-body" class="text-sm divide-y divide-slate-100">
+                                    <!-- Populated by JS -->
+                               </tbody>
                             </table>
                         </div>
                     </div>
-                </div>
+                </section>
 
-                <!-- WAREHOUSE: STOK PROJECT -->
-                <div x-show="currentTab === 'warehouse' && activeSubTab === 'stok_project'" class="space-y-6">
-                    <div class="flex items-center justify-between flex-wrap gap-4">
+                <!-- SECTION: PENGATURAN BASECAMP (ADMIN ONLY) -->
+                <section id="sec-settings" class="hidden space-y-6">
+                    <div class="glass-card p-8 rounded-2xl space-y-6">
                         <div>
-                            <h2 class="text-xl font-bold font-heading text-slate-900">Alokasi Stok Project</h2>
-                            <p class="text-xs text-slate-500">Monitor penggunaan material berdasarkan Region dan Project yang dipilih.</p>
+                            <h3 class="text-lg font-bold text-slate-900">Manajemen Lokasi Basecamp</h3>
+                            <p class="text-xs text-slate-500 mt-1">Tambahkan atau edit titik koordinat baru. Karyawan dapat check-in selama berada di dalam radius salah satu basecamp di bawah ini.</p>
                         </div>
-                        
-                        <div class="flex items-center space-x-3 flex-wrap gap-2">
-                            <div class="relative flex items-center">
-                                <i class="fa-solid fa-map-location-dot absolute left-3 text-slate-400 text-xs"></i>
-                                <select x-model="selectedProjectRegion" @change="selectedProjectCode = ''" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm cursor-pointer">
-                                    <option value="">Semua Region</option>
-                                    <template x-for="reg in [...new Set(projects.map(p => p.region))]" :key="reg">
-                                        <option :value="reg" x-text="reg"></option>
-                                    </template>
-                                </select>
-                            </div>
 
-                            <div class="relative flex items-center">
-                                <i class="fa-solid fa-diagram-project absolute left-3 text-slate-400 text-xs"></i>
-                                <select x-model="selectedProjectCode" class="pl-9 pr-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm cursor-pointer">
-                                    <option value="">Semua Project</option>
-                                    <template x-for="p in selectedProjectRegion ? projects.filter(x => x.region === selectedProjectRegion) : projects" :key="p.code">
-                                        <option :value="p.code" x-text="p.name"></option>
-                                    </template>
-                                </select>
+                        <!-- Form Tambah/Edit Basecamp -->
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Nama Basecamp / Proyek</label>
+                                <input type="text" id="setting-bc-name" placeholder="Contoh: Basecamp Medan" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Latitude (Lintang)</label>
+                                <input type="text" id="setting-lat" placeholder="-0.123456" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Longitude (Bujur)</label>
+                                <input type="text" id="setting-lng" placeholder="101.123456" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Radius Toleransi (m)</label>
+                                <input type="number" id="setting-radius" value="150" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none">
                             </div>
                         </div>
-                    </div>
 
-                    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead>
-                                    <tr class="border-b border-slate-100 font-semibold uppercase tracking-wider text-slate-400">
-                                        <th class="py-3 px-4">Nama Barang</th>
-                                        <th class="py-3 px-4 text-center">Total Masuk</th>
-                                        <th class="py-3 px-4 text-center">Total Keluar</th>
-                                        <th class="py-3 px-4 text-center font-bold text-slate-900">Netto</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 text-slate-700">
-                                    <template x-for="stock in calculatedProjectStocks()" :key="stock.itemCode">
-                                        <tr class="hover:bg-slate-50/85 transition-colors">
-                                            <td class="py-3 px-4 font-semibold text-slate-900" x-text="stock.itemName"></td>
-                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.masuk"></td>
-                                            <td class="py-3 px-4 text-center font-medium" x-text="stock.keluar"></td>
-                                            <td class="py-3 px-4 text-center">
-                                                <button @click="openProjectStockBreakdown(stock)" 
-                                                        class="font-extrabold text-slate-900 bg-amber-100 border border-amber-300 hover:bg-amber-500 hover:text-white hover:border-amber-500 px-3 py-1 rounded-lg transition-colors cursor-pointer shadow-sm w-16"
-                                                        x-text="stock.netto" title="Klik untuk lihat Breakdown">
-                                                </button>
-                                            </td>
+                        <div class="flex flex-col md:flex-row gap-3">
+                            <button id="btn-save-basecamp" onclick="saveBasecamp()" class="w-full md:w-auto px-8 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-plus"></i> TAMBAH BASECAMP BARU
+                            </button>
+                            <button id="btn-cancel-edit" onclick="cancelEdit()" class="hidden w-full md:w-auto px-8 bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-xmark"></i> BATAL EDIT
+                            </button>
+                        </div>
+
+                        <hr class="border-slate-200 my-6">
+
+                        <!-- Tabel Daftar Basecamp Aktif -->
+                        <div>
+                            <h4 class="text-sm font-bold text-slate-800 mb-4">Daftar Basecamp Tersimpan</h4>
+                            <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                                <table class="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+                                            <th class="p-3">Nama Basecamp</th>
+                                            <th class="p-3">Koordinat (Lat, Lng)</th>
+                                            <th class="p-3">Radius</th>
+                                            <th class="p-3 text-center">Aksi</th>
                                         </tr>
-                                    </template>
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody id="basecamp-table-body" class="text-sm divide-y divide-slate-100 bg-white">
+                                        <!-- Dipopulasi via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
-
-            </main>
-        </div>
+                </section>
+            </div>
+        </main>
     </div>
 
-    <!-- ==================== MODALS FORM ==================== -->
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Modal: Tambah Project Baru -->
-    <div x-show="projectModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Tambah Master Project Baru</h3>
-                <button @click="projectModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
-                    <input type="text" x-model="newProject.code" placeholder="Contoh: PRJ-DELTA-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Project</label>
-                    <input type="text" x-model="newProject.name" placeholder="Contoh: Gedung Cyber Tower" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Periode</label>
-                        <input type="text" x-model="newProject.periode" placeholder="Contoh: 2026-Q2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tipe</label>
-                        <input type="text" x-model="newProject.type" placeholder="Contoh: FTTH" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Region</label>
-                        <input type="text" x-model="newProject.region" placeholder="Contoh: Surabaya" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nilai BoQ (Rp)</label>
-                        <input type="text" x-model="newProject.boq" placeholder="Contoh: Rp 15.000.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="projectModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addProject()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Project</button>
-            </div>
-        </div>
-    </div>
+    <script>
+        // Global App State
+        let currentUser = null;
+        let editingBasecampId = null; // Menyimpan ID basecamp yang sedang diedit
+        
+        // ARRAY BASECAMP DINAMIS
+        let basecamps = [
+            { id: 1, name: "Pekanbaru HQ (Utama)", lat: 0.507100, lng: 101.447800, radius: 150 },
+            { id: 2, name: "Palembang Site", lat: -2.990900, lng: 104.756700, radius: 150 },
+            { id: 3, name: "Padang Site", lat: -0.947100, lng: 100.369600, radius: 150 },
+            { id: 4, name: "Dumai Site", lat: 1.667100, lng: 101.447400, radius: 150 },
+            { id: 5, name: "Sidoarjo Site", lat: -7.447800, lng: 112.718300, radius: 150 },
+            { id: 6, name: "Aceh Site", lat: 5.548300, lng: 95.323800, radius: 150 }
+        ];
 
-    <!-- Modal: Alokasi Budget Baru -->
-    <div x-show="budgetModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Alokasi Budget Project Baru</h3>
-                <button @click="budgetModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
-                    <input type="text" x-model="newBudget.code" placeholder="Contoh: PRJ-DELTA-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama / Keterangan Project</label>
-                    <input type="text" x-model="newBudget.name" placeholder="Contoh: Cyber Tower" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Total Approved Budget (Rp)</label>
-                    <input type="text" x-model="newBudget.total" placeholder="Contoh: Rp 12.000.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="budgetModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addBudget()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Budget</button>
-            </div>
-        </div>
-    </div>
+        let attendanceRecords = [
+            { id: "ACM-001", name: "Reza Syahputra", role: "Field Engineer", basecamp: "Pekanbaru HQ (Utama)", time: "07:15:22 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+            { id: "ACM-024", name: "Tari Indah", role: "Project Coordinator", basecamp: "Palembang Site", time: "07:45:10 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+            { id: "ACM-042", name: "Fikri Akbar", role: "Splicer Technician", basecamp: "Padang Site", time: "08:12:05 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+            { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", basecamp: "Dumai Site", time: "07:55:30 WIB", status: "Valid (Geofence)", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200" }
+        ];
 
-    <!-- Modal: Entri Jurnal Baru -->
-    <div x-show="journalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Entri Jurnal Akuntansi Baru</h3>
-                <button @click="journalModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">No Jurnal</label>
-                        <input type="text" x-model="newJournal.no" class="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold" readonly>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Project</label>
-                        <input type="text" x-model="newJournal.code" placeholder="PRJ-ALPHA-01" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan Transaksi</label>
-                    <textarea x-model="newJournal.desc" placeholder="Rincian transaksi jurnal..." rows="2" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none"></textarea>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Posisi Pos</label>
-                        <select x-model="newJournal.type" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <option value="debit">Debit</option>
-                            <option value="credit">Kredit</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
-                        <input type="text" x-model="newJournal.amount" placeholder="50.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="journalModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addJournal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Jurnal</button>
-            </div>
-        </div>
-    </div>
+        // Clock Logic
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WIB';
+            document.getElementById('current-date').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
 
-    <!-- Modal: Buat Invoice Baru -->
-    <div x-show="invoiceModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Buat Invoice Penagihan Klien</h3>
-                <button @click="invoiceModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">No Invoice</label>
-                        <input type="text" x-model="newInvoice.no" class="w-full px-3 py-2 border rounded-xl bg-slate-50 font-bold" readonly>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Project / Klien</label>
-                        <input type="text" x-model="newInvoice.project" placeholder="PT Megah Semesta" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Termin / Keterangan</label>
-                    <input type="text" x-model="newInvoice.desc" placeholder="Termin 2 (Progress 50%)" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nominal (Rp)</label>
-                        <input type="text" x-model="newInvoice.nominal" placeholder="Rp 2.500.000.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Status Pembayaran</label>
-                        <select x-model="newInvoice.status" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <option value="Pending Payment">Pending Payment</option>
-                            <option value="Lunas (Paid)">Lunas (Paid)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="invoiceModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="addInvoice()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Terbitkan Invoice</button>
-            </div>
-        </div>
-    </div>
+        // Login Logic
+        function toggleLoginInputs() {
+            const role = document.getElementById('login-role-select').value;
+            if (role === 'admin') {
+                document.getElementById('employee-selection-group').classList.add('hidden');
+                document.getElementById('admin-password-group').classList.remove('hidden');
+            } else {
+                document.getElementById('employee-selection-group').classList.remove('hidden');
+                document.getElementById('admin-password-group').classList.add('hidden');
+            }
+        }
 
-    <!-- Modal: Tambah/Edit Gudang -->
-    <div x-show="warehouseModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditWarehouse ? 'Edit Fasilitas Gudang' : 'Tambah Fasilitas Gudang Baru'"></h3>
-                <button @click="warehouseModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Gudang</label>
-                        <input type="text" x-model="newWarehouse.code" placeholder="WH-04" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Gudang</label>
-                        <input type="text" x-model="newWarehouse.name" placeholder="Gudang Transit Timur" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Lokasi Alamat</label>
-                    <input type="text" x-model="newWarehouse.location" placeholder="Jl. Raya Industrial No. 45, Cikarang" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Penanggung Jawab (PIC)</label>
-                    <input type="text" x-model="newWarehouse.pic" placeholder="Pak Budi" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="warehouseModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="saveWarehouse()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md" x-text="isEditWarehouse ? 'Simpan Perubahan' : 'Simpan Gudang'"></button>
-            </div>
-        </div>
-    </div>
+        function handleLogin() {
+            const role = document.getElementById('login-role-select').value;
+            if (role === 'admin') {
+                const pass = document.getElementById('admin-pass').value;
+                if (pass !== 'admin123') {
+                    Swal.fire('Gagal Login', 'Password Administrator salah! Gunakan: admin123', 'error');
+                    return;
+                }
+                currentUser = { name: "Administrator", role: "Project Manager / HQ", id: "ADM-001", type: "admin" };
+                document.getElementById('nav-settings').style.display = 'flex';
+                renderAdminBasecampTable();
+            } else {
+                const empId = document.getElementById('login-employee-id').value;
+                const empMap = {
+                    "ACM-001": { name: "Reza Syahputra", role: "Field Engineer" },
+                    "ACM-024": { name: "Tari Indah", role: "Project Coordinator" },
+                    "ACM-042": { name: "Fikri Akbar", role: "Splicer Technician" },
+                    "ACM-105": { name: "Hendra Setiawan", role: "Fiber Installer" }
+                };
+                currentUser = { ...empMap[empId], id: empId, type: "employee" };
+                document.getElementById('nav-settings').style.display = 'none';
+            }
 
-    <!-- Modal: Tambah/Edit Barang -->
-    <div x-show="itemModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditItem ? 'Edit Katalog Barang & SKU' : 'Tambah Katalog Barang & SKU Baru'"></h3>
-                <button @click="itemModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori</label>
-                        <input type="text" x-model="newItem.category" placeholder="Bahan Konstruksi" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis</label>
-                        <input type="text" x-model="newItem.type" placeholder="Material Struktur" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Kode Barang (SKU)</label>
-                        <input type="text" x-model="newItem.code" placeholder="SKU-PIPA-4IN" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Satuan</label>
-                        <input type="text" x-model="newItem.price" placeholder="Rp 120.000" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nama Barang Lengkap</label>
-                    <input type="text" x-model="newItem.name" placeholder="Pipa Galvanis 4 Inch SNI" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="itemModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="saveItem()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md" x-text="isEditItem ? 'Simpan Perubahan' : 'Simpan Barang'"></button>
-            </div>
-        </div>
-    </div>
+            document.getElementById('user-display-name').textContent = currentUser.name;
+            document.getElementById('user-display-role').textContent = currentUser.role;
+            const initials = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+            document.getElementById('user-avatar').textContent = initials;
 
-    <!-- Modal: Tambah/Edit Transaksi Gudang (Kelanjutan) -->
-    <div x-show="transactionModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm overflow-y-auto" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-4xl p-6 shadow-2xl border border-slate-200 space-y-4 my-6">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900" x-text="isEditTransaction ? 'Edit Transaksi Gudang' : 'Catat Transaksi Gudang Baru'"></h3>
-                <button @click="transactionModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            renderTable();
+            initMap();
+            updateDashboardCounters();
             
-            <div class="space-y-4 text-xs max-h-[70vh] overflow-y-auto pr-2">
-                <!-- Informasi Utama Transaksi -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal Transaksi</label>
-                        <input type="text" x-model="newTransaction.date" @input="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Tipe Transaksi</label>
-                        <select x-model="newTransaction.type" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <option value="Keluar">Keluar (Out)</option>
-                            <option value="Masuk">Masuk (In)</option>
-                            <option value="Transfer">Transfer</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">No. Surat Jalan (DO)</label>
-                        <input type="text" x-model="newTransaction.do" placeholder="Contoh: DO-9921" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                    </div>
-                </div>
+            Swal.fire({
+                title: `Selamat Datang, ${currentUser.name}!`,
+                text: `Anda masuk sebagai ${currentUser.role}`,
+                icon: 'success',
+                timer: 1800,
+                showConfirmButton: false
+            });
+        }
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gudang Asal (Origin)</label>
-                        <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <template x-for="w in warehouses" :key="w.code">
-                                <option :value="w.name" x-text="w.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Gudang Tujuan (Destination)</label>
-                        <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <template x-for="w in warehouses" :key="w.code">
-                                <option :value="w.name" x-text="w.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Project Terkait</label>
-                        <select x-model="newTransaction.code" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                            <template x-for="p in getFilteredProjects()" :key="p.code">
-                                <option :value="p.code" x-text="p.code + ' - ' + p.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                </div>
+        function handleLogout() {
+            Swal.fire({
+                title: 'Keluar Akun?',
+                text: 'Anda akan kembali ke halaman login.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Keluar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    location.reload();
+                }
+            });
+        }
 
-                <!-- Daftar Item Material (Multi-item support) -->
-                <div class="border-t border-slate-100 pt-3">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="font-bold text-slate-800">Daftar Material / Barang</span>
-                        <button type="button" @click="newTransaction.items.push({ cat: '', kind: '', itemCode: '', itemName: '', qty: '' })" class="px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-lg font-semibold text-[11px]">
-                            <i class="fa-solid fa-plus mr-1"></i> Tambah Item
-                        </button>
-                    </div>
-                    
-                    <template x-for="(ti, idx) in newTransaction.items" :key="idx">
-                        <div class="grid grid-cols-12 gap-2 mb-2 items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                            <div class="col-span-3">
-                                <label class="block text-[10px] text-slate-500">Kategori</label>
-                                <select x-model="ti.cat" @change="onCategoryChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
-                                    <option value="">Pilih Kategori...</option>
-                                    <template x-for="c in getUniqueCategories()"><option :value="c" x-text="c"></option></template>
-                                </select>
-                            </div>
-                            <div class="col-span-3">
-                                <label class="block text-[10px] text-slate-500">Jenis</label>
-                                <select x-model="ti.kind" @change="onTypeChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
-                                    <option value="">Pilih Jenis...</option>
-                                    <template x-for="k in getFilteredTypes(ti.cat)"><option :value="k" x-text="k"></option></template>
-                                </select>
-                            </div>
-                            <div class="col-span-3">
-                                <label class="block text-[10px] text-slate-500">Barang (SKU)</label>
-                                <select x-model="ti.itemCode" @change="onItemCodeChange(ti)" class="w-full px-2 py-1.5 border rounded-lg bg-white">
-                                    <option value="">Pilih Barang...</option>
-                                    <template x-for="i in getFilteredItems(ti.cat, ti.kind)"><option :value="i.code" x-text="i.code + ' - ' + i.name"></option></template>
-                                </select>
-                            </div>
-                            <div class="col-span-2">
-                                <label class="block text-[10px] text-slate-500">Qty</label>
-                                <input type="number" x-model="ti.qty" placeholder="0" class="w-full px-2 py-1.5 border rounded-lg bg-white">
-                            </div>
-                            <div class="col-span-1 text-center pt-4">
-                                <button type="button" @click="newTransaction.items.splice(idx, 1)" x-show="newTransaction.items.length > 1" class="text-rose-500 hover:text-rose-700">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </template>
-                </div>
+        function switchTab(tabId) {
+            ['dashboard', 'live-gps', 'rekap', 'settings'].forEach(t => {
+                document.getElementById('sec-' + t).classList.add('hidden');
+                document.getElementById('nav-' + t).classList.remove('active', 'border-l-4', 'border-blue-500', 'bg-slate-800', 'text-white');
+            });
 
-                <!-- Otorisasi & Keterangan -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Pengambilan (Pickup)</label>
-                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Kurir/Driver" class="w-full px-3 py-2 border rounded-xl">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Disetujui Oleh</label>
-                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Approver" class="w-full px-3 py-2 border rounded-xl">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-slate-600 mb-1">Diketahui Oleh</label>
-                        <input type="text" x-model="newTransaction.known" placeholder="Nama Manager" class="w-full px-3 py-2 border rounded-xl">
-                    </div>
-                </div>
+            document.getElementById('sec-' + tabId).classList.remove('hidden');
+            document.getElementById('nav-' + tabId).classList.add('active', 'border-l-4', 'border-blue-500', 'bg-slate-800', 'text-white');
 
-                <div>
-                    <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan / Catatan Dokumen</label>
-                    <input type="text" x-model="newTransaction.desc" placeholder="Keperluan pengiriman material..." class="w-full px-3 py-2 border rounded-xl">
-                </div>
-            </div>
+            const titles = {
+                'dashboard': 'Dashboard Utama',
+                'live-gps': 'Live GPS Check-In & Geofencing',
+                'rekap': 'Rekap Data Absensi Karyawan',
+                'settings': 'Manajemen Multi-Basecamp'
+            };
+            document.getElementById('page-title').textContent = titles[tabId];
 
-            <div class="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                <button @click="transactionModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="saveTransaction()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Transaksi</button>
-            </div>
-        </div>
-    </div>
+            if (tabId === 'live-gps' && map) {
+                setTimeout(() => { map.invalidateSize(); }, 250);
+            }
+        }
 
-                <!-- Baris 2: Gudang & Project -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <template x-if="newTransaction.type === 'Keluar' || newTransaction.type === 'Transfer'">
-                        <div>
-                            <label class="block font-semibold text-slate-600 mb-0.5">Gudang Asal</label>
-                            <select x-model="newTransaction.origin" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                                <option value="">Pilih Gudang Asal</option>
-                                <template x-for="w in warehouses" :key="w.code">
-                                    <option :value="w.name" x-text="w.name"></option>
-                                </template>
-                            </select>
-                        </div>
-                    </template>
-                    <template x-if="newTransaction.type === 'Masuk' || newTransaction.type === 'Transfer'">
-                        <div>
-                            <label class="block font-semibold text-slate-600 mb-0.5">Gudang Tujuan</label>
-                            <select x-model="newTransaction.dest" @change="updateDocNumber()" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                                <option value="">Pilih Gudang Tujuan</option>
-                                <template x-for="w in warehouses" :key="w.code">
-                                    <option :value="w.name" x-text="w.name"></option>
-                                </template>
-                            </select>
-                        </div>
-                    </template>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Kode Project Terkait</label>
-                        <select x-model="newTransaction.code" class="w-full px-2.5 py-1.5 border rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-xs font-semibold text-slate-700">
-                            <option value="">Pilih Project</option>
-                            <template x-for="p in getFilteredProjects()" :key="p.code">
-                                <option :value="p.code" x-text="p.code + ' - ' + p.name"></option>
-                            </template>
-                        </select>
-                    </div>
-                </div>
+        // Leaflet Map Initialization
+        let map, userMarker;
+        let basecampLayers = [];
 
-                <!-- Repeater Item Material -->
-                <div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50 space-y-2">
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-slate-800">Daftar Material Barang</span>
-                        <template x-if="!isEditTransaction">
-                            <button @click="newTransaction.items.push({ cat: '', kind: '', itemCode: '', itemName: '', qty: '' })" class="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-semibold flex items-center space-x-1">
-                                <i class="fa-solid fa-plus text-[10px]"></i><span>Tambah Baris Item</span>
+        function initMap() {
+            if (map) { map.remove(); }
+            
+            map = L.map('map');
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            let bounds = [];
+            
+            // Render seluruh titik basecamp yang ada di array
+            basecamps.forEach(bc => {
+                let marker = L.marker([bc.lat, bc.lng]).addTo(map)
+                    .bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
+                let circle = L.circle([bc.lat, bc.lng], {
+                    color: '#3b82f6',
+                    fillColor: '#3b82f6',
+                    fillOpacity: 0.12,
+                    radius: bc.radius
+                }).addTo(map);
+                
+                bounds.push([bc.lat, bc.lng]);
+            });
+
+            // Sesuaikan zoom agar semua basecamp terlihat
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+            } else {
+                map.setView([-0.7893, 113.9213], 5); // Default Indonesia view jika basecamp kosong
+            }
+
+            document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
+        }
+
+        // Haversine formula
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Perform GPS Check-In dengan MULTI-BASECAMP Check
+        function performCheckIn() {
+            const statusEl = document.getElementById('gps-status');
+            const distEl = document.getElementById('gps-distance');
+
+            statusEl.textContent = "Mencari sinyal satelit GPS...";
+            statusEl.className = "font-bold text-blue-600";
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
+                        
+                        let validBasecamp = null;
+                        let nearestBasecamp = null;
+                        let shortestDistance = Infinity;
+
+                        // Looping ke semua basecamp untuk mencari jarak terdekat dan kecocokan radius
+                        basecamps.forEach(bc => {
+                            const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                            
+                            // Track basecamp terdekat
+                            if (distance < shortestDistance) {
+                                shortestDistance = distance;
+                                nearestBasecamp = bc;
+                            }
+                            // Jika jarak masuk dalam radius, catat sebagai valid
+                            if (distance <= bc.radius) {
+                                validBasecamp = bc;
+                            }
+                        });
+
+                        // Update Map ke titik user
+                        const userLatLng = [userLat, userLng];
+                        map.setView(userLatLng, 16);
+
+                        if (userMarker) map.removeLayer(userMarker);
+                        userMarker = L.marker(userLatLng, {
+                            icon: L.divIcon({
+                                className: 'custom-user-icon',
+                                html: '<div style="background:#2563eb; width:14px; height:14px; border-radius:50%; border:2px solid white; box-shadow:0 0 10px rgba(0,0,0,0.3);"></div>'
+                            })
+                        }).addTo(map).bindPopup('Lokasi Anda Saat Ini').openPopup();
+
+                        // Validasi Akhir
+                        if (validBasecamp) {
+                            statusEl.textContent = `Valid (${validBasecamp.name})`;
+                            statusEl.className = "font-bold text-emerald-600";
+                            distEl.textContent = `${Math.round(shortestDistance)}m dari ${validBasecamp.name}`;
+
+                            // Simpan Data Absensi
+                            const nowTime = new Date().toLocaleTimeString('id-ID') + ' WIB';
+                            const existingIndex = attendanceRecords.findIndex(r => r.id === currentUser.id);
+                            
+                            const newRecord = {
+                                id: currentUser.id,
+                                name: currentUser.name,
+                                role: currentUser.role,
+                                basecamp: validBasecamp.name,
+                                time: nowTime,
+                                status: "Valid (Geofence)",
+                                badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200"
+                            };
+
+                            if (existingIndex >= 0) { attendanceRecords[existingIndex] = newRecord; } 
+                            else { attendanceRecords.unshift(newRecord); }
+
+                            renderTable();
+
+                            Swal.fire({
+                                title: 'Check-In Berhasil!',
+                                html: `Anda berada dalam radius <b>${Math.round(shortestDistance)}m</b> dari <b>${validBasecamp.name}</b>. Absensi diterima.`,
+                                icon: 'success',
+                                confirmButtonColor: '#3b82f6'
+                            });
+                        } else {
+                            statusEl.textContent = "Diluar Semua Radius Basecamp!";
+                            statusEl.className = "font-bold text-red-600";
+                            
+                            let distText = nearestBasecamp ? `${Math.round(shortestDistance)}m dari ${nearestBasecamp.name}` : "Tidak diketahui";
+                            distEl.textContent = distText;
+
+                            Swal.fire({
+                                title: 'Check-In Ditolak',
+                                html: `Anda tidak berada di dalam radius basecamp mana pun.<br><br><small>Titik terdekat Anda: ${nearestBasecamp ? nearestBasecamp.name : '-'} (${Math.round(shortestDistance)}m)</small>`,
+                                icon: 'error',
+                                confirmButtonColor: '#ef4444'
+                            });
+                        }
+                    },
+                    (error) => {
+                        statusEl.textContent = "Gagal Mendapatkan GPS";
+                        statusEl.className = "font-bold text-red-600";
+                        Swal.fire('Error GPS', 'Pastikan izin lokasi (GPS) browser aktif.', 'error');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                );
+            } else {
+                Swal.fire('Tidak Didukung', 'Browser Anda tidak mendukung Geolocation.', 'warning');
+            }
+        }
+
+        // FUNGSI ADMIN: SIMPAN ATAU TAMBAH BASECAMP
+        function saveBasecamp() {
+            const name = document.getElementById('setting-bc-name').value;
+            const lat = parseFloat(document.getElementById('setting-lat').value);
+            const lng = parseFloat(document.getElementById('setting-lng').value);
+            const radius = parseInt(document.getElementById('setting-radius').value);
+
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                Swal.fire('Gagal', 'Mohon isi seluruh parameter dengan benar.', 'warning');
+                return;
+            }
+
+            if (editingBasecampId) {
+                // Proses Edit Data yang sudah ada
+                const index = basecamps.findIndex(b => b.id === editingBasecampId);
+                if (index !== -1) {
+                    basecamps[index].name = name;
+                    basecamps[index].lat = lat;
+                    basecamps[index].lng = lng;
+                    basecamps[index].radius = radius;
+                }
+                Swal.fire('Berhasil!', `Basecamp ${name} berhasil diperbarui.`, 'success');
+            } else {
+                // Proses Tambah Data Baru
+                basecamps.push({
+                    id: Date.now(), // Generate ID baru
+                    name: name,
+                    lat: lat,
+                    lng: lng,
+                    radius: radius
+                });
+                Swal.fire('Berhasil!', `Basecamp ${name} berhasil ditambahkan ke dalam sistem.`, 'success');
+            }
+
+            // Bersihkan form & kembalikan state ke awal
+            cancelEdit();
+            renderAdminBasecampTable();
+            updateDashboardCounters();
+            initMap();
+        }
+
+        // FUNGSI ADMIN: MODE EDIT BASECAMP
+        function editBasecamp(index) {
+            const bc = basecamps[index];
+            editingBasecampId = bc.id;
+            
+            // Masukkan data ke form
+            document.getElementById('setting-bc-name').value = bc.name;
+            document.getElementById('setting-lat').value = bc.lat;
+            document.getElementById('setting-lng').value = bc.lng;
+            document.getElementById('setting-radius').value = bc.radius;
+            
+            // Ubah tampilan tombol simpan
+            const btnSave = document.getElementById('btn-save-basecamp');
+            btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
+            btnSave.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            btnSave.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
+            
+            // Munculkan tombol batal
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+        }
+
+        // FUNGSI ADMIN: BATALKAN EDIT (KEMBALI KE MODE TAMBAH)
+        function cancelEdit() {
+            editingBasecampId = null;
+            
+            // Kosongkan form
+            document.getElementById('setting-bc-name').value = '';
+            document.getElementById('setting-lat').value = '';
+            document.getElementById('setting-lng').value = '';
+            document.getElementById('setting-radius').value = '150'; // Reset ke default
+            
+            // Kembalikan tampilan tombol simpan
+            const btnSave = document.getElementById('btn-save-basecamp');
+            btnSave.innerHTML = '<i class="fa-solid fa-plus"></i> TAMBAH BASECAMP BARU';
+            btnSave.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            btnSave.classList.add('bg-blue-600', 'hover:bg-blue-700');
+            
+            // Sembunyikan tombol batal
+            document.getElementById('btn-cancel-edit').classList.add('hidden');
+        }
+
+        // FUNGSI ADMIN: HAPUS BASECAMP
+        function removeBasecamp(index) {
+            Swal.fire({
+                title: 'Hapus Basecamp?',
+                text: "Karyawan di titik ini tidak akan bisa check-in lagi.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Jika data yang sedang diedit ternyata dihapus, batalkan editnya
+                    if (editingBasecampId === basecamps[index].id) {
+                        cancelEdit();
+                    }
+                    basecamps.splice(index, 1);
+                    renderAdminBasecampTable();
+                    updateDashboardCounters();
+                    initMap();
+                }
+            });
+        }
+
+        // RENDER TABEL DAFTAR BASECAMP DI SETTINGS
+        function renderAdminBasecampTable() {
+            const tbody = document.getElementById('basecamp-table-body');
+            tbody.innerHTML = '';
+            
+            if (basecamps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada basecamp yang terdaftar.</td></tr>`;
+                return;
+            }
+
+            basecamps.forEach((bc, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3 font-semibold text-slate-800">${bc.name}</td>
+                        <td class="p-3 font-mono text-xs text-slate-500">${bc.lat}, ${bc.lng}</td>
+                        <td class="p-3 text-slate-600">${bc.radius}m</td>
+                        <td class="p-3 text-center">
+                            <button onclick="editBasecamp(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors mr-1" title="Edit">
+                                <i class="fa-solid fa-pen-to-square"></i>
                             </button>
-                        </template>
-                    </div>
-                    <template x-for="(itm, idx) in newTransaction.items" :key="idx">
-                        <div class="grid grid-cols-1 md:grid-cols-6 gap-2 items-center bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                            <button onclick="removeBasecamp(${index})" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors" title="Hapus">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // UPDATE DASHBOARD COUNTERS
+        function updateDashboardCounters() {
+            document.getElementById('stat-basecamp-count').textContent = basecamps.length;
+            document.getElementById('stat-hadir').textContent = attendanceRecords.length;
+        }
+
+        // Render Data Tabel Absensi Karyawan
+        function renderTable(filter = '') {
+            const tbody = document.getElementById('attendance-table-body');
+            tbody.innerHTML = '';
+
+            const filtered = attendanceRecords.filter(r => 
+                r.name.toLowerCase().includes(filter.toLowerCase()) || 
+                r.role.toLowerCase().includes(filter.toLowerCase()) ||
+                r.basecamp.toLowerCase().includes(filter.toLowerCase())
+            );
+
+            filtered.forEach(r => {
+                const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/60 transition-colors";
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">${initials}</div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kategori</label>
-                                <select x-model="itm.cat" @change="onCategoryChange(itm)" class="w-full px-2 py-1 border rounded-lg text-xs font-medium">
-                                    <option value="">Pilih Kategori</option>
-                                    <template x-for="cat in getUniqueCategories()" :key="cat">
-                                        <option :value="cat" x-text="cat"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Jenis</label>
-                                <select x-model="itm.kind" @change="onTypeChange(itm)" class="w-full px-2 py-1 border rounded-lg text-xs font-medium">
-                                    <option value="">Pilih Jenis</option>
-                                    <template x-for="kind in getFilteredTypes(itm.cat)" :key="kind">
-                                        <option :value="kind" x-text="kind"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Kode Barang</label>
-                                <select x-model="itm.itemCode" @change="onItemCodeChange(itm)" class="w-full px-2 py-1 border rounded-lg text-xs font-medium font-mono">
-                                    <option value="">Pilih SKU</option>
-                                    <template x-for="i in getFilteredItems(itm.cat, itm.kind)" :key="i.code">
-                                        <option :value="i.code" x-text="i.code"></option>
-                                    </template>
-                                </select>
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Nama Barang</label>
-                                <input type="text" x-model="itm.itemName" class="w-full px-2 py-1 border rounded-lg bg-slate-50 text-xs font-semibold text-slate-800" readonly placeholder="Otomatis terisi">
-                            </div>
-                            <div class="flex items-end space-x-1">
-                                <div class="flex-1">
-                                    <label class="block text-[10px] font-semibold text-slate-500 mb-0.5">Qty</label>
-                                    <input type="number" x-model="itm.qty" placeholder="0" class="w-full px-2 py-1 border rounded-lg text-xs font-semibold text-center">
-                                </div>
-                                <template x-if="newTransaction.items.length > 1 && !isEditTransaction">
-                                    <button @click="newTransaction.items.splice(idx, 1)" class="p-1.5 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 rounded-lg transition-colors mt-4">
-                                        <i class="fa-solid fa-trash text-xs"></i>
-                                    </button>
-                                </template>
+                                <p class="font-bold text-slate-900">${r.name}</p>
+                                <p class="text-xs text-slate-400">ID: ${r.id}</p>
                             </div>
                         </div>
-                    </template>
-                </div>
+                    </td>
+                    <td class="p-4 text-slate-600">${r.role}</td>
+                    <td class="p-4 text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp}</td>
+                    <td class="p-4 font-mono text-slate-700">${r.time}</td>
+                    <td class="p-4"><span class="px-3 py-1 rounded-full text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
+                    <td class="p-4 text-center">
+                        <button class="text-slate-400 hover:text-blue-600 transition-colors"><i class="fa-solid fa-ellipsis-vertical px-2"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
-                <!-- Baris Penandatangan & Keterangan -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Pengambil / Kurir</label>
-                        <input type="text" x-model="newTransaction.pickup" placeholder="Nama Kurir / Pengambil" class="w-full px-2.5 py-1.5 border rounded-xl text-xs">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Disetujui Oleh</label>
-                        <input type="text" x-model="newTransaction.approved" placeholder="Nama Supervisor / Manager" class="w-full px-2.5 py-1.5 border rounded-xl text-xs">
-                    </div>
-                    <div>
-                        <label class="block font-semibold text-slate-600 mb-0.5">Diketahui Oleh</label>
-                        <input type="text" x-model="newTransaction.known" placeholder="Bagian Terkait" class="w-full px-2.5 py-1.5 border rounded-xl text-xs">
-                    </div>
-                </div>
-                <div>
-                    <label class="block font-semibold text-slate-600 mb-0.5">Keterangan / Catatan</label>
-                    <textarea x-model="newTransaction.desc" placeholder="Catatan pengiriman material..." rows="2" class="w-full px-2.5 py-1.5 border rounded-xl text-xs"></textarea>
-                </div>
-            </div>
+        document.getElementById('searchInput').addEventListener('keyup', function() {
+            renderTable(this.value);
+        });
 
-            <div class="flex justify-end space-x-3 pt-2.5 border-t border-slate-100">
-                <button @click="transactionModal = false" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold">Batal</button>
-                <button @click="saveTransaction()" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-md">Simpan Transaksi</button>
-            </div>
-        </div>
-    </div>
+        // Export ke CSV
+        function exportCSV() {
+            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
+            attendanceRecords.forEach(r => {
+                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'Rekap_Absensi_OpsTrack.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
 
-    <!-- Modal: Breakdown Sisa Stok Barang -->
-    <div x-show="stockBreakdownModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Breakdown Sisa Stok Barang</h3>
-                <button @click="stockBreakdownModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-slate-500 text-xs">Kode Barang:</span>
-                        <span class="font-bold text-amber-600 font-mono" x-text="selectedBreakdown.itemCode"></span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-500 text-xs">Nama Barang:</span>
-                        <span class="font-bold text-slate-900" x-text="selectedBreakdown.itemName"></span>
-                    </div>
-                    <div class="flex justify-between pt-2 border-t border-slate-200">
-                        <span class="text-slate-700 font-semibold text-xs">Sisa Stok Fisik:</span>
-                        <span class="font-extrabold text-slate-900 text-base bg-amber-200 px-2 py-0.5 rounded" x-text="selectedBreakdown.sisa"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end pt-3 border-t border-slate-100">
-                <button @click="stockBreakdownModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold">Tutup</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal: Breakdown Netto Stok Project -->
-    <div x-show="projectStockBreakdownModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" style="display: none;">
-        <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-heading font-bold text-lg text-slate-900">Breakdown Netto Stok Project</h3>
-                <button @click="projectStockBreakdownModal = false" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <div class="space-y-3 text-sm">
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-2">
-                    <div class="flex justify-between">
-                        <span class="text-slate-500 text-xs">Kode Barang:</span>
-                        <span class="font-bold text-amber-600 font-mono" x-text="selectedProjectBreakdownItem.itemCode"></span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-500 text-xs">Nama Barang:</span>
-                        <span class="font-bold text-slate-900" x-text="selectedProjectBreakdownItem.itemName"></span>
-                    </div>
-                    <div class="flex justify-between pt-2 border-t border-slate-200">
-                        <span class="text-slate-700 font-semibold text-xs">Total Netto Project:</span>
-                        <span class="font-extrabold text-slate-900 text-base bg-amber-200 px-2 py-0.5 rounded" x-text="selectedProjectBreakdownItem.sisa"></span>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-end pt-3 border-t border-slate-100">
-                <button @click="projectStockBreakdownModal = false" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold">Tutup</button>
-            </div>
-        </div>
-    </div>
-
+        // Initial setup for default data
+        updateDashboardCounters();
+    </script>
 </body>
 </html>
