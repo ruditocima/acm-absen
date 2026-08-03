@@ -679,7 +679,7 @@
             document.getElementById('target-basecamp-name').textContent = `${basecamps.length} Titik Terdaftar`;
         }
 
-        // ================= 6. CHECK-IN (GPS DIRECT WITHOUT WEBCAM) =================
+        // ================= 6. CHECK-IN (GPS DIRECT WITH FAKE GPS / ACCURACY VALIDATION) =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -691,6 +691,23 @@
                     (position) => {
                         const userLat = position.coords.latitude;
                         const userLng = position.coords.longitude;
+                        const accuracy = position.coords.accuracy; // Akurasi GPS dalam meter
+
+                        // Validasi Fake GPS / Akurasi Buruk (> 50 meter)
+                        if (accuracy > 50) {
+                            statusEl.textContent = "Terindikasi Fake GPS / Akurasi Rendah";
+                            statusEl.className = "font-bold text-red-600";
+                            distEl.textContent = `Akurasi: ${Math.round(accuracy)}m (> 50m)`;
+
+                            Swal.fire({
+                                title: 'Check-In Ditolak',
+                                html: `Akurasi GPS tidak valid atau terdeteksi menggunakan Mock Location / Fake GPS.<br><br><small>Akurasi saat ini: ${Math.round(accuracy)} meter (Batas maksimal: 50 meter)</small>`,
+                                icon: 'error',
+                                confirmButtonColor: '#ef4444'
+                            });
+                            return;
+                        }
+
                         const userLatLng = L.latLng(userLat, userLng);
                         
                         let validBasecamp = null;
