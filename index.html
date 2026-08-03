@@ -423,6 +423,15 @@
         }
         const db = firebase.firestore();
 
+        // ================= HELPER: SHA-256 PASSWORD HASHING =================
+        async function hashPassword(string) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(string);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         // ================= 2. STATE APLIKASI (Sinkron dengan Firestore) =================
         let currentUser = null;
         let editingBasecampId = null;
@@ -434,17 +443,22 @@
         let basecamps = [];
         let attendanceRecords = [];
 
-        // --- SKRIP SEEDING (Mengisi Data Awal Jika Firestore Kosong) ---
+        // --- SKRIP SEEDING (Mengisi Data Awal dengan Password Ter-hash) ---
         async function seedInitialData() {
             const empSnap = await db.collection("employees").get();
             if (empSnap.empty) {
+                const pass123 = await hashPassword("123");
+                const passRudi = await hashPassword("Ounyenk2018#");
+
                 const defaultEmployees = [
-                    { id: "ACM-024", name: "Reza Syahputra", role: "Field Engineer", password: "123" },
-                    { id: "ACM-YOFC-001", name: "Rudi", role: "Project Manager", password: "Ounyenk2018#" },
-                    { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: "123" },
-                    { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: "123" }
+                    { id: "ACM-024", name: "Reza Syahputra", role: "Field Engineer", password: pass123 },
+                    { id: "ACM-YOFC-001", name: "Rudi", role: "Project Manager", password: passRudi },
+                    { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: pass123 },
+                    { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: pass123 }
                 ];
-                defaultEmployees.forEach(e => db.collection("employees").doc(e.id).set(e));
+                for (const e of defaultEmployees) {
+                    await db.collection("employees").doc(e.id).set(e);
+                }
             }
 
             const bcSnap = await db.collection("basecamps").get();
@@ -457,7 +471,9 @@
                     { id: 5, name: "Sidoarjo Site", lat: -7.447800, lng: 112.718300, radius: 150 },
                     { id: 6, name: "Aceh Site", lat: 5.548300, lng: 95.323800, radius: 150 }
                 ];
-                defaultBasecamps.forEach(b => db.collection("basecamps").doc(b.id.toString()).set(b));
+                for (const b of defaultBasecamps) {
+                    await db.collection("basecamps").doc(b.id.toString()).set(b);
+                }
             }
         }
         seedInitialData();
@@ -533,19 +549,19 @@
             }
         }
 
-        function handleLogin() {
+        async function handleLogin() {
             const loginType = document.getElementById('login-role-select').value;
             const empId = document.getElementById('login-emp-id').value.trim();
             const pass = document.getElementById('login-pass').value;
+            const hashedInputPass = await hashPassword(pass);
 
             if (loginType === 'pm') {
-                // Autentikasi PM disinkronkan langsung dengan data dari Firestore (koleksi employees)
                 const pmEmp = employees.find(e => (e.role || '').toLowerCase().includes('project manager') || (e.role || '').toLowerCase().includes('administrator') || e.id === 'ACM-024');
                 if (!pmEmp) {
                     Swal.fire('Gagal Login', 'Akun Project Manager tidak ditemukan di database Firestore!', 'error');
                     return;
                 }
-                if (pmEmp.password !== pass) {
+                if (pmEmp.password !== hashedInputPass) {
                     Swal.fire('Gagal Login', 'Password Project Manager / Administrator salah!', 'error');
                     return;
                 }
@@ -560,7 +576,7 @@
                     Swal.fire('Akses Ditolak', `ID '${empId}' bukan berstatus Admin!`, 'error');
                     return;
                 }
-                if (foundEmp.password && foundEmp.password !== pass) {
+                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
                     Swal.fire('Gagal Login', 'Password Admin salah!', 'error');
                     return;
                 }
@@ -569,7 +585,7 @@
                 if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
                 const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
                 if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan di Server!`, 'error'); return; }
-                if (foundEmp.password && foundEmp.password !== pass) {
+                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
                     Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
                     return;
                 }
@@ -830,11 +846,12 @@
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
             const role = document.getElementById('setting-emp-role').value.trim();
-            const password = document.getElementById('setting-emp-password').value.trim();
+            const passwordInput = document.getElementById('setting-emp-password').value.trim();
 
-            if (!id || !name || !role || !password) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
+            if (!id || !name || !role || !passwordInput) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
 
-            const empData = { id, name, role, password };
+            const hashedPassword = await hashPassword(passwordInput);
+            const empData = { id, name, role, password: hashedPassword };
 
             try {
                 if (editingEmployeeId) {
@@ -860,7 +877,7 @@
             document.getElementById('setting-emp-id').disabled = true;
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
-            document.getElementById('setting-emp-password').value = emp.password || '';
+            document.getElementById('setting-emp-password').value = ''; // Dikosongkan demi keamanan input baru jika ingin diubah
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
@@ -921,7 +938,7 @@
                             </div>
                         </td>
                         <td class="p-3 text-slate-600">${emp.role}</td>
-                        <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? '••••••' : '-'}</td>
+                        <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? 'Ter-enkripsi' : '-'}</td>
                         <td class="p-3 text-center">
                             <button onclick="editEmployee(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
                             <button onclick="removeEmployee(${index})" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
