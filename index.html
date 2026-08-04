@@ -871,10 +871,15 @@
             const titles = { 'dashboard': 'Dashboard Utama', 'live-gps': 'Live GPS Check-In & Geofencing', 'rekap': 'Rekap Data Absensi Karyawan', 'settings': 'Manajemen Sistem & Data' };
             document.getElementById('page-title').textContent = titles[tabId];
 
-            // Trigger render tabel saat tab settings dibuka
+            // Trigger render tabel saat tab dipindahkan (MEMPERBAIKI BUG TABEL KOSONG)
             if (tabId === 'settings') {
                 renderAdminBasecampTable();
                 renderAdminEmployeeTable();
+            } else if (tabId === 'rekap') {
+                handleFilterChange();
+            } else if (tabId === 'dashboard') {
+                updateDashboardCounters();
+                renderRecentActivity();
             }
 
             if (tabId === 'live-gps') {
@@ -1374,10 +1379,16 @@
             const end = endDate ? new Date(endDate) : null;
             if (end) end.setHours(23, 59, 59, 999);
 
+            // MEMPERBAIKI BUG FILTER CRASH JIKA ADA DATA NULL/KOSONG
             const filtered = attendanceRecords.filter(r => {
-                const matchesSearch = r.name.toLowerCase().includes(filter.toLowerCase()) || 
-                    r.role.toLowerCase().includes(filter.toLowerCase()) ||
-                    r.basecamp.toLowerCase().includes(filter.toLowerCase());
+                const searchStr = (filter || '').toLowerCase();
+                const nameStr = (r.name || '').toLowerCase();
+                const roleStr = (r.role || '').toLowerCase();
+                const bcStr = (r.basecamp || '').toLowerCase();
+
+                const matchesSearch = nameStr.includes(searchStr) || 
+                                      roleStr.includes(searchStr) ||
+                                      bcStr.includes(searchStr);
 
                 if (!matchesSearch) return false;
 
@@ -1399,21 +1410,25 @@
             }
 
             filtered.forEach(r => {
-                const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
+                // Safeguard against missing names
+                const displayName = r.name || 'Tidak Diketahui';
+                const displayId = r.id || '-';
+                const initials = displayName.split(' ').map(n => n[0]).join('').substring(0,2) || '?';
+                
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50/60 transition-colors">
                         <td class="p-4">
                             <div class="flex items-center gap-3">
                                 <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${initials}</div>
                                 <div>
-                                    <p class="font-bold text-xs sm:text-sm text-slate-900">${r.name}</p>
-                                    <p class="text-[10px] sm:text-xs text-slate-400">ID: ${r.id}</p>
+                                    <p class="font-bold text-xs sm:text-sm text-slate-900">${displayName}</p>
+                                    <p class="text-[10px] sm:text-xs text-slate-400">ID: ${displayId}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="p-4 text-xs sm:text-sm text-slate-600">${r.role}</td>
-                        <td class="p-4 text-xs sm:text-sm text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp}</td>
-                        <td class="p-4 font-mono text-xs sm:text-sm text-slate-700">${r.time}</td>
+                        <td class="p-4 text-xs sm:text-sm text-slate-600">${r.role || '-'}</td>
+                        <td class="p-4 text-xs sm:text-sm text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp || '-'}</td>
+                        <td class="p-4 font-mono text-xs sm:text-sm text-slate-700">${r.time || '-'}</td>
                         <td class="p-4"><span class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
                     </tr>
                 `;
@@ -1442,7 +1457,8 @@
             }
 
             recent.forEach(r => {
-                const initials = r.name.split(' ').map(n => n[0]).join('').substring(0,2);
+                const displayName = r.name || 'Tidak Diketahui';
+                const initials = displayName.split(' ').map(n => n[0]).join('').substring(0,2) || '?';
                 const isLate = r.status === "Terlambat";
                 const badgeBg = isLate ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200";
                 
@@ -1451,8 +1467,8 @@
                         <div class="flex items-center gap-3 overflow-hidden">
                             <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs sm:text-sm shrink-0">${initials}</div>
                             <div class="overflow-hidden">
-                                <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">${r.name} <span class="text-[10px] sm:text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-1 font-normal inline-block">${r.status}</span></p>
-                                <p class="text-[10px] sm:text-xs text-slate-500 truncate"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp} • ${r.time}</p>
+                                <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">${displayName} <span class="text-[10px] sm:text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-1 font-normal inline-block">${r.status}</span></p>
+                                <p class="text-[10px] sm:text-xs text-slate-500 truncate"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp || '-'} • ${r.time || '-'}</p>
                             </div>
                         </div>
                         <span class="text-[10px] sm:text-xs font-mono font-bold ${isLate ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'} px-2.5 py-1 rounded-lg border shrink-0">${isLate ? 'LATE' : 'OK'}</span>
@@ -1464,7 +1480,7 @@
         function exportCSV() {
             let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
             attendanceRecords.forEach(r => {
-                csv += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}"\n`;
+                csv += `"${r.id || '-'}","${r.name || '-'}","${r.role || '-'}","${r.basecamp || '-'}","${r.time || '-'}","${r.status || '-'}"\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
