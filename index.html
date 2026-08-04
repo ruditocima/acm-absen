@@ -442,12 +442,10 @@
 
         // Fungsi Deteksi Mock Location / Fake GPS secara Native (Capacitor / Cordova) & Web Properti
         async function checkIsMockLocation(coords) {
-            // 1. Cek properti HTML5 Geolocation standar jika didukung browser/webview
             if (coords && coords.isMocked === true) {
                 return true;
             }
 
-            // 2. Cek integrasi plugin native Capacitor (misal: plugin capacitor-check-ismock-location)
             if (window.Capacitor && window.Capacitor.Plugins) {
                 try {
                     if (window.Capacitor.Plugins.Location && typeof window.Capacitor.Plugins.Location.isMocked === 'function') {
@@ -470,7 +468,7 @@
             return false;
         }
 
-        // Simulasi Controller Sisi Server (Backend API Simulation) dengan Strict Mock Check
+        // Simulasi Controller Sisi Server (Backend API Simulation) dengan Strict Mock & GPS Timestamp Check
         async function simulateServerSideValidation(payload) {
             return new Promise((resolve) => {
                 setTimeout(async () => {
@@ -503,6 +501,17 @@
 
                     // Pengecekan Mock Location ketat (Native Plugin / Web / Akurasi)
                     const isMockDetected = await checkIsMockLocation(currentCoords);
+
+                    // VALIDASI TIMESTAMP GPS: Memastikan koordinat bukan data cache lama (Maksimal usia 45 detik)
+                    if (currentCoords && currentCoords.timestamp && !simulationMode) {
+                        const gpsAge = Date.now() - currentCoords.timestamp;
+                        const MAX_GPS_AGE_MS = 45000; // Batas usia data GPS 45 detik
+                        if (gpsAge > MAX_GPS_AGE_MS) {
+                            resolve({ success: false, message: 'Check-in gagal (Server Validation): Data GPS kedaluwarsa atau terdeteksi koordinat cache lama. Harap perbarui posisi GPS Anda.' });
+                            return;
+                        }
+                    }
+
                     if ((gpsAccuracy > 50 || isMockDetected) && !simulationMode) {
                         resolve({ success: false, message: 'Check-in gagal (Server Validation): Terdeteksi penggunaan Fake GPS / Mock Location atau akurasi GPS buruk!' });
                         return;
@@ -615,11 +624,15 @@
                         navigator.geolocation.watchPosition(
                             async (position) => {
                                 const isMocked = position.coords.isMocked || await checkIsMockLocation(position.coords);
+                                
+                                // Menyimpan timestamp GPS untuk validasi real-time
                                 this.currentCoords = { 
                                     lat: position.coords.latitude, 
                                     lng: position.coords.longitude,
+                                    timestamp: position.timestamp, 
                                     isMocked: isMocked 
                                 };
+                                
                                 this.gpsAccuracy = Math.round(position.coords.accuracy);
                                 
                                 if (this.gpsAccuracy > 50 || isMocked) {
