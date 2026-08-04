@@ -396,12 +396,58 @@
         &copy; 2026 ACM - YOFC Team. All Rights Reserved.
     </footer>
 
-    <!-- JAVASCRIPT LOGIC & SERVER-SIDE VALIDATION SIMULATION -->
+    <!-- JAVASCRIPT LOGIC & STABLE BROWSER FINGERPRINT / NATIVE BRIDGE INTEGRATION -->
     <script>
+        // Fungsi Generator Browser Fingerprint yang Stabil & Mendukung Hybrid App (Capacitor/Cordova)
+        async function getOrCreateStableDeviceIdentifier() {
+            let deviceId = localStorage.getItem('bc_device_uuid');
+            if (deviceId) return deviceId;
+
+            // 1. Cek jika berjalan di dalam container Hybrid App (seperti Capacitor / Cordova Plugin Device)
+            if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Device) {
+                try {
+                    const info = await window.Capacitor.Plugins.Device.getId();
+                    if (info && info.identifier) {
+                        deviceId = 'NATIVE-' + info.identifier;
+                        localStorage.setItem('bc_device_uuid', deviceId);
+                        return deviceId;
+                    }
+                } catch (e) {
+                    console.warn('Native device bridge not accessible, falling back to browser fingerprint.');
+                }
+            }
+
+            // 2. Jika di web browser, buat kombinasi browser fingerprint yang stabil berdasarkan hardware/konfigurasi
+            const fingerprintComponents = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                screen.colorDepth,
+                new Date().getTimezoneOffset(),
+                navigator.hardwareConcurrency || 'unknown',
+                navigator.deviceMemory || 'unknown'
+            ].join('|||');
+
+            let hash = 0;
+            for (let i = 0; i < fingerprintComponents.length; i++) {
+                const char = fingerprintComponents.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0; // Konversi ke integer 32-bit
+            }
+
+            deviceId = 'FP-' + Math.abs(hash).toString(36).toUpperCase() + '-' + Math.abs(screen.width * screen.height).toString(36).toUpperCase();
+            
+            // Simpan ke localStorage dan Cookie agar lebih tahan lama terhadap pembersihan cache parsial
+            localStorage.setItem('bc_device_uuid', deviceId);
+            document.cookie = `bc_device_uuid=${deviceId}; max-age=31536000; path=/; SameSite=Strict`;
+
+            return deviceId;
+        }
+
         // Simulasi Controller Sisi Server (Backend API Simulation)
         async function simulateServerSideValidation(payload) {
             return new Promise((resolve) => {
-                setTimeout(() => {
+                setTimeout(async () => {
                     const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
                     
                     const serverEmployees = JSON.parse(localStorage.getItem('bc_employees')) || [];
@@ -531,11 +577,10 @@
                 ],
                 attendanceLogs: JSON.parse(localStorage.getItem('bc_attendance')) || [],
 
-                init() {
+                async init() {
                     this.initGPS();
-                    if (!localStorage.getItem('bc_device_uuid')) {
-                        localStorage.setItem('bc_device_uuid', 'DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
-                    }
+                    // Inisialisasi Device Identifier stabil berbasis kombinasi fingerprint / native bridge
+                    await getOrCreateStableDeviceIdentifier();
                 },
 
                 initGPS() {
@@ -624,7 +669,7 @@
                         return;
                     }
 
-                    const currentDeviceId = localStorage.getItem('bc_device_uuid');
+                    const currentDeviceId = await getOrCreateStableDeviceIdentifier();
                     
                     const payload = {
                         loginId: this.loginId,
