@@ -10,7 +10,6 @@
     
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
     <!-- Google Fonts -->
@@ -383,7 +382,7 @@
                                             <th class="p-3">ID Karyawan</th>
                                             <th class="p-3">Karyawan</th>
                                             <th class="p-3">Posisi / Role</th>
-                                            <th class="p-3">Autentikasi</th>
+                                            <th class="p-3">Password</th>
                                             <th class="p-3 text-center">Aksi & Perangkat</th>
                                         </tr>
                                     </thead>
@@ -399,7 +398,7 @@
                     <div class="glass-card p-5 sm:p-8 rounded-2xl space-y-4 border-l-4 border-l-indigo-600">
                         <div>
                             <h3 class="text-base sm:text-lg font-bold text-slate-900">Inisialisasi Data Awal (Manual Seeding)</h3>
-                            <p class="text-xs text-slate-500 mt-1">Gunakan tombol ini hanya jika Anda perlu mengisi ulang data default basecamp dan akun admin/karyawan ke Firestore & Firebase Auth secara manual.</p>
+                            <p class="text-xs text-slate-500 mt-1">Gunakan tombol ini hanya jika Anda perlu mengisi ulang data default basecamp dan akun admin/karyawan ke Firestore secara manual.</p>
                         </div>
                         <button onclick="manualSeedData()" class="w-full md:w-auto px-8 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center gap-2 text-sm">
                             JALANKAN MANUAL SEEDING DATA
@@ -456,7 +455,6 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
-        const auth = firebase.auth();
 
         // ================= DEVICE BINDING: GENERATE/GET UNIQUE DEVICE UUID =================
         let currentDeviceId = localStorage.getItem('acm_device_uuid');
@@ -509,6 +507,15 @@
             }
         }
 
+        // ================= HELPER: SHA-256 PASSWORD HASHING =================
+        async function hashPassword(string) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(string);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
         // ================= MOBILE SIDEBAR TOGGLE =================
         function toggleMobileSidebar() {
             const sidebar = document.getElementById('app-sidebar');
@@ -529,33 +536,18 @@
         let attendanceRecords = [];
 
         async function seedInitialData() {
-            let secondaryApp = firebase.apps.find(app => app.name === "secondary");
-            if (!secondaryApp) {
-                secondaryApp = firebase.initializeApp(firebaseConfig, "secondary");
-            }
-            const secondaryAuth = secondaryApp.auth();
+            const pass123 = await hashPassword("123");
+            const passRudi = await hashPassword("Ounyenk2018#");
 
             const defaultEmployees = [
-                { id: "ACM-024", name: "Reza Syahputra", role: "Field Engineer", pass: "123" },
-                { id: "ACM-YOFC-001", name: "Rudi", role: "Project Manager", pass: "Ounyenk2018#" },
-                { id: "ACM-042", name: "Fikri Akbar", role: "Admin", pass: "123" },
-                { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", pass: "123" }
+                { id: "ACM-024", name: "Reza Syahputra", role: "Field Engineer", password: pass123 },
+                { id: "ACM-YOFC-001", name: "Rudi", role: "Project Manager", password: passRudi },
+                { id: "ACM-042", name: "Fikri Akbar", role: "Admin", password: pass123 },
+                { id: "ACM-105", name: "Hendra Setiawan", role: "Fiber Installer", password: pass123 }
             ];
-
             for (const e of defaultEmployees) {
-                const email = `${e.id.toLowerCase()}@acm-absensi.local`;
-                try {
-                    await secondaryAuth.createUserWithEmailAndPassword(email, e.pass);
-                } catch (err) {
-                    // Akun Auth mungkin sudah ada sebelumnya
-                }
-                await db.collection("employees").doc(e.id).set({
-                    id: e.id,
-                    name: e.name,
-                    role: e.role
-                }, { merge: true });
+                await db.collection("employees").doc(e.id).set(e, { merge: true });
             }
-            await secondaryAuth.signOut();
 
             const defaultBasecamps = [
                 { id: "1", name: "Pekanbaru HQ (Utama)", lat: 0.5067917951598804, lng: 101.42306655203463, radius: 1000 },
@@ -573,7 +565,7 @@
         async function manualSeedData() {
             const result = await Swal.fire({
                 title: 'Jalankan Seeding Data Awal?',
-                text: 'Tindakan ini akan memperbarui/menambahkan data default basecamp dan akun karyawan ke Firebase Auth & Firestore.',
+                text: 'Tindakan ini akan memperbarui/menambahkan data default basecamp dan akun karyawan ke database.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3b82f6',
@@ -585,20 +577,21 @@
                 try {
                     Swal.fire({
                         title: 'Memproses Seeding...',
-                        text: 'Menyimpan data awal ke Firebase Auth & Firestore...',
+                        text: 'Menyimpan data awal ke Firestore...',
                         allowOutsideClick: false,
                         didOpen: () => Swal.showLoading()
                     });
 
                     await seedInitialData();
 
-                    Swal.fire('Berhasil!', 'Data awal berhasil di-seed ke database dan sistem otentikasi.', 'success');
+                    Swal.fire('Berhasil!', 'Data awal berhasil di-seed ke database.', 'success');
                 } catch (error) {
                     console.error("Seeding error:", error);
-                    Swal.fire('Gagal', 'Terjadi kesalahan saat melakukan seeding data: ' + error.message, 'error');
+                    Swal.fire('Gagal', 'Terjadi kesalahan saat melakukan seeding data.', 'error');
                 }
             }
         }
+        // (Eksekusi otomatis seedInitialData() telah dihapus untuk menghemat kuota kueri database)
 
         // ================= 3. FIRESTORE REAL-TIME LISTENERS =================
         db.collection("employees").onSnapshot((snapshot) => {
@@ -817,49 +810,35 @@
             const loginType = document.getElementById('login-role-select').value;
             const empId = document.getElementById('login-emp-id').value.trim();
             const pass = document.getElementById('login-pass').value;
+            const hashedInputPass = await hashPassword(pass);
 
-            if (!pass) {
-                Swal.fire('Gagal Login', 'Silakan masukkan password!', 'warning');
-                return;
-            }
-
-            let targetEmpId = empId;
             if (loginType === 'pm') {
-                targetEmpId = 'ACM-YOFC-001';
-            } else {
-                if (!empId) {
-                    Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning');
+                const pmEmp = employees.find(e => e.id === 'ACM-YOFC-001' || (e.role || '').toLowerCase().includes('project manager') || (e.role || '').toLowerCase().includes('administrator'));
+                if (!pmEmp) {
+                    Swal.fire('Gagal Login', 'Akun Project Manager belum termuat dari server atau belum di-seed. Lakukan manual seeding di pengaturan jika database kosong.', 'error');
                     return;
                 }
-            }
-
-            const foundEmp = employees.find(e => e.id.toLowerCase() === targetEmpId.toLowerCase());
-            if (!foundEmp) {
-                Swal.fire('Gagal Login', `ID Karyawan '${targetEmpId}' tidak terdaftar di Server!`, 'error');
-                return;
-            }
-
-            const userRole = (foundEmp.role || '').toLowerCase();
-            if (loginType === 'admin' && !userRole.includes('admin') && !userRole.includes('project manager')) {
-                Swal.fire('Akses Ditolak', `ID '${targetEmpId}' bukan berstatus Admin!`, 'error');
-                return;
-            }
-
-            const email = `${targetEmpId.toLowerCase()}@acm-absensi.local`;
-
-            try {
-                Swal.fire({
-                    title: 'Autentikasi...',
-                    text: 'Memeriksa kredensial dengan Firebase Auth...',
-                    allowOutsideClick: false,
-                    didOpen: () => Swal.showLoading()
-                });
-
-                // Sign in via Firebase Authentication
-                await auth.signInWithEmailAndPassword(email, pass);
+                if (pmEmp.password !== hashedInputPass) {
+                    Swal.fire('Gagal Login', 'Password Project Manager salah! (Gunakan: Ounyenk2018#)', 'error');
+                    return;
+                }
+                currentUser = { ...pmEmp, type: "pm" };
+            } else if (loginType === 'admin') {
+                if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
+                const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
+                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak terdaftar di Server!`, 'error'); return; }
+                
+                const userRole = (foundEmp.role || '').toLowerCase();
+                if (!userRole.includes('admin')) {
+                    Swal.fire('Akses Ditolak', `ID '${empId}' bukan berstatus Admin!`, 'error');
+                    return;
+                }
+                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
+                    Swal.fire('Gagal Login', 'Password Admin salah!', 'error');
+                    return;
+                }
 
                 if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
-                    await auth.signOut();
                     Swal.fire({
                         title: 'Akses Perangkat Ditolak',
                         html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Satu akun hanya dapat dipakai pada satu HP. Hubungi PM jika ganti HP.</small>`,
@@ -872,31 +851,50 @@
                     foundEmp.deviceId = currentDeviceId;
                 }
 
-                currentUser = { ...foundEmp, type: loginType };
+                currentUser = { ...foundEmp, type: "admin" };
+            } else {
+                if (!empId) { Swal.fire('Gagal Login', 'Silakan masukkan ID Karyawan Anda!', 'warning'); return; }
+                const foundEmp = employees.find(e => e.id.toLowerCase() === empId.toLowerCase());
+                if (!foundEmp) { Swal.fire('Gagal Login', `ID Karyawan '${empId}' tidak ditemukan di Server!`, 'error'); return; }
+                if (foundEmp.password && foundEmp.password !== hashedInputPass) {
+                    Swal.fire('Gagal Login', 'Password karyawan salah!', 'error');
+                    return;
+                }
 
-                document.getElementById('user-display-name').textContent = currentUser.name;
-                document.getElementById('user-display-role').textContent = currentUser.role;
-                const initials = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2);
-                document.getElementById('user-avatar').textContent = initials;
+                if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
+                    Swal.fire({
+                        title: 'Akses Perangkat Ditolak',
+                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Satu akun hanya dapat dipakai pada satu HP. Hubungi PM jika ganti HP.</small>`,
+                        icon: 'error',
+                        confirmButtonColor: '#ef4444'
+                    });
+                    return;
+                } else if (!foundEmp.deviceId) {
+                    await db.collection("employees").doc(foundEmp.id).update({ deviceId: currentDeviceId });
+                    foundEmp.deviceId = currentDeviceId;
+                }
 
-                document.getElementById('login-modal').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-
-                applyRolePermissions();
-                initMap();
-                
-                Swal.fire({
-                    title: `Selamat Datang, ${currentUser.name}!`,
-                    text: `Anda masuk sebagai ${currentUser.role}`,
-                    icon: 'success',
-                    timer: 1800,
-                    showConfirmButton: false
-                });
-
-            } catch (error) {
-                console.error("Login error:", error);
-                Swal.fire('Gagal Login', 'Password salah atau akun belum terdaftar di Firebase Auth. (' + error.message + ')', 'error');
+                currentUser = { ...foundEmp, type: "employee" };
             }
+
+            document.getElementById('user-display-name').textContent = currentUser.name;
+            document.getElementById('user-display-role').textContent = currentUser.role;
+            const initials = currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+            document.getElementById('user-avatar').textContent = initials;
+
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            applyRolePermissions();
+            initMap();
+            
+            Swal.fire({
+                title: `Selamat Datang, ${currentUser.name}!`,
+                text: `Anda masuk sebagai ${currentUser.role}`,
+                icon: 'success',
+                timer: 1800,
+                showConfirmButton: false
+            });
         }
 
         function applyRolePermissions() {
@@ -934,7 +932,7 @@
             }
         }
 
-        async function handleLogout() {
+        function handleLogout() {
             Swal.fire({
                 title: 'Keluar Akun?',
                 text: 'Anda akan kembali ke halaman login.',
@@ -943,11 +941,8 @@
                 confirmButtonColor: '#3b82f6',
                 cancelButtonColor: '#64748b',
                 confirmButtonText: 'Ya, Keluar'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    try { await auth.signOut(); } catch(e) {}
-                    location.reload(); 
-                }
+            }).then((result) => {
+                if (result.isConfirmed) { location.reload(); }
             });
         }
 
@@ -1352,28 +1347,35 @@
                 return;
             }
 
+            const hashedCurrent = await hashPassword(currentPass);
+            if (hashedCurrent !== currentUser.password) {
+                Swal.fire('Gagal', 'Password Anda saat ini salah!', 'error');
+                return;
+            }
+
+            const hashedNew = await hashPassword(newPass);
+
             try {
                 Swal.fire({
                     title: 'Menyimpan...',
-                    text: 'Sedang memperbarui password Anda via Firebase Authentication.',
+                    text: 'Sedang memperbarui password Anda.',
                     allowOutsideClick: false,
                     didOpen: () => Swal.showLoading()
                 });
 
-                const user = auth.currentUser;
-                if (!user) { throw new Error("Sesi login tidak ditemukan."); }
+                await db.collection("employees").doc(currentUser.id).update({
+                    password: hashedNew
+                });
 
-                const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPass);
-                await user.reauthenticateWithCredential(credential);
-                await user.updatePassword(newPass);
-
+                currentUser.password = hashedNew;
+                
                 document.getElementById('cp-current').value = '';
                 document.getElementById('cp-new').value = '';
                 document.getElementById('cp-confirm').value = '';
 
-                Swal.fire('Berhasil!', 'Password Anda berhasil diperbarui di server Google.', 'success');
+                Swal.fire('Berhasil!', 'Password Anda berhasil diperbarui.', 'success');
             } catch (error) {
-                Swal.fire('Gagal', 'Password saat ini salah atau gagal memperbarui: ' + error.message, 'error');
+                Swal.fire('Error Database', 'Gagal menghubungi server untuk mengubah password.', 'error');
             }
         }
 
@@ -1384,34 +1386,25 @@
             const role = document.getElementById('setting-emp-role').value.trim();
             const passwordInput = document.getElementById('setting-emp-password').value.trim();
 
-            if (!id || !name || !role) { Swal.fire('Gagal', 'Mohon isi ID, Nama, dan Role.', 'warning'); return; }
-            if (!editingEmployeeId && !passwordInput) { Swal.fire('Gagal', 'Password wajib diisi untuk karyawan baru.', 'warning'); return; }
+            if (!id || !name || !role || !passwordInput) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
 
-            const email = `${id.toLowerCase()}@acm-absensi.local`;
+            const hashedPassword = await hashPassword(passwordInput);
+            const empData = { id, name, role, password: hashedPassword };
 
             try {
-                let secondaryApp = firebase.apps.find(app => app.name === "secondary");
-                if (!secondaryApp) {
-                    secondaryApp = firebase.initializeApp(firebaseConfig, "secondary");
-                }
-                const secondaryAuth = secondaryApp.auth();
-
                 if (editingEmployeeId) {
-                    await db.collection("employees").doc(editingEmployeeId).set({ id, name, role }, { merge: true });
-                    Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui.`, 'success');
+                    await db.collection("employees").doc(editingEmployeeId).set(empData, { merge: true });
+                    Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
                 } else {
                     const existingCheck = employees.find(e => e.id === id);
                     if (existingCheck) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); return; }
                     
-                    await secondaryAuth.createUserWithEmailAndPassword(email, passwordInput);
-                    await secondaryAuth.signOut();
-
-                    await db.collection("employees").doc(id).set({ id, name, role });
-                    Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan ke sistem Auth & Firestore.`, 'success');
+                    await db.collection("employees").doc(id).set(empData);
+                    Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
                 }
                 cancelEmployeeEdit();
             } catch(e) {
-                Swal.fire('Error Database / Auth', 'Gagal menyimpan: ' + e.message, 'error');
+                Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
             }
         }
 
@@ -1449,7 +1442,7 @@
         function removeEmployee(index) {
             Swal.fire({
                 title: 'Hapus Karyawan?',
-                text: "Karyawan ini akan dihapus dari server dan profil datanya.",
+                text: "Karyawan ini akan dihapus dari server dan tidak bisa login lagi.",
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#ef4444',
@@ -1509,7 +1502,7 @@
                             </div>
                         </td>
                         <td class="p-3 text-slate-600">${emp.role}</td>
-                        <td class="p-3 text-emerald-600 text-xs font-semibold">Firebase Auth</td>
+                        <td class="p-3 text-slate-400 text-xs truncate max-w-[100px]">Ter-enkripsi</td>
                         <td class="p-3 text-center space-y-1 sm:space-y-0">
                             ${hasDevice}
                             <div class="inline-flex flex-wrap gap-1 justify-center w-full mt-1 sm:mt-0">
