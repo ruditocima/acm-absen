@@ -1131,24 +1131,42 @@
             const role = document.getElementById('setting-emp-role').value.trim();
             const passwordInput = document.getElementById('setting-emp-password').value.trim();
 
-            if (!id || !name || !role || !passwordInput) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
-
-            const hashedPassword = await hashPassword(passwordInput);
-            const empData = { id, name, role, password: hashedPassword };
+            if (!id || !name || !role) { 
+                Swal.fire('Gagal', 'Mohon isi ID, Nama, dan Role karyawan.', 'warning'); 
+                return; 
+            }
 
             try {
+                let empData = { id, name, role };
+                
+                // Jika password diisi, hash password baru. Jika kosong saat edit, pertahankan password lama.
+                if (passwordInput) {
+                    empData.password = await hashPassword(passwordInput);
+                } else if (editingEmployeeId) {
+                    const existingEmp = employees.find(e => e.id === editingEmployeeId);
+                    if (existingEmp && existingEmp.password) {
+                        empData.password = existingEmp.password;
+                    }
+                } else {
+                    Swal.fire('Gagal', 'Mohon masukkan password untuk karyawan baru.', 'warning');
+                    return;
+                }
+
                 if (editingEmployeeId) {
                     await db.collection("employees").doc(editingEmployeeId).set(empData, { merge: true });
                     Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
                 } else {
                     const existingCheck = employees.find(e => e.id === id);
-                    if (existingCheck) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); return; }
-                    
+                    if (existingCheck) { 
+                        Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); 
+                        return; 
+                    }
                     await db.collection("employees").doc(id).set(empData);
                     Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
                 }
                 cancelEmployeeEdit();
             } catch(e) {
+                console.error(e);
                 Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
             }
         }
@@ -1161,6 +1179,7 @@
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
             document.getElementById('setting-emp-password').value = '';
+            document.getElementById('setting-emp-password').placeholder = 'Kosongkan jika tidak diubah';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
@@ -1176,6 +1195,7 @@
             document.getElementById('setting-emp-name').value = '';
             document.getElementById('setting-emp-role').value = '';
             document.getElementById('setting-emp-password').value = '';
+            document.getElementById('setting-emp-password').placeholder = 'Password login...';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-user-plus"></i> TAMBAH KARYAWAN BARU';
