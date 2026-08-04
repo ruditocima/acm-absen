@@ -393,6 +393,17 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 3. INISIALISASI / MANUAL SEEDING PANEL -->
+                    <div class="glass-card p-5 sm:p-8 rounded-2xl space-y-4 border-l-4 border-l-indigo-600">
+                        <div>
+                            <h3 class="text-base sm:text-lg font-bold text-slate-900">Inisialisasi Data Awal (Manual Seeding)</h3>
+                            <p class="text-xs text-slate-500 mt-1">Gunakan tombol ini hanya jika Anda perlu mengisi ulang data default basecamp dan akun admin/karyawan ke Firestore secara manual.</p>
+                        </div>
+                        <button onclick="manualSeedData()" class="w-full md:w-auto px-8 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-indigo-500/30 transition-all flex items-center justify-center gap-2 text-sm">
+                            JALANKAN MANUAL SEEDING DATA
+                        </button>
+                    </div>
                 </section>
 
                 <!-- SECTION: GANTI PASSWORD -->
@@ -513,7 +524,7 @@
             backdrop.classList.toggle('hidden');
         }
 
-        // ================= 2. STATE APLIKASI & SEEDING OTOMATIS =================
+        // ================= 2. STATE APLIKASI & MANUAL SEEDING =================
         let currentUser = null;
         let editingBasecampId = null;
         let editingEmployeeId = null;
@@ -550,7 +561,37 @@
                 await db.collection("basecamps").doc(b.id).set(b, { merge: true });
             }
         }
-        seedInitialData();
+
+        async function manualSeedData() {
+            const result = await Swal.fire({
+                title: 'Jalankan Seeding Data Awal?',
+                text: 'Tindakan ini akan memperbarui/menambahkan data default basecamp dan akun karyawan ke database.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Jalankan!'
+            });
+
+            if (result.isConfirmed) {
+                try {
+                    Swal.fire({
+                        title: 'Memproses Seeding...',
+                        text: 'Menyimpan data awal ke Firestore...',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+
+                    await seedInitialData();
+
+                    Swal.fire('Berhasil!', 'Data awal berhasil di-seed ke database.', 'success');
+                } catch (error) {
+                    console.error("Seeding error:", error);
+                    Swal.fire('Gagal', 'Terjadi kesalahan saat melakukan seeding data.', 'error');
+                }
+            }
+        }
+        // (Eksekusi otomatis seedInitialData() telah dihapus untuk menghemat kuota kueri database)
 
         // ================= 3. FIRESTORE REAL-TIME LISTENERS =================
         db.collection("employees").onSnapshot((snapshot) => {
@@ -774,7 +815,7 @@
             if (loginType === 'pm') {
                 const pmEmp = employees.find(e => e.id === 'ACM-YOFC-001' || (e.role || '').toLowerCase().includes('project manager') || (e.role || '').toLowerCase().includes('administrator'));
                 if (!pmEmp) {
-                    Swal.fire('Gagal Login', 'Akun Project Manager belum termuat dari server. Coba beberapa saat lagi.', 'error');
+                    Swal.fire('Gagal Login', 'Akun Project Manager belum termuat dari server atau belum di-seed. Lakukan manual seeding di pengaturan jika database kosong.', 'error');
                     return;
                 }
                 if (pmEmp.password !== hashedInputPass) {
