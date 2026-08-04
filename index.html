@@ -191,27 +191,14 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 glass-card p-5 sm:p-6 rounded-2xl space-y-4">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div class="glass-card p-5 sm:p-6 rounded-2xl space-y-4">
                             <div class="flex justify-between items-center">
                                 <h3 class="text-sm sm:text-base font-bold text-slate-900">Aktivitas Check-In Real-Time</h3>
                                 <button onclick="switchTab('rekap')" class="text-xs text-blue-600 font-bold hover:underline">Lihat Semua Data</button>
                             </div>
                             <div id="recent-activity-list" class="space-y-3">
                                 <!-- Populated dynamically -->
-                            </div>
-                        </div>
-
-                        <div class="glass-card p-5 sm:p-6 rounded-2xl space-y-4">
-                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Informasi Proyek Aktif</h3>
-                            <div class="space-y-3 text-sm">
-                                <div class="p-3 bg-blue-50/70 rounded-xl border border-blue-100">
-                                    <p class="font-bold text-blue-900 text-xs sm:text-sm">PT YOFC International Indonesia</p>
-                                    <p class="text-xs text-blue-700 mt-1">FTTH Regional Deployment Project</p>
-                                </div>
-                                <div id="active-project-list" class="space-y-2 text-xs text-slate-600">
-                                    <!-- Populated dynamically via JS -->
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -647,7 +634,6 @@
                 renderAdminBasecampTable();
             }
             updateDashboardCounters();
-            updateActiveProjects(); // <-- Tambahkan baris ini agar dashboard otomatis update
         });
 
         db.collection("attendance").onSnapshot((snapshot) => {
@@ -884,6 +870,12 @@
 
             const titles = { 'dashboard': 'Dashboard Utama', 'live-gps': 'Live GPS Check-In & Geofencing', 'rekap': 'Rekap Data Absensi Karyawan', 'settings': 'Manajemen Sistem & Data' };
             document.getElementById('page-title').textContent = titles[tabId];
+
+            // Trigger render tabel saat tab settings dibuka
+            if (tabId === 'settings') {
+                renderAdminBasecampTable();
+                renderAdminEmployeeTable();
+            }
 
             if (tabId === 'live-gps') {
                 if (!map) {
@@ -1235,6 +1227,7 @@
 
         function renderAdminEmployeeTable() {
             const tbody = document.getElementById('employee-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             if (employees.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Belum ada karyawan terdaftar.</td></tr>`;
@@ -1272,7 +1265,6 @@
         async function saveBasecamp() {
             const name = document.getElementById('setting-bc-name').value;
             
-            // Perbaikan koma menjadi titik untuk koordinat
             const rawLat = document.getElementById('setting-lat').value.replace(',', '.');
             const rawLng = document.getElementById('setting-lng').value.replace(',', '.');
             
@@ -1343,6 +1335,7 @@
 
         function renderAdminBasecampTable() {
             const tbody = document.getElementById('basecamp-table-body');
+            if(!tbody) return;
             tbody.innerHTML = '';
             if (basecamps.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada basecamp terdaftar.</td></tr>`;
@@ -1369,17 +1362,6 @@
             const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
             document.getElementById('stat-hadir').textContent = uniqueAttendance.length;
             document.getElementById('stat-total-karyawan').textContent = employees.length;
-        }
-
-        // Perbaikan tambahan fungsi untuk dashboard dinamis
-        function updateActiveProjects() {
-            const container = document.getElementById('active-project-list');
-            if(!container) return;
-            container.innerHTML = '';
-            basecamps.forEach((bc, index) => {
-                const statusText = index === 0 ? "HQ / Active" : "Active";
-                container.innerHTML += `<p class="flex justify-between"><span>${bc.name}:</span> <strong class="text-slate-800">${statusText}</strong></p>`;
-            });
         }
 
         function renderTable(filter = '', startDate = '', endDate = '') {
