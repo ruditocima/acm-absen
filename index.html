@@ -443,61 +443,20 @@
         }
 
         // ================= PWA & SERVICE WORKER SETUP =================
-        if ('serviceWorker' in navigator && window.location.protocol !== 'blob:') {
-            const swCode = `
-                const CACHE_NAME = 'acm-absensi-pwa-v1';
-                const urlsToCache = [
-                    './',
-                    'https://cdn.tailwindcss.com',
-                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
-                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
-                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-                    'https://cdn.jsdelivr.net/npm/sweetalert2@11',
-                    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-                ];
-
-                self.addEventListener('install', event => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME).then(cache => {
-                            return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
-                        })
-                    );
-                    self.skipWaiting();
-                });
-
-                self.addEventListener('activate', event => {
-                    event.waitUntil(
-                        caches.keys().then(cacheNames => {
-                            return Promise.all(
-                                cacheNames.map(cacheName => {
-                                    if (cacheName !== CACHE_NAME) {
-                                        return caches.delete(cacheName);
-                                    }
-                                })
-                            );
-                        })
-                    );
-                    self.clients.claim();
-                });
-
-                self.addEventListener('fetch', event => {
-                    event.respondWith(
-                        caches.match(event.request).then(response => {
-                            return response || fetch(event.request).catch(() => {
-                                // Fallback handler if offline
-                            });
-                        })
-                    );
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'text/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl)
-                .then(reg => console.log('PWA Service Worker registered successfully!', reg))
-                .catch(err => console.log('PWA Service Worker registration failed:', err));
-        }
+        <script>
+  // Pendaftaran PWA Service Worker yang aman dan valid untuk browser
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((registration) => {
+          console.log('PWA Service Worker registered successfully with scope:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('PWA Service Worker registration failed:', error);
+        });
+    });
+  }
+</script>
 
         // Dynamic Web App Manifest Injection (Fixed start_url for relative paths)
         const manifestData = {
