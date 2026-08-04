@@ -124,6 +124,9 @@
                 <a href="#" onclick="switchTab('settings')" id="nav-settings" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
                     <i class="fa-solid fa-gear w-5"></i> Pengaturan Sistem
                 </a>
+                <a href="#" onclick="switchTab('change-password')" id="nav-change-password" class="nav-item flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors text-slate-300 hover:text-white hover:bg-slate-800/60">
+                    <i class="fa-solid fa-key w-5"></i> Ganti Password
+                </a>
             </nav>
 
             <div class="p-4 m-4 bg-slate-800/50 rounded-2xl border border-slate-800">
@@ -402,6 +405,33 @@
                                 </table>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- SECTION: GANTI PASSWORD -->
+                <section id="sec-change-password" class="hidden space-y-6">
+                    <div class="glass-card p-5 sm:p-8 rounded-2xl max-w-xl mx-auto space-y-6">
+                        <div>
+                            <h3 class="text-base sm:text-lg font-bold text-slate-900">Ganti Password Akun</h3>
+                            <p class="text-xs text-slate-500 mt-1">Perbarui kata sandi Anda secara berkala untuk menjaga keamanan akun.</p>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Password Saat Ini</label>
+                                <input type="password" id="cp-current" placeholder="Masukkan password saat ini..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Password Baru</label>
+                                <input type="password" id="cp-new" placeholder="Masukkan password baru..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 uppercase mb-2">Konfirmasi Password Baru</label>
+                                <input type="password" id="cp-confirm" placeholder="Ulangi password baru..." class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            </div>
+                        </div>
+                        <button onclick="processChangePassword()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 sm:py-4 rounded-xl shadow-lg shadow-blue-500/30 transition-all flex items-center justify-center gap-2 text-sm sm:text-base">
+                            <i class="fa-solid fa-floppy-disk"></i> SIMPAN PASSWORD BARU
+                        </button>
                     </div>
                 </section>
             </div>
@@ -799,9 +829,13 @@
             const navLiveGps = document.getElementById('nav-live-gps');
             const navRekap = document.getElementById('nav-rekap');
             const navSettings = document.getElementById('nav-settings');
+            const navChangePassword = document.getElementById('nav-change-password');
 
             const isPMOrAdmin = type === 'pm' || role.includes('project manager') || role.includes('administrator');
             const isAdmin = type === 'admin' || (role.includes('admin') && !isPMOrAdmin);
+
+            // Menu ganti password tersedia untuk semua role
+            navChangePassword.style.display = 'flex';
 
             if (isPMOrAdmin) {
                 navDashboard.style.display = 'flex';
@@ -858,7 +892,7 @@
                 }
             }
 
-            ['dashboard', 'live-gps', 'rekap', 'settings'].forEach(t => {
+            ['dashboard', 'live-gps', 'rekap', 'settings', 'change-password'].forEach(t => {
                 const sec = document.getElementById('sec-' + t);
                 const nav = document.getElementById('nav-' + t);
                 if (sec) sec.classList.add('hidden');
@@ -868,10 +902,15 @@
             document.getElementById('sec-' + tabId).classList.remove('hidden');
             document.getElementById('nav-' + tabId).classList.add('active', 'border-l-4', 'border-blue-500', 'bg-slate-800', 'text-white');
 
-            const titles = { 'dashboard': 'Dashboard Utama', 'live-gps': 'Live GPS Check-In & Geofencing', 'rekap': 'Rekap Data Absensi Karyawan', 'settings': 'Manajemen Sistem & Data' };
+            const titles = { 
+                'dashboard': 'Dashboard Utama', 
+                'live-gps': 'Live GPS Check-In & Geofencing', 
+                'rekap': 'Rekap Data Absensi Karyawan', 
+                'settings': 'Manajemen Sistem & Data',
+                'change-password': 'Ganti Password Mandiri'
+            };
             document.getElementById('page-title').textContent = titles[tabId];
 
-            // Trigger render tabel saat tab dipindahkan (MEMPERBAIKI BUG TABEL KOSONG)
             if (tabId === 'settings') {
                 renderAdminBasecampTable();
                 renderAdminEmployeeTable();
@@ -1129,7 +1168,56 @@
             localStorage.setItem('acm_offline_attendance_queue', JSON.stringify(queue));
         }
 
-        // ================= 7. MANAJEMEN KARYAWAN =================
+        // ================= 7. GANTI PASSWORD MANDIRI =================
+        async function processChangePassword() {
+            const currentPass = document.getElementById('cp-current').value;
+            const newPass = document.getElementById('cp-new').value;
+            const confirmPass = document.getElementById('cp-confirm').value;
+
+            if (!currentPass || !newPass || !confirmPass) {
+                Swal.fire('Gagal', 'Mohon isi seluruh form untuk mengganti password.', 'warning');
+                return;
+            }
+
+            if (newPass !== confirmPass) {
+                Swal.fire('Gagal', 'Password baru dan konfirmasi tidak cocok!', 'error');
+                return;
+            }
+
+            const hashedCurrent = await hashPassword(currentPass);
+            if (hashedCurrent !== currentUser.password) {
+                Swal.fire('Gagal', 'Password Anda saat ini salah!', 'error');
+                return;
+            }
+
+            const hashedNew = await hashPassword(newPass);
+
+            try {
+                Swal.fire({
+                    title: 'Menyimpan...',
+                    text: 'Sedang memperbarui password Anda.',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                await db.collection("employees").doc(currentUser.id).update({
+                    password: hashedNew
+                });
+
+                currentUser.password = hashedNew; // Perbarui di memori lokal
+                
+                // Kosongkan form
+                document.getElementById('cp-current').value = '';
+                document.getElementById('cp-new').value = '';
+                document.getElementById('cp-confirm').value = '';
+
+                Swal.fire('Berhasil!', 'Password Anda berhasil diperbarui.', 'success');
+            } catch (error) {
+                Swal.fire('Error Database', 'Gagal menghubungi server untuk mengubah password.', 'error');
+            }
+        }
+
+        // ================= 8. MANAJEMEN KARYAWAN =================
         async function saveEmployee() {
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
@@ -1244,252 +1332,26 @@
                 
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-3 font-mono text-xs text-slate-500">${emp.id}</td>
-                        <td class="p-3 font-semibold text-slate-800">
+                        <td class="p-3 font-semibold text-slate-900">${emp.id}</td>
+                        <td class="p-3">
                             <div class="flex items-center gap-3">
-                                <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${initials}</div>
-                                <div>
-                                    <span class="text-xs sm:text-sm">${emp.name}</span>
-                                    <div class="mt-0.5">${hasDevice}</div>
-                                </div>
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">${initials}</div>
+                                <span class="font-medium text-slate-700">${emp.name}</span>
                             </div>
                         </td>
-                        <td class="p-3 text-xs sm:text-sm text-slate-600">${emp.role}</td>
-                        <td class="p-3 font-mono text-xs text-slate-600">${emp.password ? 'Ter-enkripsi' : '-'}</td>
-                        <td class="p-3 text-center whitespace-nowrap">
-                            <button onclick="editEmployee(${index})" title="Edit Karyawan" class="text-blue-500 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="resetDeviceBinding('${emp.id}')" title="Reset HP / Perangkat" class="text-amber-500 hover:bg-amber-50 px-2.5 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-mobile-screen-button"></i></button>
-                            <button onclick="removeEmployee(${index})" title="Hapus Karyawan" class="text-red-500 hover:bg-red-50 px-2.5 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
+                        <td class="p-3 text-slate-600">${emp.role}</td>
+                        <td class="p-3 text-slate-400 text-xs truncate max-w-[100px]">Ter-enkripsi</td>
+                        <td class="p-3 text-center space-y-1 sm:space-y-0">
+                            ${hasDevice}
+                            <div class="inline-flex flex-wrap gap-1 justify-center w-full mt-1 sm:mt-0">
+                                <button onclick="resetDeviceBinding('${emp.id}')" title="Reset Perangkat" class="bg-amber-100 hover:bg-amber-200 text-amber-700 p-1.5 rounded-lg transition-colors"><i class="fa-solid fa-mobile-screen-button text-xs"></i></button>
+                                <button onclick="editEmployee(${index})" title="Edit Karyawan" class="bg-blue-100 hover:bg-blue-200 text-blue-700 p-1.5 rounded-lg transition-colors"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button onclick="removeEmployee(${index})" title="Hapus Karyawan" class="bg-red-100 hover:bg-red-200 text-red-700 p-1.5 rounded-lg transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
                         </td>
                     </tr>
                 `;
             });
-        }
-
-        // ================= 8. MANAJEMEN BASECAMP =================
-        async function saveBasecamp() {
-            const name = document.getElementById('setting-bc-name').value;
-            
-            const rawLat = document.getElementById('setting-lat').value.replace(',', '.');
-            const rawLng = document.getElementById('setting-lng').value.replace(',', '.');
-            
-            const lat = parseFloat(rawLat);
-            const lng = parseFloat(rawLng);
-            const radius = parseInt(document.getElementById('setting-radius').value);
-
-            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) { Swal.fire('Gagal', 'Mohon isi semua parameter koordinat.', 'warning'); return; }
-
-            const bcId = editingBasecampId ? editingBasecampId.toString() : Date.now().toString();
-            const bcData = { id: bcId, name, lat, lng, radius };
-
-            try {
-                await db.collection("basecamps").doc(bcId).set(bcData);
-                Swal.fire('Berhasil!', `Basecamp ${name} berhasil disinkronkan ke server.`, 'success');
-                cancelEdit();
-            } catch(e) {
-                Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
-            }
-        }
-
-        function editBasecamp(index) {
-            const bc = basecamps[index];
-            editingBasecampId = bc.id;
-            document.getElementById('setting-bc-name').value = bc.name;
-            document.getElementById('setting-lat').value = bc.lat;
-            document.getElementById('setting-lng').value = bc.lng;
-            document.getElementById('setting-radius').value = bc.radius;
-            
-            const btnSave = document.getElementById('btn-save-basecamp');
-            btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
-            btnSave.classList.replace('bg-blue-600', 'bg-emerald-600');
-            btnSave.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
-            document.getElementById('btn-cancel-edit').classList.remove('hidden');
-        }
-
-        function cancelEdit() {
-            editingBasecampId = null;
-            document.getElementById('setting-bc-name').value = '';
-            document.getElementById('setting-lat').value = '';
-            document.getElementById('setting-lng').value = '';
-            document.getElementById('setting-radius').value = '150';
-            
-            const btnSave = document.getElementById('btn-save-basecamp');
-            btnSave.innerHTML = '<i class="fa-solid fa-plus"></i> TAMBAH BASECAMP BARU';
-            btnSave.classList.replace('bg-emerald-600', 'bg-blue-600');
-            btnSave.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
-            document.getElementById('btn-cancel-edit').classList.add('hidden');
-        }
-
-        function removeBasecamp(index) {
-            Swal.fire({
-                title: 'Hapus Basecamp?',
-                text: "Dihapus dari server! Karyawan tidak akan bisa check-in di titik ini lagi.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#64748b',
-                confirmButtonText: 'Ya, Hapus!'
-            }).then(async (result) => {
-                if (result.isConfirmed) {
-                    const bcId = basecamps[index].id.toString();
-                    if (editingBasecampId === bcId) cancelEdit();
-                    await db.collection("basecamps").doc(bcId).delete();
-                }
-            });
-        }
-
-        function renderAdminBasecampTable() {
-            const tbody = document.getElementById('basecamp-table-body');
-            if(!tbody) return;
-            tbody.innerHTML = '';
-            if (basecamps.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada basecamp terdaftar.</td></tr>`;
-                return;
-            }
-            basecamps.forEach((bc, index) => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="p-3 font-semibold text-xs sm:text-sm text-slate-800">${bc.name}</td>
-                        <td class="p-3 font-mono text-xs text-slate-500">${bc.lat}, ${bc.lng}</td>
-                        <td class="p-3 text-xs sm:text-sm text-slate-600">${bc.radius}m</td>
-                        <td class="p-3 text-center whitespace-nowrap">
-                            <button onclick="editBasecamp(${index})" class="text-blue-500 hover:bg-blue-50 px-3 py-1.5 rounded-lg mr-1"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="removeBasecamp(${index})" class="text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-
-        // ================= 9. REKAP, FILTER & DASHBOARD =================
-        function updateDashboardCounters() {
-            document.getElementById('stat-basecamp-count').textContent = basecamps.length;
-            const uniqueAttendance = [...new Set(attendanceRecords.map(item => item.id))];
-            document.getElementById('stat-hadir').textContent = uniqueAttendance.length;
-            document.getElementById('stat-total-karyawan').textContent = employees.length;
-        }
-
-        function renderTable(filter = '', startDate = '', endDate = '') {
-            const tbody = document.getElementById('attendance-table-body');
-            tbody.innerHTML = '';
-
-            const start = startDate ? new Date(startDate) : null;
-            if (start) start.setHours(0, 0, 0, 0);
-
-            const end = endDate ? new Date(endDate) : null;
-            if (end) end.setHours(23, 59, 59, 999);
-
-            // MEMPERBAIKI BUG FILTER CRASH JIKA ADA DATA NULL/KOSONG
-            const filtered = attendanceRecords.filter(r => {
-                const searchStr = (filter || '').toLowerCase();
-                const nameStr = (r.name || '').toLowerCase();
-                const roleStr = (r.role || '').toLowerCase();
-                const bcStr = (r.basecamp || '').toLowerCase();
-
-                const matchesSearch = nameStr.includes(searchStr) || 
-                                      roleStr.includes(searchStr) ||
-                                      bcStr.includes(searchStr);
-
-                if (!matchesSearch) return false;
-
-                if (start || end) {
-                    if (!r.dateObj) return false;
-                    const rDate = new Date(r.dateObj);
-                    rDate.setHours(0, 0, 0, 0);
-
-                    if (start && rDate < start) return false;
-                    if (end && rDate > end) return false;
-                }
-
-                return true;
-            });
-
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400">Tidak ada data absensi yang sesuai dengan filter.</td></tr>`;
-                return;
-            }
-
-            filtered.forEach(r => {
-                // Safeguard against missing names
-                const displayName = r.name || 'Tidak Diketahui';
-                const displayId = r.id || '-';
-                const initials = displayName.split(' ').map(n => n[0]).join('').substring(0,2) || '?';
-                
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-50/60 transition-colors">
-                        <td class="p-4">
-                            <div class="flex items-center gap-3">
-                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs shrink-0">${initials}</div>
-                                <div>
-                                    <p class="font-bold text-xs sm:text-sm text-slate-900">${displayName}</p>
-                                    <p class="text-[10px] sm:text-xs text-slate-400">ID: ${displayId}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="p-4 text-xs sm:text-sm text-slate-600">${r.role || '-'}</td>
-                        <td class="p-4 text-xs sm:text-sm text-slate-600 font-semibold"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp || '-'}</td>
-                        <td class="p-4 font-mono text-xs sm:text-sm text-slate-700">${r.time || '-'}</td>
-                        <td class="p-4"><span class="px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold border ${r.badgeClass}">${r.status}</span></td>
-                    </tr>
-                `;
-            });
-        }
-
-        function handleFilterChange() {
-            const searchVal = document.getElementById('searchInput').value;
-            const startVal = document.getElementById('startDate').value;
-            const endVal = document.getElementById('endDate').value;
-            renderTable(searchVal, startVal, endVal);
-        }
-
-        document.getElementById('searchInput').addEventListener('keyup', handleFilterChange);
-        document.getElementById('startDate').addEventListener('change', handleFilterChange);
-        document.getElementById('endDate').addEventListener('change', handleFilterChange);
-
-        function renderRecentActivity() {
-            const recentContainer = document.getElementById('recent-activity-list');
-            if(!recentContainer) return;
-            recentContainer.innerHTML = '';
-            
-            const recent = attendanceRecords.slice(0, 3);
-            if(recent.length === 0) {
-                recentContainer.innerHTML = '<p class="text-sm text-slate-400">Belum ada aktivitas hari ini.</p>';
-            }
-
-            recent.forEach(r => {
-                const displayName = r.name || 'Tidak Diketahui';
-                const initials = displayName.split(' ').map(n => n[0]).join('').substring(0,2) || '?';
-                const isLate = r.status === "Terlambat";
-                const badgeBg = isLate ? "bg-red-100 text-red-700 border-red-200" : "bg-emerald-100 text-emerald-700 border-emerald-200";
-                
-                recentContainer.innerHTML += `
-                    <div class="flex items-center justify-between p-3.5 sm:p-4 bg-slate-50 rounded-xl border border-slate-100 gap-2">
-                        <div class="flex items-center gap-3 overflow-hidden">
-                            <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs sm:text-sm shrink-0">${initials}</div>
-                            <div class="overflow-hidden">
-                                <p class="text-xs sm:text-sm font-bold text-slate-900 truncate">${displayName} <span class="text-[10px] sm:text-xs px-2 py-0.5 ${badgeBg} rounded-md ml-1 font-normal inline-block">${r.status}</span></p>
-                                <p class="text-[10px] sm:text-xs text-slate-500 truncate"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${r.basecamp || '-'} • ${r.time || '-'}</p>
-                            </div>
-                        </div>
-                        <span class="text-[10px] sm:text-xs font-mono font-bold ${isLate ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-600 bg-emerald-50 border-emerald-200'} px-2.5 py-1 rounded-lg border shrink-0">${isLate ? 'LATE' : 'OK'}</span>
-                    </div>
-                `;
-            });
-        }
-
-        function exportCSV() {
-            let csv = 'ID,Nama Karyawan,Role,Basecamp,Waktu,Status\n';
-            attendanceRecords.forEach(r => {
-                csv += `"${r.id || '-'}","${r.name || '-'}","${r.role || '-'}","${r.basecamp || '-'}","${r.time || '-'}","${r.status || '-'}"\n`;
-            });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.setAttribute('href', url);
-            a.setAttribute('download', 'Rekap_Absensi_OpsTrack.csv');
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
         }
     </script>
 </body>
