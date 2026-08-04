@@ -465,83 +465,9 @@
             localStorage.setItem('acm_device_uuid', currentDeviceId);
         }
 
-        // ================= PWA & SERVICE WORKER SETUP =================
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                const CACHE_NAME = 'acm-absensi-pwa-v1';
-                const urlsToCache = [
-                    './',
-                    'https://cdn.tailwindcss.com',
-                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
-                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
-                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-                    'https://cdn.jsdelivr.net/npm/sweetalert2@11',
-                    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-                ];
-
-                self.addEventListener('install', event => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME).then(cache => {
-                            return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
-                        })
-                    );
-                    self.skipWaiting();
-                });
-
-                self.addEventListener('activate', event => {
-                    event.waitUntil(
-                        caches.keys().then(cacheNames => {
-                            return Promise.all(
-                                cacheNames.map(cacheName => {
-                                    if (cacheName !== CACHE_NAME) {
-                                        return caches.delete(cacheName);
-                                    }
-                                })
-                            );
-                        })
-                    );
-                    self.clients.claim();
-                });
-
-                self.addEventListener('fetch', event => {
-                    event.respondWith(
-                        caches.match(event.request).then(response => {
-                            return response || fetch(event.request).catch(() => {});
-                        })
-                    );
-                });
-            `;
-            const blob = new Blob([swCode], { type: 'text/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            navigator.serviceWorker.register(swUrl)
-                .then(reg => console.log('PWA Service Worker registered successfully!', reg))
-                .catch(err => console.log('PWA Service Worker registration failed:', err));
-        }
-
-        // Dynamic Web App Manifest Injection
-        const manifestData = {
-            "name": "ACM Absensi Lapangan",
-            "short_name": "ACM Absensi",
-            "start_url": "./",
-            "display": "standalone",
-            "background_color": "#f1f5f9",
-            "theme_color": "#0f172a",
-            "icons": [
-                {
-                    "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/fingerprint.svg",
-                    "sizes": "512x512",
-                    "type": "image/svg+xml"
-                }
-            ]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
-        const manifestURL = URL.createObjectURL(manifestBlob);
-        const linkTag = document.createElement('link');
-        linkTag.setAttribute('rel', 'manifest');
-        linkTag.setAttribute('href', manifestURL);
-        document.head.appendChild(linkTag);
+        // ================= PWA & OFFLINE QUEUE SETUP =================
+        // Catatan: Service Worker via Blob URL diblokir oleh browser modern (TypeError).
+        // Fitur antrean offline (offline queue) tetap berjalan normal via localStorage & event online/offline.
 
         window.addEventListener('online', async () => {
             await syncOfflineQueue();
@@ -585,6 +511,28 @@
                 Swal.fire('Sinkronisasi Sebagian', `${queue.length - remainingQueue.length} data terkirim, ${remainingQueue.length} data gagal.`, 'warning');
             }
         }
+
+        // Dynamic Web App Manifest Injection (Menggunakan Data URI agar start_url valid)
+        const manifestData = {
+            "name": "ACM Absensi Lapangan",
+            "short_name": "ACM Absensi",
+            "start_url": window.location.pathname,
+            "display": "standalone",
+            "background_color": "#f1f5f9",
+            "theme_color": "#0f172a",
+            "icons": [
+                {
+                    "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/fingerprint.svg",
+                    "sizes": "512x512",
+                    "type": "image/svg+xml"
+                }
+            ]
+        };
+        const manifestURL = 'data:application/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestData));
+        const linkTag = document.createElement('link');
+        linkTag.setAttribute('rel', 'manifest');
+        linkTag.setAttribute('href', manifestURL);
+        document.head.appendChild(linkTag);
 
         // ================= HELPER: SHA-256 PASSWORD HASHING =================
         async function hashPassword(string) {
