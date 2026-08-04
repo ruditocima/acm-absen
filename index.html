@@ -60,7 +60,7 @@
             </div>
         </template>
 
-        <!-- KARYAWAN CHECK-IN PORTAL (MOBILE OR SIMULATION MODE) -->
+        <!-- KARYAWAN CHECK-IN & IZIN PORTAL (MOBILE OR SIMULATION MODE) -->
         <template x-if="!isAdminView && (!isDesktopDevice || simulationMode)">
             <div class="max-w-md mx-auto">
                 <!-- High Brightness Outdoor Banner -->
@@ -72,43 +72,122 @@
                     <span class="text-xs bg-slate-950 text-amber-400 px-2 py-1 rounded-md" x-show="simulationMode">Simulasi On</span>
                 </div>
 
-                <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                    <div class="text-center mb-6">
-                        <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
-                        <p class="text-xs font-semibold text-slate-600 mt-1">Masukkan ID Karyawan dan Password Anda</p>
-                    </div>
-
-                    <form @submit.prevent="handleCheckIn" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                            <input type="text" x-model="loginId" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: EMP001">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                            <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
-                        </div>
-
-                        <!-- GPS & Basecamp Status Box -->
-                        <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-400">Status GPS:</span>
-                                <span class="font-bold text-emerald-400" x-text="gpsStatus"></span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-400">Basecamp Terdekat:</span>
-                                <span class="font-bold text-amber-400" x-text="detectedBasecamp ? detectedBasecamp.name : 'Mencari Lokasi...'"></span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-400">Akurasi & Keamanan GPS:</span>
-                                <span class="font-bold" :class="gpsAccuracy < 50 ? 'text-emerald-400' : 'text-red-400'" x-text="gpsAccuracy ? gpsAccuracy + ' meter' : 'Memuat...'"></span>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                            <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
-                        </button>
-                    </form>
+                <!-- Employee Sub-Tab Navigation -->
+                <div class="flex bg-slate-900 p-1.5 rounded-2xl mb-6 border border-slate-800">
+                    <button @click="employeeTab = 'checkin'" :class="employeeTab === 'checkin' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
+                        <i class="fa-solid fa-fingerprint mr-1"></i> Check-in Absen
+                    </button>
+                    <button @click="employeeTab = 'pengajuan'" :class="employeeTab === 'pengajuan' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
+                        <i class="fa-solid fa-file-pen mr-1"></i> Ajukan Izin/Sakit
+                    </button>
                 </div>
+
+                <!-- SUB-TAB 1: CHECK-IN ABSEN -->
+                <template x-if="employeeTab === 'checkin'">
+                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
+                        <div class="text-center mb-6">
+                            <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
+                            <p class="text-xs font-semibold text-slate-600 mt-1">Masukkan ID Karyawan dan Password Anda</p>
+                        </div>
+
+                        <form @submit.prevent="handleCheckIn" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                                <input type="text" x-model="loginId" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: EMP001">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                                <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
+                            </div>
+
+                            <!-- GPS & Basecamp Status Box -->
+                            <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Status GPS:</span>
+                                    <span class="font-bold text-emerald-400" x-text="gpsStatus"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Basecamp Terdekat:</span>
+                                    <span class="font-bold text-amber-400" x-text="detectedBasecamp ? detectedBasecamp.name : 'Mencari Lokasi...'"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Akurasi & Keamanan GPS:</span>
+                                    <span class="font-bold" :class="gpsAccuracy < 50 ? 'text-emerald-400' : 'text-red-400'" x-text="gpsAccuracy ? gpsAccuracy + ' meter' : 'Memuat...'"></span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                                <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
+                            </button>
+                        </form>
+                    </div>
+                </template>
+
+                <!-- SUB-TAB 2: PENGAJUAN IZIN / SAKIT / CUTI -->
+                <template x-if="employeeTab === 'pengajuan'">
+                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-2xl font-black text-slate-900">Pengajuan Izin / Sakit</h2>
+                            <p class="text-xs font-semibold text-slate-600 mt-1">Kirimkan permohonan ketidakhadiran kepada Admin/PM</p>
+                        </div>
+
+                        <form @submit.prevent="submitLeaveRequest" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                                    <input type="text" x-model="leaveForm.empId" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: EMP001">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Pengajuan</label>
+                                    <select x-model="leaveForm.type" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                        <option value="Sakit">Sakit</option>
+                                        <option value="Izin">Izin</option>
+                                        <option value="Cuti">Cuti</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dari Tanggal</label>
+                                    <input type="date" x-model="leaveForm.startDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sampai Tanggal</label>
+                                    <input type="date" x-model="leaveForm.endDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alasan / Keterangan</label>
+                                <textarea x-model="leaveForm.reason" rows="3" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan alasan pengajuan..."></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                                <i class="fa-solid fa-paper-plane mr-2"></i> KIRIM PENGAJUAN
+                            </button>
+                        </form>
+
+                        <!-- Riwayat Pengajuan Berdasarkan ID Karyawan Input -->
+                        <div class="pt-4 border-t border-slate-200">
+                            <h3 class="font-bold text-sm text-slate-900 mb-3">Riwayat Pengajuan Anda</h3>
+                            <div class="space-y-2 max-h-48 overflow-y-auto">
+                                <template x-for="item in employeeLeaves" :key="item.id">
+                                    <div class="bg-slate-100 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                                        <div class="flex justify-between font-bold text-slate-900">
+                                            <span x-text="item.type + ' (' + item.startDate + ' s/d ' + item.endDate + ')'"></span>
+                                            <span class="px-2 py-0.5 rounded text-[10px]" 
+                                                :class="item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-800' : (item.status === 'Ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')" 
+                                                x-text="item.status"></span>
+                                        </div>
+                                        <p class="text-slate-600 text-[11px]" x-text="item.reason"></p>
+                                    </div>
+                                </template>
+                                <template x-if="employeeLeaves.length === 0">
+                                    <p class="text-slate-500 text-xs italic text-center py-2">Masukkan ID Karyawan Anda untuk melihat riwayat.</p>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
             </div>
         </template>
 
@@ -167,9 +246,12 @@
 
                             <div class="flex items-center space-x-3">
                                 <!-- Tabs -->
-                                <div class="flex space-x-2">
+                                <div class="flex flex-wrap gap-2">
                                     <button @click="adminTab = 'rekap'" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
+                                    </button>
+                                    <button @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
                                     </button>
                                     <button @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
@@ -240,7 +322,69 @@
                             </div>
                         </div>
 
-                        <!-- TAB 2: MANAJEMEN BASECAMP -->
+                        <!-- TAB 2: PERSETUJUAN IZIN / SAKIT / CUTI -->
+                        <div x-show="adminTab === 'izin'" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div>
+                                <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti Karyawan</h2>
+                                <p class="text-xs text-slate-400">Tinjau dan setujui atau tolak pengajuan ketidakhadiran dari karyawan.</p>
+                            </div>
+                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
+                                            <th class="p-4">Tanggal Pengajuan</th>
+                                            <th class="p-4">ID / Nama</th>
+                                            <th class="p-4">Jenis</th>
+                                            <th class="p-4">Durasi</th>
+                                            <th class="p-4">Alasan</th>
+                                            <th class="p-4">Status</th>
+                                            <th class="p-4 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        <template x-for="(leave, index) in leaves" :key="leave.id">
+                                            <tr class="hover:bg-slate-900/50 transition">
+                                                <td class="p-4 font-semibold text-slate-300" x-text="leave.timestamp"></td>
+                                                <td class="p-4">
+                                                    <div class="font-bold text-white" x-text="leave.name"></div>
+                                                    <div class="font-mono text-amber-400 text-[10px]" x-text="leave.empId"></div>
+                                                </td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
+                                                        :class="leave.type === 'Sakit' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (leave.type === 'Cuti' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20')" 
+                                                        x-text="leave.type"></span>
+                                                </td>
+                                                <td class="p-4 text-slate-300"><span x-text="leave.startDate"></span> s/d <span x-text="leave.endDate"></span></td>
+                                                <td class="p-4 text-slate-400 max-w-xs truncate" x-text="leave.reason"></td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
+                                                        :class="leave.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : (leave.status === 'Ditolak' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')" 
+                                                        x-text="leave.status"></span>
+                                                </td>
+                                                <td class="p-4 text-center space-x-2">
+                                                    <template x-if="leave.status === 'Pending'">
+                                                        <div class="flex justify-center space-x-1">
+                                                            <button @click="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
+                                                            <button @click="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="leave.status !== 'Pending'">
+                                                        <span class="text-slate-500 italic text-[10px]">Selesai</span>
+                                                    </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <template x-if="leaves.length === 0">
+                                            <tr>
+                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada pengajuan izin atau sakit.</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: MANAJEMEN BASECAMP -->
                         <div x-show="adminTab === 'basecamp'" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -271,7 +415,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB 3: MANAJEMEN KARYAWAN -->
+                        <!-- TAB 4: MANAJEMEN KARYAWAN -->
                         <div x-show="adminTab === 'karyawan'" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -468,7 +612,7 @@
             return false;
         }
 
-        // Simulasi Controller Sisi Server (Backend API Simulation) dengan Strict Mock & GPS Timestamp Check
+        // Simulasi Controller Sisi Server (Backend API Simulation) dengan Strict Mock Check
         async function simulateServerSideValidation(payload) {
             return new Promise((resolve) => {
                 setTimeout(async () => {
@@ -499,19 +643,7 @@
                         return;
                     }
 
-                    // Pengecekan Mock Location ketat (Native Plugin / Web / Akurasi)
                     const isMockDetected = await checkIsMockLocation(currentCoords);
-
-                    // VALIDASI TIMESTAMP GPS: Memastikan koordinat bukan data cache lama (Maksimal usia 45 detik)
-                    if (currentCoords && currentCoords.timestamp && !simulationMode) {
-                        const gpsAge = Date.now() - currentCoords.timestamp;
-                        const MAX_GPS_AGE_MS = 45000; // Batas usia data GPS 45 detik
-                        if (gpsAge > MAX_GPS_AGE_MS) {
-                            resolve({ success: false, message: 'Check-in gagal (Server Validation): Data GPS kedaluwarsa atau terdeteksi koordinat cache lama. Harap perbarui posisi GPS Anda.' });
-                            return;
-                        }
-                    }
-
                     if ((gpsAccuracy > 50 || isMockDetected) && !simulationMode) {
                         resolve({ success: false, message: 'Check-in gagal (Server Validation): Terdeteksi penggunaan Fake GPS / Mock Location atau akurasi GPS buruk!' });
                         return;
@@ -576,6 +708,9 @@
                 simulationMode: false,
                 isDesktopDevice: window.innerWidth >= 1024,
                 
+                // Employee Sub-Tab State
+                employeeTab: 'checkin',
+
                 // Form States
                 loginId: '',
                 loginPass: '',
@@ -583,6 +718,15 @@
                 gpsAccuracy: null,
                 currentCoords: null,
                 detectedBasecamp: null,
+
+                // Leave / Izin Form State
+                leaveForm: {
+                    empId: '',
+                    type: 'Sakit',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: new Date().toISOString().split('T')[0],
+                    reason: ''
+                },
 
                 // Filter Rekap
                 filterStartDate: new Date().toISOString().split('T')[0],
@@ -613,6 +757,7 @@
                     { id: 'EMP002', name: 'Ahmad Fauzi', role: 'Field Technician', password: '123', deviceId: null }
                 ],
                 attendanceLogs: JSON.parse(localStorage.getItem('bc_attendance')) || [],
+                leaves: JSON.parse(localStorage.getItem('bc_leaves')) || [],
 
                 async init() {
                     this.initGPS();
@@ -624,15 +769,11 @@
                         navigator.geolocation.watchPosition(
                             async (position) => {
                                 const isMocked = position.coords.isMocked || await checkIsMockLocation(position.coords);
-                                
-                                // Menyimpan timestamp GPS untuk validasi real-time
                                 this.currentCoords = { 
                                     lat: position.coords.latitude, 
                                     lng: position.coords.longitude,
-                                    timestamp: position.timestamp, 
                                     isMocked: isMocked 
                                 };
-                                
                                 this.gpsAccuracy = Math.round(position.coords.accuracy);
                                 
                                 if (this.gpsAccuracy > 50 || isMocked) {
@@ -746,6 +887,46 @@
                     
                     this.attendanceLogs = JSON.parse(localStorage.getItem('bc_attendance')) || [];
                     this.employees = JSON.parse(localStorage.getItem('bc_employees')) || [];
+                },
+
+                // Leave / Izin Request Methods
+                submitLeaveRequest() {
+                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    if (!emp) {
+                        alert('ID Karyawan tidak ditemukan dalam sistem!');
+                        return;
+                    }
+
+                    const newLeave = {
+                        id: Date.now(),
+                        empId: emp.id,
+                        name: emp.name,
+                        type: this.leaveForm.type,
+                        startDate: this.leaveForm.startDate,
+                        endDate: this.leaveForm.endDate,
+                        reason: this.leaveForm.reason,
+                        status: 'Pending',
+                        timestamp: new Date().toLocaleString('id-ID')
+                    };
+
+                    this.leaves.unshift(newLeave);
+                    localStorage.setItem('bc_leaves', JSON.stringify(this.leaves));
+                    alert('Pengajuan izin/sakit berhasil dikirim dan menunggu persetujuan Admin/PM.');
+                    this.leaveForm.reason = '';
+                },
+
+                updateLeaveStatus(id, status) {
+                    const idx = this.leaves.findIndex(l => l.id === id);
+                    if (idx !== -1) {
+                        this.leaves[idx].status = status;
+                        localStorage.setItem('bc_leaves', JSON.stringify(this.leaves));
+                        alert(`Pengajuan berhasil diubah statusnya menjadi: ${status}`);
+                    }
+                },
+
+                get employeeLeaves() {
+                    if (!this.leaveForm.empId) return [];
+                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
                 },
 
                 // Leaflet Map Methods for Basecamp Modal
