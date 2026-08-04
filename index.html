@@ -257,13 +257,13 @@
                             <div class="flex flex-wrap gap-3 w-full md:w-auto items-center">
                                 <!-- Date Range Picker Filter -->
                                 <div class="flex items-center gap-2 w-full md:w-auto">
-                                    <input type="date" id="startDate" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                                    <input type="date" id="startDate" onchange="handleFilterChange()" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
                                     <span class="text-xs text-slate-400">s/d</span>
-                                    <input type="date" id="endDate" title="Sampai Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
+                                    <input type="date" id="endDate" onchange="handleFilterChange()" title="Sampai Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
                                 </div>
                                 <div class="relative w-full md:w-64">
                                     <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
-                                    <input type="text" id="searchInput" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <input type="text" id="searchInput" oninput="handleFilterChange()" placeholder="Cari nama atau posisi..." class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
                                 <button onclick="exportCSV()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-sm w-full md:w-auto justify-center">
                                     <i class="fa-solid fa-download"></i> Export CSV
@@ -508,9 +508,7 @@
                 self.addEventListener('fetch', event => {
                     event.respondWith(
                         caches.match(event.request).then(response => {
-                            return response || fetch(event.request).catch(() => {
-                                // Fallback handler if offline
-                            });
+                            return response || fetch(event.request).catch(() => {});
                         })
                     );
                 });
@@ -545,7 +543,6 @@
         linkTag.setAttribute('href', manifestURL);
         document.head.appendChild(linkTag);
 
-        // Listen to online event to trigger auto-sync of offline attendance queue
         window.addEventListener('online', async () => {
             await syncOfflineQueue();
         });
@@ -617,7 +614,6 @@
         let basecamps = [];
         let attendanceRecords = [];
 
-        // --- SKRIP SEEDING (Menggunakan merge: true agar password ter-update otomatis) ---
         async function seedInitialData() {
             const pass123 = await hashPassword("123");
             const passRudi = await hashPassword("Ounyenk2018#");
@@ -650,18 +646,16 @@
         db.collection("employees").onSnapshot((snapshot) => {
             employees = [];
             snapshot.forEach((doc) => { employees.push(doc.data()); });
-            if (currentUser && (currentUser.type === 'admin' || currentUser.type === 'pm')) {
-                renderAdminEmployeeTable();
-            }
+            renderAdminEmployeeTable();
             updateDashboardCounters();
         });
 
         db.collection("basecamps").onSnapshot((snapshot) => {
             basecamps = [];
             snapshot.forEach((doc) => { basecamps.push(doc.data()); });
+            renderAdminBasecampTable();
             if (currentUser) {
                 initMap();
-                renderAdminBasecampTable();
             }
             updateDashboardCounters();
         });
@@ -686,7 +680,7 @@
                     name: data.name,
                     role: data.role,
                     basecamp: data.basecamp,
-                    time: data.timeStr,
+                    time: data.timeStr || dateObj.toLocaleTimeString('id-ID') + ' WIB',
                     dateObj: dateObj,
                     timestampVal: timestampVal,
                     status: data.status || "Valid (Geofence)",
@@ -697,14 +691,144 @@
             });
             attendanceRecords.sort((a, b) => b.timestampVal - a.timestampVal);
 
-            if (currentUser) {
-                handleFilterChange();
-                renderRecentActivity();
-            }
+            handleFilterChange();
+            renderRecentActivity();
             updateDashboardCounters();
         });
 
-        // ================= 4. INIT & UI LOGIC =================
+        // ================= 4. DASHBOARD & FILTER COUNTERS =================
+        function updateDashboardCounters() {
+            const elEmp = document.getElementById('stat-total-karyawan');
+            const elHadir = document.getElementById('stat-hadir');
+            const elBc = document.getElementById('stat-basecamp-count');
+
+            if (elEmp) elEmp.textContent = employees.length;
+            if (elBc) elBc.textContent = basecamps.length;
+
+            const todayStr = new Date().toDateString();
+            const todayCount = attendanceRecords.filter(r => r.dateObj && r.dateObj.toDateString() === todayStr).length;
+            if (elHadir) elHadir.textContent = todayCount;
+        }
+
+        function renderRecentActivity() {
+            const container = document.getElementById('recent-activity-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const list = attendanceRecords.slice(0, 5);
+            if (list.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Belum ada aktivitas check-in.</p>`;
+                return;
+            }
+
+            list.forEach(item => {
+                const initials = item.name ? item.name.split(' ').map(n => n[0]).join('').substring(0, 2) : '--';
+                container.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs shrink-0">${initials}</div>
+                            <div>
+                                <p class="text-sm font-semibold text-slate-800">${item.name}</p>
+                                <p class="text-xs text-slate-500">${item.basecamp} • ${item.role}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.badgeClass}">${item.status}</span>
+                            <p class="text-[10px] text-slate-400 mt-1 font-mono">${item.time}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function handleFilterChange() {
+            const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const startVal = document.getElementById('startDate')?.value;
+            const endVal = document.getElementById('endDate')?.value;
+
+            let filtered = attendanceRecords.filter(item => {
+                const matchSearch = (item.name || '').toLowerCase().includes(search) || 
+                                    (item.role || '').toLowerCase().includes(search) ||
+                                    (item.basecamp || '').toLowerCase().includes(search);
+                
+                let matchDate = true;
+                if (item.dateObj) {
+                    const itemDate = new Date(item.dateObj.getFullYear(), item.dateObj.getMonth(), item.dateObj.getDate());
+                    if (startVal) {
+                        const sDate = new Date(startVal);
+                        sDate.setHours(0,0,0,0);
+                        if (itemDate < sDate) matchDate = false;
+                    }
+                    if (endVal) {
+                        const eDate = new Date(endVal);
+                        eDate.setHours(23,59,59,999);
+                        if (itemDate > eDate) matchDate = false;
+                    }
+                }
+                return matchSearch && matchDate;
+            });
+
+            renderAttendanceTable(filtered);
+        }
+
+        function renderAttendanceTable(dataList) {
+            const tbody = document.getElementById('attendance-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (dataList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-400">Tidak ada rekap data absensi ditemukan.</td></tr>`;
+                return;
+            }
+
+            dataList.forEach(item => {
+                const initials = item.name ? item.name.split(' ').map(n => n[0]).join('').substring(0, 2) : '--';
+                const formattedDate = item.dateObj ? item.dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">${initials}</div>
+                                <div>
+                                    <p class="font-semibold text-slate-900">${item.name}</p>
+                                    <p class="text-xs text-slate-400">${item.id}</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="p-4 text-slate-600">${item.role}</td>
+                        <td class="p-4 text-slate-800 font-medium"><i class="fa-solid fa-location-dot text-blue-500 mr-1.5"></i>${item.basecamp}</td>
+                        <td class="p-4 text-slate-600 font-mono text-xs">
+                            <div>${item.time}</div>
+                            <div class="text-[10px] text-slate-400">${formattedDate}</div>
+                        </td>
+                        <td class="p-4">
+                            <span class="text-xs font-semibold px-2.5 py-1 rounded-full border ${item.badgeClass}">${item.status}</span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function exportCSV() {
+            if (attendanceRecords.length === 0) {
+                Swal.fire('Info', 'Tidak ada data absensi untuk diexport.', 'info');
+                return;
+            }
+            let csvContent = "data:text/csv;charset=utf-8,ID Karyawan,Nama,Role,Basecamp,Waktu,Status\n";
+            attendanceRecords.forEach(r => {
+                csvContent += `"${r.id}","${r.name}","${r.role}","${r.basecamp}","${r.time}","${r.status}"\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Rekap_Absensi_ACM_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ================= 5. INIT & UI LOGIC =================
         toggleLoginInputs();
 
         function updateClock() {
@@ -766,7 +890,7 @@
                 if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
                     Swal.fire({
                         title: 'Akses Perangkat Ditolak',
-                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
+                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Satu akun hanya dapat dipakai pada satu HP. Hubungi PM jika ganti HP.</small>`,
                         icon: 'error',
                         confirmButtonColor: '#ef4444'
                     });
@@ -789,7 +913,7 @@
                 if (foundEmp.deviceId && foundEmp.deviceId !== currentDeviceId) {
                     Swal.fire({
                         title: 'Akses Perangkat Ditolak',
-                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Untuk mencegah titip absen, satu akun hanya bisa digunakan pada satu HP yang sama. Jika HP Anda rusak atau diganti, silakan hubungi Project Manager (PM) untuk mereset perangkat.</small>`,
+                        html: `Akun ini sudah terikat dengan perangkat/HP lain!<br><br><small>Satu akun hanya dapat dipakai pada satu HP. Hubungi PM jika ganti HP.</small>`,
                         icon: 'error',
                         confirmButtonColor: '#ef4444'
                     });
@@ -834,7 +958,6 @@
             const isPMOrAdmin = type === 'pm' || role.includes('project manager') || role.includes('administrator');
             const isAdmin = type === 'admin' || (role.includes('admin') && !isPMOrAdmin);
 
-            // Menu ganti password tersedia untuk semua role
             navChangePassword.style.display = 'flex';
 
             if (isPMOrAdmin) {
@@ -882,7 +1005,6 @@
             if (tabId === 'settings' && !isPMOrAdmin) { Swal.fire('Akses Ditolak', 'Hanya Project Manager / Admin.', 'warning'); return; }
             if (tabId === 'rekap' && !isPMOrAdmin && !isAdmin) { Swal.fire('Akses Ditolak', 'Hanya Admin.', 'warning'); return; }
 
-            // Auto close mobile sidebar when tab is switched
             if (window.innerWidth < 768) {
                 const sidebar = document.getElementById('app-sidebar');
                 const backdrop = document.getElementById('sidebar-backdrop');
@@ -925,17 +1047,13 @@
                 if (!map) {
                     initMap();
                 } else {
-                    setTimeout(() => {
-                        if (map) { map.invalidateSize(true); }
-                    }, 100);
-                    setTimeout(() => {
-                        if (map) { map.invalidateSize(true); }
-                    }, 300);
+                    setTimeout(() => { if (map) map.invalidateSize(true); }, 100);
+                    setTimeout(() => { if (map) map.invalidateSize(true); }, 300);
                 }
             }
         }
 
-        // ================= 5. LEAFLET MAP & GEOFENCE LOGIC =================
+        // ================= 6. LEAFLET MAP & GEOFENCE LOGIC =================
         let basecampsLayer = L.layerGroup();
 
         function initMap() {
@@ -976,7 +1094,7 @@
             if (map) { map.invalidateSize(true); }
         });
 
-        // ================= 6. CHECK-IN =================
+        // ================= 7. CHECK-IN =================
         function performCheckIn() {
             const statusEl = document.getElementById('gps-status');
             const distEl = document.getElementById('gps-distance');
@@ -997,7 +1115,7 @@
 
                             Swal.fire({
                                 title: 'Check-In Ditolak',
-                                html: `Akurasi GPS terlalu rendah atau terdeteksi menggunakan Mock Location / Fake GPS.<br><br><small>Akurasi saat ini: ${Math.round(accuracy)} meter (Batas maksimal: 300 meter)</small>`,
+                                html: `Akurasi GPS terlalu rendah atau terdeteksi Mock Location / Fake GPS.<br><br><small>Akurasi: ${Math.round(accuracy)} meter (Batas max: 300 meter)</small>`,
                                 icon: 'error',
                                 confirmButtonColor: '#ef4444'
                             });
@@ -1008,8 +1126,7 @@
                         const lastPosStr = localStorage.getItem(lastPosKey);
                         if (lastPosStr) {
                             const lastPos = JSON.parse(lastPosStr);
-                            const nowTime = Date.now();
-                            const timeDiffSeconds = (nowTime - lastPos.timestamp) / 1000;
+                            const timeDiffSeconds = (Date.now() - lastPos.timestamp) / 1000;
                             
                             const currentLatLng = L.latLng(userLat, userLng);
                             const lastLatLng = L.latLng(lastPos.lat, lastPos.lng);
@@ -1018,11 +1135,11 @@
                             if (timeDiffSeconds < 120 && distanceMeters > 2000) {
                                 statusEl.textContent = "Terdeteksi Loncatan Lokasi Tidak Wajar";
                                 statusEl.className = "font-bold text-red-600";
-                                distEl.textContent = `Loncatan: ${Math.round(distanceMeters)}m dalam ${Math.round(timeDiffSeconds)} dtk`;
+                                distEl.textContent = `Loncatan: ${Math.round(distanceMeters)}m`;
 
                                 Swal.fire({
                                     title: 'Check-In Ditolak (Anti-Cheat)',
-                                    html: `Sistem mendeteksi loncatan koordinat GPS yang mencurigakan (perpindahan instan sejauh ${Math.round(distanceMeters)} meter dalam waktu ${Math.round(timeDiffSeconds)} detik).<br><br><small>Harap matikan aplikasi pemalsu lokasi / Mock Location Anda.</small>`,
+                                    html: `Sistem mendeteksi loncatan koordinat GPS yang mencurigakan.<br><br><small>Harap matikan aplikasi pemalsu lokasi Anda.</small>`,
                                     icon: 'error',
                                     confirmButtonColor: '#ef4444'
                                 });
@@ -1076,7 +1193,7 @@
 
                             Swal.fire({
                                 title: 'Check-In Ditolak',
-                                html: `Anda tidak berada di dalam radius basecamp mana pun.<br><br><small>Titik terdekat Anda: ${nearestBasecamp ? nearestBasecamp.name : '-'} (${Math.round(shortestDistance)}m)</small>`,
+                                html: `Anda tidak berada di dalam radius basecamp mana pun.<br><br><small>Titik terdekat: ${nearestBasecamp ? nearestBasecamp.name : '-'} (${Math.round(shortestDistance)}m)</small>`,
                                 icon: 'error',
                                 confirmButtonColor: '#ef4444'
                             });
@@ -1101,7 +1218,6 @@
             const currentHours = now.getHours();
             const currentMinutes = now.getMinutes();
             const totalCurrentMinutes = (currentHours * 60) + currentMinutes;
-            
             const limitMinutes = (9 * 60) + 35; 
 
             let attendanceStatus = "Valid (Geofence)";
@@ -1122,7 +1238,7 @@
                 saveToOfflineQueue(attendancePayload);
                 Swal.fire({
                     title: 'Mode Offline Aktif',
-                    html: `Koneksi internet tidak terdeteksi.<br>Absensi untuk basecamp <b>${validBasecamp.name}</b> telah disimpan secara lokal (queued) dan akan disinkronkan otomatis saat online.`,
+                    html: `Koneksi internet terputus.<br>Absensi disimpan secara lokal dan akan disinkronkan otomatis saat online.`,
                     icon: 'info',
                     confirmButtonColor: '#3b82f6'
                 });
@@ -1154,7 +1270,7 @@
                 saveToOfflineQueue(attendancePayload);
                 Swal.fire({
                     title: 'Tersimpan Offline',
-                    html: `Gagal terhubung ke server database.<br>Absensi disimpan secara lokal (queued) dan akan disinkronkan otomatis saat terhubung kembali.`,
+                    html: `Gagal terhubung ke server database.<br>Absensi disimpan secara lokal dan akan disinkronkan otomatis.`,
                     icon: 'warning',
                     confirmButtonColor: '#3b82f6'
                 });
@@ -1168,7 +1284,103 @@
             localStorage.setItem('acm_offline_attendance_queue', JSON.stringify(queue));
         }
 
-        // ================= 7. GANTI PASSWORD MANDIRI =================
+        // ================= 8. MANAJEMEN BASECAMP =================
+        async function saveBasecamp() {
+            const name = document.getElementById('setting-bc-name').value.trim();
+            const lat = parseFloat(document.getElementById('setting-lat').value);
+            const lng = parseFloat(document.getElementById('setting-lng').value);
+            const radius = parseInt(document.getElementById('setting-radius').value);
+
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                Swal.fire('Gagal', 'Mohon isi semua field koordinat & radius dengan benar.', 'warning');
+                return;
+            }
+
+            const docId = editingBasecampId ? editingBasecampId : db.collection("basecamps").doc().id;
+            const bcData = { id: docId, name, lat, lng, radius };
+
+            try {
+                await db.collection("basecamps").doc(docId).set(bcData, { merge: true });
+                Swal.fire('Berhasil!', `Basecamp ${name} berhasil disimpan.`, 'success');
+                cancelEdit();
+            } catch (err) {
+                Swal.fire('Error Database', 'Gagal menyimpan data basecamp.', 'error');
+            }
+        }
+
+        function editBasecamp(index) {
+            const bc = basecamps[index];
+            editingBasecampId = bc.id;
+            document.getElementById('setting-bc-name').value = bc.name;
+            document.getElementById('setting-lat').value = bc.lat;
+            document.getElementById('setting-lng').value = bc.lng;
+            document.getElementById('setting-radius').value = bc.radius;
+
+            const btnSave = document.getElementById('btn-save-basecamp');
+            btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN BASECAMP';
+            btnSave.classList.replace('bg-blue-600', 'bg-emerald-600');
+            btnSave.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+            document.getElementById('btn-cancel-edit').classList.remove('hidden');
+        }
+
+        function cancelEdit() {
+            editingBasecampId = null;
+            document.getElementById('setting-bc-name').value = '';
+            document.getElementById('setting-lat').value = '';
+            document.getElementById('setting-lng').value = '';
+            document.getElementById('setting-radius').value = '150';
+
+            const btnSave = document.getElementById('btn-save-basecamp');
+            btnSave.innerHTML = '<i class="fa-solid fa-plus"></i> TAMBAH BASECAMP BARU';
+            btnSave.classList.replace('bg-emerald-600', 'bg-blue-600');
+            btnSave.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+            document.getElementById('btn-cancel-edit').classList.add('hidden');
+        }
+
+        function removeBasecamp(index) {
+            Swal.fire({
+                title: 'Hapus Basecamp?',
+                text: "Basecamp ini akan dihapus dari sistem.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#64748b',
+                confirmButtonText: 'Ya, Hapus!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    const bcId = basecamps[index].id;
+                    if (editingBasecampId === bcId) cancelEdit();
+                    await db.collection("basecamps").doc(bcId).delete();
+                }
+            });
+        }
+
+        function renderAdminBasecampTable() {
+            const tbody = document.getElementById('basecamp-table-body');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            if (basecamps.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400">Belum ada basecamp terdaftar.</td></tr>`;
+                return;
+            }
+            basecamps.forEach((bc, index) => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="p-3 font-semibold text-slate-900">${bc.name}</td>
+                        <td class="p-3 font-mono text-xs text-slate-600">${bc.lat}, ${bc.lng}</td>
+                        <td class="p-3 font-medium text-blue-600">${bc.radius} Meter</td>
+                        <td class="p-3 text-center">
+                            <div class="inline-flex gap-1">
+                                <button onclick="editBasecamp(${index})" title="Edit Basecamp" class="bg-blue-100 hover:bg-blue-200 text-blue-700 p-1.5 rounded-lg transition-colors"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button onclick="removeBasecamp(${index})" title="Hapus Basecamp" class="bg-red-100 hover:bg-red-200 text-red-700 p-1.5 rounded-lg transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        // ================= 9. GANTI PASSWORD MANDIRI =================
         async function processChangePassword() {
             const currentPass = document.getElementById('cp-current').value;
             const newPass = document.getElementById('cp-new').value;
@@ -1204,9 +1416,8 @@
                     password: hashedNew
                 });
 
-                currentUser.password = hashedNew; // Perbarui di memori lokal
+                currentUser.password = hashedNew;
                 
-                // Kosongkan form
                 document.getElementById('cp-current').value = '';
                 document.getElementById('cp-new').value = '';
                 document.getElementById('cp-confirm').value = '';
@@ -1217,7 +1428,7 @@
             }
         }
 
-        // ================= 8. MANAJEMEN KARYAWAN =================
+        // ================= 10. MANAJEMEN KARYAWAN =================
         async function saveEmployee() {
             const id = document.getElementById('setting-emp-id').value.trim();
             const name = document.getElementById('setting-emp-name').value.trim();
@@ -1310,7 +1521,7 @@
                         await db.collection("employees").doc(empId).update({
                             deviceId: firebase.firestore.FieldValue.delete()
                         });
-                        Swal.fire('Berhasil!', 'Ikatan perangkat (device binding) berhasil di-reset. Karyawan dapat login dari HP baru.', 'success');
+                        Swal.fire('Berhasil!', 'Ikatan perangkat (device binding) berhasil di-reset.', 'success');
                     } catch(err) {
                         Swal.fire('Error', 'Gagal mereset perangkat di database.', 'error');
                     }
@@ -1327,7 +1538,7 @@
                 return;
             }
             employees.forEach((emp, index) => {
-                const initials = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2);
+                const initials = emp.name ? emp.name.split(' ').map(n => n[0]).join('').substring(0, 2) : '--';
                 const hasDevice = emp.deviceId ? '<span class="text-[10px] sm:text-xs bg-blue-50 text-blue-600 border border-blue-200 px-2 py-0.5 rounded-full font-medium">Terikat HP</span>' : '<span class="text-[10px] sm:text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Belum Terikat</span>';
                 
                 tbody.innerHTML += `
