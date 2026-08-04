@@ -94,7 +94,7 @@
         <!-- Mobile Sidebar Backdrop -->
         <div id="sidebar-backdrop" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-slate-950/50 z-30 md:hidden hidden"></div>
 
-        <!-- Sidebar -->
+        <!-- Sidebar (Drawer on Mobile, Fixed on Desktop) -->
         <aside id="app-sidebar" class="fixed inset-y-0 left-0 transform -translate-x-full md:translate-x-0 md:static w-64 bg-slate-900 text-white flex flex-col shadow-2xl z-40 transition-transform duration-300 ease-in-out">
             <div class="p-5 sm:p-6 border-b border-slate-800 flex justify-between items-center">
                 <div class="flex items-center gap-3">
@@ -148,6 +148,7 @@
             <!-- Top Header -->
             <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-20 px-4 sm:px-8 py-3.5 sm:py-4 flex justify-between items-center shadow-sm">
                 <div class="flex items-center gap-3">
+                    <!-- Mobile Hamburger Toggle -->
                     <button onclick="toggleMobileSidebar()" class="md:hidden w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 transition-colors">
                         <i class="fa-solid fa-bars text-lg"></i>
                     </button>
@@ -254,6 +255,7 @@
                                 <p class="text-xs text-slate-500">Data absensi real-time seluruh personel lapangan</p>
                             </div>
                             <div class="flex flex-wrap gap-3 w-full md:w-auto items-center">
+                                <!-- Date Range Picker Filter -->
                                 <div class="flex items-center gap-2 w-full md:w-auto">
                                     <input type="date" id="startDate" onchange="handleFilterChange()" title="Dari Tanggal" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full">
                                     <span class="text-xs text-slate-400">s/d</span>
@@ -465,72 +467,60 @@
 
         // ================= PWA & SERVICE WORKER SETUP =================
         if ('serviceWorker' in navigator) {
-            try {
-                const swCode = `
-                    const CACHE_NAME = 'acm-absensi-pwa-v1';
-                    const urlsToCache = [
-                        './',
-                        'https://cdn.tailwindcss.com',
-                        'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
-                        'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
-                        'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
-                        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-                        'https://cdn.jsdelivr.net/npm/sweetalert2@11',
-                        'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-                        'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-                    ];
+            const swCode = `
+                const CACHE_NAME = 'acm-absensi-pwa-v1';
+                const urlsToCache = [
+                    './',
+                    'https://cdn.tailwindcss.com',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+                    'https://cdn.jsdelivr.net/npm/sweetalert2@11',
+                    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+                ];
 
-                    self.addEventListener('install', event => {
-                        event.waitUntil(
-                            caches.open(CACHE_NAME).then(cache => {
-                                return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
-                            })
-                        );
-                        self.skipWaiting();
-                    });
+                self.addEventListener('install', event => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME).then(cache => {
+                            return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
+                        })
+                    );
+                    self.skipWaiting();
+                });
 
-                    self.addEventListener('activate', event => {
-                        event.waitUntil(
-                            caches.keys().then(cacheNames => {
-                                return Promise.all(
-                                    cacheNames.map(cacheName => {
-                                        if (cacheName !== CACHE_NAME) {
-                                            return caches.delete(cacheName);
-                                        }
-                                    })
-                                );
-                            })
-                        );
-                        self.clients.claim();
-                    });
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                    self.clients.claim();
+                });
 
-                    self.addEventListener('fetch', event => {
-                        event.respondWith(
-                            caches.match(event.request).then(response => {
-                                return response || fetch(event.request).catch(() => {});
-                            })
-                        );
-                    });
-                `;
-                <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        })
-        .catch(error => {
-          console.warn('ServiceWorker registration failed: ', error);
-        });
-    });
-  }
-</script>
-            } catch (e) {
-                console.log('Service Worker setup handled safely:', e);
-            }
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request).then(response => {
+                            return response || fetch(event.request).catch(() => {});
+                        })
+                    );
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'text/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl)
+                .then(reg => console.log('PWA Service Worker registered successfully!', reg))
+                .catch(err => console.log('PWA Service Worker registration failed:', err));
         }
 
-        // Fixed Web App Manifest Injection using Base64 SVG Data URI to bypass CDN/CORS download errors
+        // Dynamic Web App Manifest Injection
         const manifestData = {
             "name": "ACM Absensi Lapangan",
             "short_name": "ACM Absensi",
@@ -540,14 +530,14 @@
             "theme_color": "#0f172a",
             "icons": [
                 {
-                    "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cGF0aCBmaWxsPSIjMjU2M2ViIiBkPSJNMjI0IDk2YTMyIDMyIDAgMSAxIDY0IDBWMjU2YTMyIDMyIDAgMSAxIC02NCAwVjk2em05NiAxNjBhMzIgMzIgMCAxIDEgNjQgMFYzMjBjMCA3MC43LTU3LjMgMTI4LTEyOCAxMjhzLTEyOC01Ny4zLTEyOC0xMjhWMjI0YTMyIDMyIDAgMSAxIDY0IDB2OTZjMCAzNS4zIDI4LjcgNjQgNjQgNjRzNjQtMjguNyA2NC02NFYyNTZ6Ii8+PC9zdmc+",
+                    "src": "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/svgs/solid/fingerprint.svg",
                     "sizes": "512x512",
                     "type": "image/svg+xml"
                 }
             ]
         };
-        const manifestString = JSON.stringify(manifestData);
-        const manifestURL = 'data:application/json;charset=utf-8,' + encodeURIComponent(manifestString);
+        const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+        const manifestURL = URL.createObjectURL(manifestBlob);
         const linkTag = document.createElement('link');
         linkTag.setAttribute('rel', 'manifest');
         linkTag.setAttribute('href', manifestURL);
