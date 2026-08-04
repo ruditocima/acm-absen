@@ -12,10 +12,15 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .glass-card { background: rgba(18, 24, 38, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .glass-light { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        #basecampMap { height: 250px; width: 100%; border-radius: 0.75rem; z-index: 10; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between" x-data="absensiApp()">
@@ -318,28 +323,36 @@
         </template>
     </main>
 
-    <!-- MODAL FORM BASECAMP -->
+    <!-- MODAL FORM BASECAMP (WITH LEAFLET MAP INTEGRATION) -->
     <div x-show="showBasecampModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div class="glass-card max-w-md w-full p-6 rounded-3xl space-y-4 border border-slate-700">
+        <div class="glass-card max-w-lg w-full p-6 rounded-3xl space-y-4 border border-slate-700 max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Edit Basecamp' : 'Tambah Basecamp Baru'"></h3>
             <form @submit.prevent="saveBasecamp" class="space-y-3">
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Basecamp</label>
                     <input type="text" x-model="basecampForm.name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
+                
+                <!-- Peta Interaktif Leaflet -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Titik Lokasi (Klik Peta atau Geser Marker)</label>
+                    <div id="basecampMap"></div>
+                    <p class="text-[10px] text-slate-400 mt-1 italic">Lingkaran menunjukkan visualisasi radius geofencing basecamp.</p>
+                </div>
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Latitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lat" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <input type="number" step="any" x-model="basecampForm.lat" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Longitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lng" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <input type="number" step="any" x-model="basecampForm.lng" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Radius (Meter)</label>
-                    <input type="number" x-model="basecampForm.radius" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: 100">
+                    <input type="number" x-model="basecampForm.radius" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: 150">
                 </div>
                 <div class="flex justify-end space-x-2 pt-4">
                     <button type="button" @click="showBasecampModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Batal</button>
@@ -386,25 +399,21 @@
     <!-- JAVASCRIPT LOGIC & SERVER-SIDE VALIDATION SIMULATION -->
     <script>
         // Simulasi Controller Sisi Server (Backend API Simulation)
-        // Fungsi ini bertindak sebagai validator backend yang menghitung ulang jarak Haversine secara independen
         async function simulateServerSideValidation(payload) {
             return new Promise((resolve) => {
                 setTimeout(() => {
                     const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
                     
-                    // Mengambil database dari penyimpanan server (LocalStorage sebagai database server)
                     const serverEmployees = JSON.parse(localStorage.getItem('bc_employees')) || [];
                     const serverBasecamps = JSON.parse(localStorage.getItem('bc_basecamps')) || [];
                     const serverAttendance = JSON.parse(localStorage.getItem('bc_attendance')) || [];
 
-                    // 1. Validasi Kredensial Karyawan
                     const emp = serverEmployees.find(e => e.id === loginId && e.password === loginPass);
                     if (!emp) {
                         resolve({ success: false, message: 'ID Karyawan atau Password salah!' });
                         return;
                     }
 
-                    // 2. Validasi Keterikatan Perangkat (Device Binding) di Sisi Server
                     if (!emp.deviceId) {
                         emp.deviceId = deviceId;
                         localStorage.setItem('bc_employees', JSON.stringify(serverEmployees));
@@ -413,7 +422,6 @@
                         return;
                     }
 
-                    // 3. Validasi Absensi 1x Sehari di Sisi Server
                     const today = new Date().toISOString().split('T')[0];
                     const alreadyCheckedIn = serverAttendance.some(log => log.empId === emp.id && log.date === today);
                     if (alreadyCheckedIn) {
@@ -421,19 +429,17 @@
                         return;
                     }
 
-                    // 4. Validasi Akurasi GPS di Sisi Server
                     if (gpsAccuracy > 50 && !simulationMode) {
                         resolve({ success: false, message: 'Check-in gagal (Server Validation): Akurasi GPS buruk atau terdeteksi manipulasi lokasi (Fake GPS).' });
                         return;
                     }
 
-                    // 5. Validasi Radius Geofencing Independen di Sisi Server (Rumus Haversine Dihitung di Server)
                     let verifiedBasecamp = null;
                     if (simulationMode) {
                         verifiedBasecamp = { name: 'Simulasi Basecamp (Admin)' };
                     } else if (currentCoords) {
                         for (let bc of serverBasecamps) {
-                            const R = 6371e3; // meters
+                            const R = 6371e3;
                             const φ1 = currentCoords.lat * Math.PI/180;
                             const φ2 = bc.lat * Math.PI/180;
                             const Δφ = (bc.lat - currentCoords.lat) * Math.PI/180;
@@ -458,7 +464,6 @@
 
                     const basecampName = verifiedBasecamp ? verifiedBasecamp.name : 'Simulasi Basecamp (Admin)';
 
-                    // Simpan Log Absensi ke Database Server
                     const newLog = {
                         id: Date.now(),
                         empId: emp.id,
@@ -474,7 +479,7 @@
                     localStorage.setItem('bc_attendance', JSON.stringify(serverAttendance));
 
                     resolve({ success: true, message: `Berhasil Check-in! Selamat bekerja, ${emp.name} di ${basecampName}.` });
-                }, 400); // Simulasi latensi jaringan server (network latency)
+                }, 400);
             });
         }
 
@@ -500,10 +505,15 @@
                 filterStartDate: new Date().toISOString().split('T')[0],
                 filterEndDate: new Date().toISOString().split('T')[0],
 
+                // Leaflet Map State for Basecamp Modal
+                map: null,
+                marker: null,
+                circle: null,
+
                 // Modals
                 showBasecampModal: false,
                 editBasecampIndex: null,
-                basecampForm: { name: '', lat: '', lng: '', radius: 100 },
+                basecampForm: { name: '', lat: -2.990934, lng: 104.756554, radius: 100 },
 
                 showEmployeeModal: false,
                 editEmployeeIndex: null,
@@ -523,7 +533,6 @@
 
                 init() {
                     this.initGPS();
-                    // Generate unique browser device ID if not exist
                     if (!localStorage.getItem('bc_device_uuid')) {
                         localStorage.setItem('bc_device_uuid', 'DEV-' + Math.random().toString(36).substring(2, 9).toUpperCase());
                     }
@@ -536,14 +545,12 @@
                                 this.currentCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
                                 this.gpsAccuracy = Math.round(position.coords.accuracy);
                                 
-                                // Anti-fake GPS heuristics (Accuracy check < 50 meters)
                                 if (this.gpsAccuracy > 50) {
                                     this.gpsStatus = 'Peringatan: Akurasi GPS Rendah / Terindikasi Mock!';
                                 } else {
                                     this.gpsStatus = 'GPS Aman & Akurat';
                                 }
 
-                                // Check nearest basecamp for UI indication
                                 this.checkNearestBasecamp(this.currentCoords.lat, this.currentCoords.lng);
                             },
                             (error) => {
@@ -557,7 +564,7 @@
                 },
 
                 calculateDistance(lat1, lon1, lat2, lon2) {
-                    const R = 6371e3; // meters
+                    const R = 6371e3;
                     const φ1 = lat1 * Math.PI/180;
                     const φ2 = lat2 * Math.PI/180;
                     const Δφ = (lat2-lat1) * Math.PI/180;
@@ -566,7 +573,7 @@
                               Math.cos(φ1) * Math.cos(φ2) *
                               Math.sin(Δλ/2) * Math.sin(Δλ/2);
                     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    return R * c; // in meters
+                    return R * c;
                 },
 
                 checkNearestBasecamp(lat, lng) {
@@ -584,12 +591,11 @@
                 switchRole() {
                     this.isAdminView = !this.isAdminView;
                     if (!this.isAdminView) {
-                        this.isAdminLoggedIn = false; // Reset login status when exiting admin view
+                        this.isAdminLoggedIn = false;
                     }
                 },
 
                 handleAdminLogin() {
-                    // Check Master Admin credentials or Employee with Coordinator/Manager/Admin role
                     if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'admin123') {
                         this.isAdminLoggedIn = true;
                         this.adminLoginUser = '';
@@ -612,7 +618,6 @@
                     this.adminLoginPass = '';
                 },
 
-                // Mengirimkan data Check-In ke Server-Side Validation Simulator
                 async handleCheckIn() {
                     if (!this.loginId || !this.loginPass) {
                         alert('Masukkan ID Karyawan dan Password!');
@@ -632,10 +637,8 @@
 
                     this.gpsStatus = 'Memproses Validasi Server...';
 
-                    // Eksekusi Validasi Sisi Server (Async Controller)
                     const result = await simulateServerSideValidation(payload);
 
-                    // Kembalikan status teks GPS UI
                     if (this.gpsAccuracy > 50) {
                         this.gpsStatus = 'Peringatan: Akurasi GPS Rendah / Terindikasi Mock!';
                     } else {
@@ -651,21 +654,86 @@
                     this.loginId = '';
                     this.loginPass = '';
                     
-                    // Sinkronisasi data log absensi terbaru ke state aplikasi
                     this.attendanceLogs = JSON.parse(localStorage.getItem('bc_attendance')) || [];
                     this.employees = JSON.parse(localStorage.getItem('bc_employees')) || [];
+                },
+
+                // Leaflet Map Methods for Basecamp Modal
+                initMap() {
+                    const lat = parseFloat(this.basecampForm.lat) || -2.990934;
+                    const lng = parseFloat(this.basecampForm.lng) || 104.756554;
+                    const radius = parseInt(this.basecampForm.radius) || 100;
+
+                    if (!this.map) {
+                        this.map = L.map('basecampMap').setView([lat, lng], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            maxZoom: 19,
+                            attribution: '&copy; OpenStreetMap contributors'
+                        }).addTo(this.map);
+
+                        this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
+                        this.circle = L.circle([lat, lng], { radius: radius, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(this.map);
+
+                        this.marker.on('dragend', (e) => {
+                            const pos = e.target.getLatLng();
+                            this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
+                            this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
+                            this.updateMapVisuals();
+                        });
+
+                        this.map.on('click', (e) => {
+                            this.basecampForm.lat = parseFloat(e.latlng.lat.toFixed(6));
+                            this.basecampForm.lng = parseFloat(e.latlng.lng.toFixed(6));
+                            this.marker.setLatLng(e.latlng);
+                            this.updateMapVisuals();
+                        });
+                    } else {
+                        this.map.invalidateSize();
+                        this.map.setView([lat, lng], 15);
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                    }
+                },
+
+                updateMapVisuals() {
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 100;
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                    }
+                },
+
+                updateMapFromInputs() {
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 100;
+                    if (!isNaN(lat) && !isNaN(lng) && this.map) {
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                        this.map.setView([lat, lng], this.map.getZoom());
+                    }
                 },
 
                 // CRUD Basecamp
                 openBasecampModal() {
                     this.editBasecampIndex = null;
-                    this.basecampForm = { name: '', lat: '', lng: '', radius: 100 };
+                    this.basecampForm = { name: '', lat: -2.990934, lng: 104.756554, radius: 150 };
                     this.showBasecampModal = true;
+                    this.$nextTick(() => {
+                        this.initMap();
+                    });
                 },
                 editBasecamp(index) {
                     this.editBasecampIndex = index;
                     this.basecampForm = { ...this.basecamps[index] };
                     this.showBasecampModal = true;
+                    this.$nextTick(() => {
+                        this.initMap();
+                    });
                 },
                 saveBasecamp() {
                     if (this.editBasecampIndex !== null) {
@@ -721,7 +789,6 @@
                     localStorage.setItem('bc_employees', JSON.stringify(this.employees));
                 },
 
-                // Computed / Filtered Attendance for CSV & Table
                 get filteredAttendance() {
                     return this.attendanceLogs.filter(item => {
                         return item.date >= this.filterStartDate && item.date <= this.filterEndDate;
