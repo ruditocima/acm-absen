@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Absensi Eksekutif & Basecamp</title>
+    <title>Absensi YOFC Team</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
@@ -27,7 +27,7 @@
                 <i class="fa-solid fa-fingerprint"></i>
             </div>
             <div>
-                <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent">EXECUTIVE ATTENDANCE</h1>
+                <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent">YOFC TEAM ATTENDANCE</h1>
                 <p class="text-xs text-slate-400 font-medium">Secure Geofencing Portal</p>
             </div>
         </div>
@@ -380,11 +380,104 @@
 
     <!-- FOOTER -->
     <footer class="text-center py-6 text-xs text-slate-500 border-t border-slate-900">
-        &copy; 2026 Executive Attendance & Geofencing System. All Rights Reserved.
+        &copy; 2026 ACM - YOFC Team. All Rights Reserved.
     </footer>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- JAVASCRIPT LOGIC & SERVER-SIDE VALIDATION SIMULATION -->
     <script>
+        // Simulasi Controller Sisi Server (Backend API Simulation)
+        // Fungsi ini bertindak sebagai validator backend yang menghitung ulang jarak Haversine secara independen
+        async function simulateServerSideValidation(payload) {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
+                    
+                    // Mengambil database dari penyimpanan server (LocalStorage sebagai database server)
+                    const serverEmployees = JSON.parse(localStorage.getItem('bc_employees')) || [];
+                    const serverBasecamps = JSON.parse(localStorage.getItem('bc_basecamps')) || [];
+                    const serverAttendance = JSON.parse(localStorage.getItem('bc_attendance')) || [];
+
+                    // 1. Validasi Kredensial Karyawan
+                    const emp = serverEmployees.find(e => e.id === loginId && e.password === loginPass);
+                    if (!emp) {
+                        resolve({ success: false, message: 'ID Karyawan atau Password salah!' });
+                        return;
+                    }
+
+                    // 2. Validasi Keterikatan Perangkat (Device Binding) di Sisi Server
+                    if (!emp.deviceId) {
+                        emp.deviceId = deviceId;
+                        localStorage.setItem('bc_employees', JSON.stringify(serverEmployees));
+                    } else if (emp.deviceId !== deviceId && !simulationMode) {
+                        resolve({ success: false, message: 'Akses ditolak! Akun ini sudah terikat dengan perangkat HP lain. Hubungi Administrator.' });
+                        return;
+                    }
+
+                    // 3. Validasi Absensi 1x Sehari di Sisi Server
+                    const today = new Date().toISOString().split('T')[0];
+                    const alreadyCheckedIn = serverAttendance.some(log => log.empId === emp.id && log.date === today);
+                    if (alreadyCheckedIn) {
+                        resolve({ success: false, message: 'Anda sudah melakukan check-in hari ini. Hanya diizinkan 1 kali sehari.' });
+                        return;
+                    }
+
+                    // 4. Validasi Akurasi GPS di Sisi Server
+                    if (gpsAccuracy > 50 && !simulationMode) {
+                        resolve({ success: false, message: 'Check-in gagal (Server Validation): Akurasi GPS buruk atau terdeteksi manipulasi lokasi (Fake GPS).' });
+                        return;
+                    }
+
+                    // 5. Validasi Radius Geofencing Independen di Sisi Server (Rumus Haversine Dihitung di Server)
+                    let verifiedBasecamp = null;
+                    if (simulationMode) {
+                        verifiedBasecamp = { name: 'Simulasi Basecamp (Admin)' };
+                    } else if (currentCoords) {
+                        for (let bc of serverBasecamps) {
+                            const R = 6371e3; // meters
+                            const φ1 = currentCoords.lat * Math.PI/180;
+                            const φ2 = bc.lat * Math.PI/180;
+                            const Δφ = (bc.lat - currentCoords.lat) * Math.PI/180;
+                            const Δλ = (bc.lng - currentCoords.lng) * Math.PI/180;
+                            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                      Math.cos(φ1) * Math.cos(φ2) *
+                                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                            const distance = R * c;
+
+                            if (distance <= bc.radius) {
+                                verifiedBasecamp = bc;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!verifiedBasecamp && !simulationMode) {
+                        resolve({ success: false, message: 'Validasi Server Gagal: Koordinat Anda berada di luar radius Basecamp manapun!' });
+                        return;
+                    }
+
+                    const basecampName = verifiedBasecamp ? verifiedBasecamp.name : 'Simulasi Basecamp (Admin)';
+
+                    // Simpan Log Absensi ke Database Server
+                    const newLog = {
+                        id: Date.now(),
+                        empId: emp.id,
+                        name: emp.name,
+                        role: emp.role,
+                        basecamp: basecampName,
+                        timestamp: new Date().toLocaleString('id-ID'),
+                        date: today,
+                        accuracy: gpsAccuracy || 5
+                    };
+
+                    serverAttendance.unshift(newLog);
+                    localStorage.setItem('bc_attendance', JSON.stringify(serverAttendance));
+
+                    resolve({ success: true, message: `Berhasil Check-in! Selamat bekerja, ${emp.name} di ${basecampName}.` });
+                }, 400); // Simulasi latensi jaringan server (network latency)
+            });
+        }
+
         function absensiApp() {
             return {
                 isAdminView: false,
@@ -450,7 +543,7 @@
                                     this.gpsStatus = 'GPS Aman & Akurat';
                                 }
 
-                                // Check nearest basecamp
+                                // Check nearest basecamp for UI indication
                                 this.checkNearestBasecamp(this.currentCoords.lat, this.currentCoords.lng);
                             },
                             (error) => {
@@ -519,66 +612,48 @@
                     this.adminLoginPass = '';
                 },
 
-                handleCheckIn() {
-                    // 1. Validate employee credentials
-                    const empIndex = this.employees.findIndex(e => e.id === this.loginId && e.password === this.loginPass);
-                    if (empIndex === -1) {
-                        alert('ID Karyawan atau Password salah!');
+                // Mengirimkan data Check-In ke Server-Side Validation Simulator
+                async handleCheckIn() {
+                    if (!this.loginId || !this.loginPass) {
+                        alert('Masukkan ID Karyawan dan Password!');
                         return;
                     }
 
-                    const emp = this.employees[empIndex];
                     const currentDeviceId = localStorage.getItem('bc_device_uuid');
-
-                    // 2. 1 Device restriction check
-                    if (!emp.deviceId) {
-                        emp.deviceId = currentDeviceId;
-                        this.saveEmployeesToStorage();
-                    } else if (emp.deviceId !== currentDeviceId && !this.simulationMode) {
-                        alert('Akses ditolak! Akun ini sudah terikat dengan perangkat HP lain. Hubungi Administrator untuk mereset perangkat.');
-                        return;
-                    }
-
-                    // 3. 1x per day check
-                    const today = new Date().toISOString().split('T')[0];
-                    const alreadyCheckedIn = this.attendanceLogs.some(log => log.empId === emp.id && log.date === today);
-                    if (alreadyCheckedIn) {
-                        alert('Anda sudah melakukan check-in hari ini. Hanya diizinkan 1 kali sehari.');
-                        return;
-                    }
-
-                    // 4. Anti-fake GPS / Accuracy Check
-                    if (this.gpsAccuracy > 50 && !this.simulationMode) {
-                        alert('Check-in gagal! Akurasi GPS buruk atau terdeteksi manipulasi lokasi (Fake GPS).');
-                        return;
-                    }
-
-                    // 5. Basecamp Geofence check
-                    if (!this.detectedBasecamp && !this.simulationMode) {
-                        alert('Anda berada di luar radius Basecamp manapun!');
-                        return;
-                    }
-
-                    const basecampName = this.detectedBasecamp ? this.detectedBasecamp.name : 'Simulasi Basecamp (Admin)';
-
-                    // Save attendance
-                    const newLog = {
-                        id: Date.now(),
-                        empId: emp.id,
-                        name: emp.name,
-                        role: emp.role,
-                        basecamp: basecampName,
-                        timestamp: new Date().toLocaleString('id-ID'),
-                        date: today,
-                        accuracy: this.gpsAccuracy || 5
+                    
+                    const payload = {
+                        loginId: this.loginId,
+                        loginPass: this.loginPass,
+                        currentCoords: this.currentCoords,
+                        gpsAccuracy: this.gpsAccuracy,
+                        simulationMode: this.simulationMode,
+                        deviceId: currentDeviceId
                     };
 
-                    this.attendanceLogs.unshift(newLog);
-                    localStorage.setItem('bc_attendance', JSON.stringify(this.attendanceLogs));
+                    this.gpsStatus = 'Memproses Validasi Server...';
 
-                    alert(`Berhasil Check-in! Selamat bekerja, ${emp.name} di ${basecampName}.`);
+                    // Eksekusi Validasi Sisi Server (Async Controller)
+                    const result = await simulateServerSideValidation(payload);
+
+                    // Kembalikan status teks GPS UI
+                    if (this.gpsAccuracy > 50) {
+                        this.gpsStatus = 'Peringatan: Akurasi GPS Rendah / Terindikasi Mock!';
+                    } else {
+                        this.gpsStatus = 'GPS Aman & Akurat';
+                    }
+
+                    if (!result.success) {
+                        alert(result.message);
+                        return;
+                    }
+
+                    alert(result.message);
                     this.loginId = '';
                     this.loginPass = '';
+                    
+                    // Sinkronisasi data log absensi terbaru ke state aplikasi
+                    this.attendanceLogs = JSON.parse(localStorage.getItem('bc_attendance')) || [];
+                    this.employees = JSON.parse(localStorage.getItem('bc_employees')) || [];
                 },
 
                 // CRUD Basecamp
