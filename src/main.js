@@ -158,8 +158,9 @@ async function simulateServerSideValidation(payload) {
     });
 }
 
-window.absensiApp = function absensiApp() {
-    return {
+// Daftarkan komponen menggunakan Alpine.init agar aman dari race-condition module Vite
+document.addEventListener('alpine:init', () => {
+    Alpine.data('absensiApp', () => ({
         isAdminView: false,
         isAdminLoggedIn: false,
         adminLoginUser: '',
@@ -528,5 +529,5 @@ window.absensiApp = function absensiApp() {
             link.click();
             document.body.removeChild(link);
         }
-    }
-}
+    }));
+});
