@@ -5,15 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ACM | Absensi</title>
     
-    <!-- Tailwind CSS (Play CDN Production Warning Handled) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            corePlugins: {
-                preflight: true,
-            }
-        }
-    </script>
     
     <!-- Firebase SDK (Compat Version) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -443,22 +436,63 @@
         }
 
         // ================= PWA & SERVICE WORKER SETUP =================
-        <script>
-  // Pendaftaran PWA Service Worker yang aman dan valid untuk browser
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then((registration) => {
-          console.log('PWA Service Worker registered successfully with scope:', registration.scope);
-        })
-        .catch((error) => {
-          console.error('PWA Service Worker registration failed:', error);
-        });
-    });
-  }
-</script>
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'acm-absensi-pwa-v1';
+                const urlsToCache = [
+                    './',
+                    'https://cdn.tailwindcss.com',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js',
+                    'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js',
+                    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+                    'https://cdn.jsdelivr.net/npm/sweetalert2@11',
+                    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+                ];
 
-        // Dynamic Web App Manifest Injection (Fixed start_url for relative paths)
+                self.addEventListener('install', event => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME).then(cache => {
+                            return cache.addAll(urlsToCache.map(url => new Request(url, {mode: 'no-cors'}))).catch(err => console.log('Cache addAll error:', err));
+                        })
+                    );
+                    self.skipWaiting();
+                });
+
+                self.addEventListener('activate', event => {
+                    event.waitUntil(
+                        caches.keys().then(cacheNames => {
+                            return Promise.all(
+                                cacheNames.map(cacheName => {
+                                    if (cacheName !== CACHE_NAME) {
+                                        return caches.delete(cacheName);
+                                    }
+                                })
+                            );
+                        })
+                    );
+                    self.clients.claim();
+                });
+
+                self.addEventListener('fetch', event => {
+                    event.respondWith(
+                        caches.match(event.request).then(response => {
+                            return response || fetch(event.request).catch(() => {
+                                // Fallback handler if offline
+                            });
+                        })
+                    );
+                });
+            `;
+            const blob = new Blob([swCode], { type: 'text/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(swUrl)
+                .then(reg => console.log('PWA Service Worker registered successfully!', reg))
+                .catch(err => console.log('PWA Service Worker registration failed:', err));
+        }
+
+        // Dynamic Web App Manifest Injection
         const manifestData = {
             "name": "ACM Absensi Lapangan",
             "short_name": "ACM Absensi",
@@ -1097,42 +1131,24 @@
             const role = document.getElementById('setting-emp-role').value.trim();
             const passwordInput = document.getElementById('setting-emp-password').value.trim();
 
-            if (!id || !name || !role) { 
-                Swal.fire('Gagal', 'Mohon isi ID, Nama, dan Role karyawan.', 'warning'); 
-                return; 
-            }
+            if (!id || !name || !role || !passwordInput) { Swal.fire('Gagal', 'Mohon isi semua data.', 'warning'); return; }
+
+            const hashedPassword = await hashPassword(passwordInput);
+            const empData = { id, name, role, password: hashedPassword };
 
             try {
-                let empData = { id, name, role };
-                
-                // Jika password diisi, hash password baru. Jika kosong saat edit, pertahankan password lama.
-                if (passwordInput) {
-                    empData.password = await hashPassword(passwordInput);
-                } else if (editingEmployeeId) {
-                    const existingEmp = employees.find(e => e.id === editingEmployeeId);
-                    if (existingEmp && existingEmp.password) {
-                        empData.password = existingEmp.password;
-                    }
-                } else {
-                    Swal.fire('Gagal', 'Mohon masukkan password untuk karyawan baru.', 'warning');
-                    return;
-                }
-
                 if (editingEmployeeId) {
                     await db.collection("employees").doc(editingEmployeeId).set(empData, { merge: true });
                     Swal.fire('Berhasil!', `Data karyawan ${name} berhasil diperbarui di server.`, 'success');
                 } else {
                     const existingCheck = employees.find(e => e.id === id);
-                    if (existingCheck) { 
-                        Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); 
-                        return; 
-                    }
+                    if (existingCheck) { Swal.fire('Gagal', 'ID Karyawan sudah terdaftar di server.', 'error'); return; }
+                    
                     await db.collection("employees").doc(id).set(empData);
                     Swal.fire('Berhasil!', `Karyawan ${name} berhasil ditambahkan.`, 'success');
                 }
                 cancelEmployeeEdit();
             } catch(e) {
-                console.error(e);
                 Swal.fire('Error Database', 'Gagal menyimpan ke server.', 'error');
             }
         }
@@ -1145,7 +1161,6 @@
             document.getElementById('setting-emp-name').value = emp.name;
             document.getElementById('setting-emp-role').value = emp.role;
             document.getElementById('setting-emp-password').value = '';
-            document.getElementById('setting-emp-password').placeholder = 'Kosongkan jika tidak diubah';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-save"></i> SIMPAN PERUBAHAN';
@@ -1161,7 +1176,6 @@
             document.getElementById('setting-emp-name').value = '';
             document.getElementById('setting-emp-role').value = '';
             document.getElementById('setting-emp-password').value = '';
-            document.getElementById('setting-emp-password').placeholder = 'Password login...';
 
             const btnSave = document.getElementById('btn-save-employee');
             btnSave.innerHTML = '<i class="fa-solid fa-user-plus"></i> TAMBAH KARYAWAN BARU';
