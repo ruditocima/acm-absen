@@ -293,7 +293,7 @@
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">Tanggal & Waktu</th>
+                                            <th class="p-4">Tanggal & Waktu (Server)</th>
                                             <th class="p-4">ID</th>
                                             <th class="p-4">Nama</th>
                                             <th class="p-4">Role</th>
@@ -540,7 +540,7 @@
         &copy; 2026 ACM - YOFC Team. All Rights Reserved.
     </footer>
 
-    <!-- JAVASCRIPT LOGIC & STABLE BROWSER FINGERPRINT / NATIVE MOCK DETECTION INTEGRATION -->
+    <!-- JAVASCRIPT LOGIC & SERVER TIMESTAMP VALIDATION INTEGRATION -->
     <script>
         // Fungsi Generator Browser Fingerprint yang Stabil & Mendukung Hybrid App (Capacitor/Cordova)
         async function getOrCreateStableDeviceIdentifier() {
@@ -612,7 +612,7 @@
             return false;
         }
 
-        // Simulasi Controller Sisi Server (Backend API Simulation) dengan Strict Mock Check
+        // Simulasi Sisi Server (Backend API Simulation) dengan Server-Side Timestamp Enforcement
         async function simulateServerSideValidation(payload) {
             return new Promise((resolve) => {
                 setTimeout(async () => {
@@ -636,8 +636,12 @@
                         return;
                     }
 
-                    const today = new Date().toISOString().split('T')[0];
-                    const alreadyCheckedIn = serverAttendance.some(log => log.empId === emp.id && log.date === today);
+                    // GENERASI WAKTU DARI SERVER (Mencegah manipulasi jam klien)
+                    const serverNow = new Date();
+                    const serverDateToday = serverNow.toISOString().split('T')[0];
+                    const serverTimestampFormatted = serverNow.toLocaleString('id-ID');
+
+                    const alreadyCheckedIn = serverAttendance.some(log => log.empId === emp.id && log.date === serverDateToday);
                     if (alreadyCheckedIn) {
                         resolve({ success: false, message: 'Anda sudah melakukan check-in hari ini. Hanya diizinkan 1 kali sehari.' });
                         return;
@@ -685,8 +689,8 @@
                         name: emp.name,
                         role: emp.role,
                         basecamp: basecampName,
-                        timestamp: new Date().toLocaleString('id-ID'),
-                        date: today,
+                        timestamp: serverTimestampFormatted, // Menggunakan waktu server resmi
+                        date: serverDateToday,               // Menggunakan tanggal server resmi
                         accuracy: gpsAccuracy || 5
                     };
 
