@@ -238,6 +238,8 @@
                     <div class="space-y-6">
                         <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
                             <div class="flex items-center space-x-3">
+                                <!-- Kalimat sapaan dinamis sesuai waktu login & nama karyawan -->
+                                <span class="text-xs font-bold text-slate-200 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800" x-text="timeGreeting + ' : ' + currentUserName"></span>
                                 <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30" x-text="'Role: ' + (currentUserRole || 'Master Admin')"></span>
                                 <label class="flex items-center cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
                                     <input type="checkbox" x-model="simulationMode" class="sr-only peer">
@@ -277,6 +279,8 @@
                                 <div>
                                     <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi</h2>
                                     <p class="text-xs text-slate-400">
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh rekap absensi karyawan (Read Only, tanpa tombol reset).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan rekap absensi berdasarkan ID Anda yang sedang login (Read Only).</span>
                                         <span x-show="isMasterOrPM">Batas waktu absen normal 09.45 WIB. Filter rentang waktu dan export ke CSV.</span>
                                     </p>
                                 </div>
@@ -347,6 +351,8 @@
                                 <div>
                                     <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti</h2>
                                     <p class="text-xs text-slate-400">
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh pengajuan izin karyawan (Read Only).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan pengajuan izin berdasarkan ID Anda yang sedang login (Read Only).</span>
                                         <span x-show="isMasterOrPM">Menampilkan daftar pengajuan izin dari seluruh karyawan untuk disetujui/ditolak.</span>
                                     </p>
                                 </div>
@@ -421,6 +427,7 @@
                                     <h2 class="text-xl font-bold text-white">Lokasi Basecamp</h2>
                                     <p class="text-xs text-slate-400">
                                         <span x-show="canModifyBasecamp">Lihat koordinat GPS, radius geofencing, serta tambah/edit basecamp.</span>
+                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Anda dapat melihat peta dan mengeklik detail/peta basecamp (Read Only, tanpa hak edit atau hapus).</span>
                                     </p>
                                 </div>
                                 <!-- Tambah Basecamp button: Master Admin / PM Only -->
@@ -653,6 +660,22 @@
                 currentEmpId: null,
                 isMasterAdmin: false,
 
+                // Helper: Dynamic Greeting based on login time
+                get timeGreeting() {
+                    const hour = new Date().getHours();
+                    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
+                    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+                    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+                    return 'Selamat Malam';
+                },
+
+                // Helper: Dynamic Logged-in Employee Name
+                get currentUserName() {
+                    if (this.isMasterAdmin) return 'Master Admin';
+                    const emp = this.employees.find(e => e.id === this.currentEmpId);
+                    return emp ? emp.name : 'Rudi';
+                },
+
                 // Normalized Role Helpers for RBAC
                 get normalizedRole() {
                     return (this.currentUserRole || '').trim().toLowerCase();
@@ -674,27 +697,27 @@
 
                 // Tab Access Permissions
                 get canAccessRekap() {
-                    return true; // All roles can see rekap (own or all)
+                    return true;
                 },
                 get canAccessIzin() {
-                    return true; // All roles can see izin (own or all)
+                    return true;
                 },
                 get canAccessBasecamp() {
-                    return true; // All roles can see Basecamp
+                    return true;
                 },
                 get canAccessKaryawan() {
-                    return this.isMasterOrPM; // Only Master Admin / PM
+                    return this.isMasterOrPM;
                 },
 
                 // Action / Modification Permissions
                 get canModifyBasecamp() {
-                    return this.isMasterOrPM; // Only Master Admin / PM can add/edit/delete basecamps
+                    return this.isMasterOrPM;
                 },
                 get canModifyIzin() {
-                    return this.isMasterOrPM; // Only Master Admin / PM can approve/reject leaves
+                    return this.isMasterOrPM;
                 },
                 get canResetRekap() {
-                    return this.isMasterOrPM; // Only Master Admin / PM can reset attendance data
+                    return this.isMasterOrPM;
                 },
 
                 employeeTab: 'checkin',
@@ -744,7 +767,6 @@
                     await this.loadAttendanceData();
                 },
 
-                // Helper: Hitung keterlambatan dalam menit (Batas max absen jam 09:45 WIB = 585 menit dari 00:00)
                 getLatenessMinutes(timestamp) {
                     if (!timestamp) return 0;
                     let match = timestamp.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
@@ -762,7 +784,7 @@
                         }
                     }
                     const totalMinutes = h * 60 + m;
-                    const maxAllowedMinutes = 9 * 60 + 45; // 09:45 WIB = 585 menit
+                    const maxAllowedMinutes = 9 * 60 + 45;
                     return Math.max(0, totalMinutes - maxAllowedMinutes);
                 },
 
@@ -1036,7 +1058,6 @@
 
                 get displayedLeaves() {
                     let items = this.leaves;
-                    // If operational roles (Regional PM, Supervisor, Installer, SND), filter by currentEmpId
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
                         items = items.filter(l => l.empId === this.currentEmpId);
                     }
@@ -1109,7 +1130,7 @@
                 },
                 async saveBasecamp() {
                     if (!this.canModifyBasecamp) {
-                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp (tidak dapat menyimpan perubahan).');
+                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp.');
                         this.showBasecampModal = false;
                         return;
                     }
@@ -1222,7 +1243,6 @@
 
                 get filteredAttendance() {
                     let logs = this.attendanceLogs;
-                    // If operational role (Regional PM, Supervisor, Installer, SND), filter by currentEmpId
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
                         logs = logs.filter(item => item.empId === this.currentEmpId);
                     }
