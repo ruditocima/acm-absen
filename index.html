@@ -40,7 +40,7 @@
         </div>
         <div class="flex items-center space-x-3">
             <button @click="switchRole()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition font-semibold text-amber-400">
-                <i class="fa-solid fa-rotate mr-1"></i> Mode: <span x-text="isAdminView ? 'Admin / PM' : 'Karyawan (HP)'"></span>
+                <i class="fa-solid fa-rotate mr-1"></i> Mode: <span x-text="isAdminView ? 'Admin / Staff Portal' : 'Karyawan (HP)'"></span>
             </button>
         </div>
     </header>
@@ -191,7 +191,7 @@
             </div>
         </template>
 
-        <!-- ADMIN / PROJECT MANAGER PORTAL -->
+        <!-- ADMIN / STAFF PORTAL -->
         <template x-if="isAdminView">
             <div class="space-y-6">
 
@@ -203,8 +203,8 @@
                                 <div class="w-16 h-16 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
                                     <i class="fa-solid fa-user-shield"></i>
                                 </div>
-                                <h2 class="text-2xl font-black text-slate-900">Login Admin / PM</h2>
-                                <p class="text-xs font-semibold text-slate-600 mt-1">Masuk dengan akun Master Admin atau Staff Admin</p>
+                                <h2 class="text-2xl font-black text-slate-900">Login Portal Staff & Admin</h2>
+                                <p class="text-xs font-semibold text-slate-600 mt-1">Masuk dengan akun Regional PM, Project Supervisor, Fiber Installer, SND Engineer, Admin, atau Master Admin</p>
                             </div>
 
                             <form @submit.prevent="handleAdminLogin" class="space-y-4">
@@ -218,23 +218,22 @@
                                 </div>
 
                                 <div class="bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs p-3 rounded-xl space-y-1">
-                                    <div><i class="fa-solid fa-info-circle mr-1"></i> <strong>Hak Akses Admin:</strong></div>
+                                    <div><i class="fa-solid fa-info-circle mr-1"></i> <strong>Informasi Hak Akses Role:</strong></div>
                                     <ul class="list-disc list-inside pl-1 text-[11px] space-y-0.5">
-                                        <li>Basecamp: Bisa melihat peta & klik edit (Read Only tanpa simpan/hapus)</li>
-                                        <li>Rekap Absensi: Bisa melihat rekap & keterlambatan, tanpa tombol reset</li>
-                                        <li>Persetujuan Izin: Bisa melihat daftar pengajuan izin (Read Only)</li>
+                                        <li><strong>Regional PM / Supervisor / Installer / SND:</strong> Rekap & Izin hanya data sendiri (read-only); Basecamp lihat peta saja (tanpa edit/hapus).</li>
+                                        <li><strong>Admin:</strong> Rekap & Izin bisa melihat semua data (read-only rekap tanpa reset, read-only izin tanpa approve/reject); Basecamp lihat peta saja.</li>
                                     </ul>
                                 </div>
 
                                 <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN SISTEM
+                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN PORTAL
                                 </button>
                             </form>
                         </div>
                     </div>
                 </template>
 
-                <!-- 2. DASHBOARD ADMIN -->
+                <!-- 2. DASHBOARD ADMIN / STAFF -->
                 <template x-if="isAdminLoggedIn">
                     <div class="space-y-6">
                         <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
@@ -276,10 +275,11 @@
                         <div x-show="adminTab === 'rekap' && canAccessRekap" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex flex-wrap justify-between items-center gap-4">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi Karyawan</h2>
+                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi</h2>
                                     <p class="text-xs text-slate-400">
-                                        <span x-show="!canResetRekap" class="text-amber-400 italic">Mode Admin: Dapat melihat rekap absensi & keterlambatan, tanpa hak akses reset data.</span>
-                                        <span x-show="canResetRekap">Batas waktu absen normal 09.45 WIB. Filter rentang waktu dan export ke CSV.</span>
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh rekap absensi karyawan (Read Only, tanpa tombol reset).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan rekap absensi berdasarkan ID Anda yang sedang login (Read Only).</span>
+                                        <span x-show="isMasterOrPM">Batas waktu absen normal 09.45 WIB. Filter rentang waktu dan export ke CSV.</span>
                                     </p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-3">
@@ -335,7 +335,7 @@
                                         </template>
                                         <template x-if="filteredAttendance.length === 0">
                                             <tr>
-                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada data absensi pada rentang tanggal ini.</td>
+                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada data absensi untuk akun/rentang tanggal ini.</td>
                                             </tr>
                                         </template>
                                     </tbody>
@@ -347,10 +347,11 @@
                         <div x-show="adminTab === 'izin' && canAccessIzin" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti Karyawan</h2>
+                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti</h2>
                                     <p class="text-xs text-slate-400">
-                                        <span x-show="!canModifyIzin" class="text-amber-400 italic">Mode Admin: Dapat melihat daftar pengajuan izin (Read Only).</span>
-                                        <span x-show="canModifyIzin">Menampilkan daftar pengajuan izin dari seluruh karyawan.</span>
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh pengajuan izin karyawan (Read Only).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan pengajuan izin berdasarkan ID Anda yang sedang login (Read Only).</span>
+                                        <span x-show="isMasterOrPM">Menampilkan daftar pengajuan izin dari seluruh karyawan untuk disetujui/ditolak.</span>
                                     </p>
                                 </div>
                             </div>
@@ -368,7 +369,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(leave, index) in leaves" :key="leave.id">
+                                        <template x-for="(leave, index) in displayedLeaves" :key="leave.id">
                                             <tr class="hover:bg-slate-900/50 transition">
                                                 <td class="p-4 font-semibold text-slate-300" x-text="leave.timestamp"></td>
                                                 <td class="p-4">
@@ -407,7 +408,7 @@
                                                 </td>
                                             </tr>
                                         </template>
-                                        <template x-if="leaves.length === 0">
+                                        <template x-if="displayedLeaves.length === 0">
                                             <tr>
                                                 <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada pengajuan izin atau sakit.</td>
                                             </tr>
@@ -421,13 +422,13 @@
                         <div x-show="adminTab === 'basecamp' && canAccessBasecamp" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Kelola Lokasi Basecamp</h2>
+                                    <h2 class="text-xl font-bold text-white">Lokasi Basecamp</h2>
                                     <p class="text-xs text-slate-400">
                                         <span x-show="canModifyBasecamp">Lihat koordinat GPS, radius geofencing, serta tambah/edit basecamp.</span>
-                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Mode Admin: Dapat melihat peta dan mengeklik edit untuk memeriksa detail, namun tombol Simpan dan Hapus dinonaktifkan.</span>
+                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Anda dapat melihat peta dan mengeklik detail/peta basecamp (Read Only, tanpa hak edit atau hapus).</span>
                                     </p>
                                 </div>
-                                <!-- Tambah Basecamp button: Master Admin Only -->
+                                <!-- Tambah Basecamp button: Master Admin / PM Only -->
                                 <button x-show="canModifyBasecamp" @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
                                     <i class="fa-solid fa-plus mr-1"></i> Tambah Basecamp
                                 </button>
@@ -443,7 +444,7 @@
                                             </div>
                                             <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
                                         </div>
-                                        <!-- Edit (Inspect) and Delete buttons -->
+                                        <!-- Edit/Inspect and Delete buttons -->
                                         <div class="flex space-x-2 pt-2 border-t border-slate-800">
                                             <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"><span x-text="canModifyBasecamp ? 'Edit' : 'Lihat Peta / Detail'"></span></button>
                                             <button x-show="canModifyBasecamp" @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
@@ -510,7 +511,7 @@
         <div class="glass-card max-w-lg w-full p-6 rounded-3xl space-y-4 border border-slate-700 max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Detail / Peta Basecamp' : 'Tambah Basecamp Baru'"></h3>
             <div x-show="!canModifyBasecamp" class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl">
-                <i class="fa-solid fa-info-circle mr-1"></i> <strong>Mode Admin (Read Only):</strong> Anda dapat melihat peta dan detail koordinat, namun tombol Simpan dinonaktifkan.
+                <i class="fa-solid fa-info-circle mr-1"></i> <strong>Mode Read Only:</strong> Anda dapat melihat peta dan koordinat basecamp, namun tombol simpan dinonaktifkan.
             </div>
             <form @submit.prevent="saveBasecamp" class="space-y-3">
                 <div>
@@ -661,39 +662,44 @@
                 get normalizedRole() {
                     return (this.currentUserRole || '').trim().toLowerCase();
                 },
-                get isFullAdmin() {
+                get isMasterOrPM() {
                     if (this.isMasterAdmin) return true;
                     const r = this.normalizedRole;
-                    return r === 'pusat' || r === 'superadmin' || r === 'project manager' || r.includes('project manager');
+                    return r === 'project manager' || r === 'pusat' || r === 'superadmin' || r.includes('project manager');
                 },
-                get isAdminRole() {
+                get isAdminOnly() {
                     const r = this.normalizedRole;
-                    return r === 'admin' || r.includes('admin');
+                    return r === 'admin' || (r.includes('admin') && !this.isMasterOrPM);
+                },
+                get isOperationalRole() {
+                    const r = this.normalizedRole;
+                    const operationalRoles = ['regional pm', 'project supervisor', 'fiber installer', 'snd engineer'];
+                    return operationalRoles.includes(r) || (!this.isMasterOrPM && !this.isAdminOnly && this.currentEmpId);
                 },
 
                 // Tab Access Permissions
                 get canAccessRekap() {
-                    return this.isFullAdmin || this.isAdminRole;
+                    return true; // All roles can see rekap (own or all)
                 },
                 get canAccessIzin() {
-                    return this.isFullAdmin || this.isAdminRole;
+                    return true; // All roles can see izin (own or all)
                 },
                 get canAccessBasecamp() {
                     return true; // All roles can see Basecamp
                 },
                 get canAccessKaryawan() {
-                    return this.isFullAdmin; // Only Master Admin / PM
+                    return this.isMasterOrPM; // Only Master Admin / PM
                 },
 
                 // Action / Modification Permissions
                 get canModifyBasecamp() {
-                    return this.isFullAdmin; // Admin can view/edit map/details, but cannot save or delete
+                    return this.isMasterOrPM; // Only Master Admin / PM can add/edit/delete basecamps
                 },
                 get canModifyIzin() {
-                    return this.isFullAdmin; // Admin can view leave requests in read-only mode, but cannot approve/reject
+                    return this.isMasterOrPM; // Only Master Admin / PM can approve/reject leaves
                 },
                 get canResetRekap() {
-                    return this.isFullAdmin; // Admin can view rekap, but cannot reset data
+                    return this.isMasterOrPM; // Only Master Admin / PM can reset attendance data
                 },
 
                 employeeTab: 'checkin',
@@ -1033,6 +1039,15 @@
                     return this.leaves.filter(l => l.empId === this.leaveForm.empId);
                 },
 
+                get displayedLeaves() {
+                    let items = this.leaves;
+                    // If operational roles (Regional PM, Supervisor, Installer, SND), filter by currentEmpId
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        items = items.filter(l => l.empId === this.currentEmpId);
+                    }
+                    return items;
+                },
+
                 initMap() {
                     const lat = parseFloat(this.basecampForm.lat) || 0.50653;
                     const lng = parseFloat(this.basecampForm.lng) || 101.42304;
@@ -1212,6 +1227,10 @@
 
                 get filteredAttendance() {
                     let logs = this.attendanceLogs;
+                    // If operational role (Regional PM, Supervisor, Installer, SND), filter by currentEmpId
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                    }
                     return logs.filter(item => {
                         const itemDate = item.date || getLocalDate();
                         if (this.filterStartDate && this.filterEndDate) {
