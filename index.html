@@ -216,15 +216,6 @@
                                     <input type="password" x-model="adminLoginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
                                 </div>
 
-                                <div class="bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs p-3 rounded-xl space-y-1">
-                                    <div><i class="fa-solid fa-info-circle mr-1"></i> <strong>Informasi Hak Akses Role:</strong></div>
-                                    <ul class="list-disc list-inside pl-1 text-[11px] space-y-0.5">
-                                        <li><strong>Project Manager / Master Admin:</strong> Akses penuh termasuk Kirim Pesan, Reset Rekap, Approval Izin, & Basecamp.</li>
-                                        <li><strong>Regional PM / Supervisor / Installer / SND:</strong> Rekap & Izin hanya data sendiri (read-only).</li>
-                                        <li><strong>Admin:</strong> Rekap & Izin bisa melihat semua data (read-only rekap tanpa reset, read-only izin tanpa approve/reject).</li>
-                                    </ul>
-                                </div>
-
                                 <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
                                     <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN PORTAL
                                 </button>
@@ -238,7 +229,6 @@
                     <div class="space-y-6">
                         <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
                             <div class="flex items-center space-x-3">
-                                <!-- Kalimat sapaan dinamis sesuai waktu login & nama karyawan -->
                                 <span class="text-xs font-bold text-slate-200 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800" x-text="timeGreeting + ' : ' + currentUserName"></span>
                                 <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30" x-text="'Role: ' + (currentUserRole || 'Master Admin')"></span>
                                 <label class="flex items-center cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
@@ -721,7 +711,6 @@
                 currentEmpId: null,
                 isMasterAdmin: false,
 
-                // Helper: Dynamic Greeting based on login time
                 get timeGreeting() {
                     const hour = new Date().getHours();
                     if (hour >= 4 && hour < 11) return 'Selamat Pagi';
@@ -730,14 +719,12 @@
                     return 'Selamat Malam';
                 },
 
-                // Helper: Dynamic Logged-in Employee Name
                 get currentUserName() {
                     if (this.isMasterAdmin) return 'Master Admin';
                     const emp = this.employees.find(e => e.id === this.currentEmpId);
                     return emp ? emp.name : 'Rudi';
                 },
 
-                // Normalized Role Helpers for RBAC
                 get normalizedRole() {
                     return (this.currentUserRole || '').trim().toLowerCase();
                 },
@@ -756,7 +743,6 @@
                     return operationalRoles.includes(r) || (!this.isMasterOrPM && !this.isAdminOnly && this.currentEmpId);
                 },
 
-                // Tab Access Permissions
                 get canAccessRekap() {
                     return true;
                 },
@@ -773,7 +759,6 @@
                     return this.isMasterOrPM;
                 },
 
-                // Action / Modification Permissions
                 get canModifyBasecamp() {
                     return this.isMasterOrPM;
                 },
@@ -838,7 +823,6 @@
                     await this.loadMessagesData();
                 },
 
-                // Helper: Dynamic Deadline Text based on employee ID input
                 get employeeDeadlineText() {
                     if (!this.loginId) return '09.45 WIB / 09.10 WIB';
                     const emp = this.employees.find(e => e.id.toLowerCase() === this.loginId.trim().toLowerCase());
@@ -868,14 +852,13 @@
                     }
                     const totalMinutes = h * 60 + m;
                     
-                    // Menentukan batas waktu normal berdasarkan role
                     const r = (role || '').trim().toLowerCase();
-                    let maxAllowedMinutes = 9 * 60 + 45; // Default 09.45 WIB
+                    let maxAllowedMinutes = 9 * 60 + 45;
                     
                     if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
-                        maxAllowedMinutes = 9 * 60 + 10; // 09.10 WIB[cite: 1]
+                        maxAllowedMinutes = 9 * 60 + 10;
                     } else if (r === 'regional pm' || r === 'project supervisor' || r === 'fiber installer') {
-                        maxAllowedMinutes = 9 * 60 + 45; // 09.45 WIB[cite: 1]
+                        maxAllowedMinutes = 9 * 60 + 45;
                     }
 
                     return Math.max(0, totalMinutes - maxAllowedMinutes);
