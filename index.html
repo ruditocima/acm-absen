@@ -204,12 +204,12 @@
                                     <i class="fa-solid fa-user-shield"></i>
                                 </div>
                                 <h2 class="text-2xl font-black text-slate-900">Login Admin / PM</h2>
-                                <p class="text-xs font-semibold text-slate-600 mt-1">Masukkan kredensial khusus Administrator atau Project Manager</p>
+                                <p class="text-xs font-semibold text-slate-600 mt-1">Semua karyawan diizinkan login menggunakan akun masing-masing</p>
                             </div>
 
                             <form @submit.prevent="handleAdminLogin" class="space-y-4">
                                 <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID / Username Admin</label>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID / Username</label>
                                     <input type="text" x-model="adminLoginUser" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: admin atau rudi01">
                                 </div>
                                 <div>
@@ -218,11 +218,11 @@
                                 </div>
 
                                 <div class="bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs p-3 rounded-xl">
-                                    <i class="fa-solid fa-info-circle mr-1"></i> <strong>Info Default:</strong> Username: <code class="bg-amber-100 px-1 py-0.5 rounded font-mono">admin</code> / Password: <code class="bg-amber-100 px-1 py-0.5 rounded font-mono">admin123</code> (atau gunakan akun rudi01).
+                                    <i class="fa-solid fa-info-circle mr-1"></i> <strong>Info:</strong> Karyawan, Admin, & Project Manager dapat masuk sesuai hak akses role masing-masing.
                                 </div>
 
                                 <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN ADMIN
+                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN SISTEM
                                 </button>
                             </form>
                         </div>
@@ -234,7 +234,7 @@
                     <div class="space-y-6">
                         <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
                             <div class="flex items-center space-x-3">
-                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30">Admin Dashboard</span>
+                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30" x-text="'Role: ' + (currentUserRole || 'Admin')"></span>
                                 <label class="flex items-center cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
                                     <input type="checkbox" x-model="simulationMode" class="sr-only peer">
                                     <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500 relative"></div>
@@ -244,16 +244,20 @@
 
                             <div class="flex items-center space-x-3">
                                 <div class="flex flex-wrap gap-2">
+                                    <!-- Rekap Absensi: Accessible to PM, Admin, and Regular Employees -->
                                     <button @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
                                     </button>
-                                    <button @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                    <!-- Persetujuan Izin: Only Project Manager -->
+                                    <button x-show="isProjectManager" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
                                     </button>
-                                    <button @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                    <!-- Basecamp: Project Manager & Admin (Read Only for Admin) -->
+                                    <button x-show="isProjectManager || isAdmin" @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
                                     </button>
-                                    <button @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                    <!-- Data Karyawan: Only Project Manager -->
+                                    <button x-show="isProjectManager" @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-users-gear mr-1"></i> Data Karyawan
                                     </button>
                                 </div>
@@ -282,7 +286,8 @@
                                     <button @click="loadAttendanceData()" class="mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl transition" title="Muat Ulang Data">
                                         <i class="fa-solid fa-rotate-right"></i> Refresh
                                     </button>
-                                    <button @click="clearAllAttendance" class="mt-4 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl transition" title="Reset Data Absensi">
+                                    <!-- Reset Data button hidden for Admin and regular employees -->
+                                    <button x-show="isProjectManager" @click="clearAllAttendance" class="mt-4 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl transition" title="Reset Data Absensi">
                                         <i class="fa-solid fa-trash-can mr-1"></i> Reset Data
                                     </button>
                                     <button @click="exportCSV" class="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/30">
@@ -325,7 +330,7 @@
                         </div>
 
                         <!-- TAB 2: PERSETUJUAN IZIN -->
-                        <div x-show="adminTab === 'izin'" class="glass-card p-6 rounded-3xl space-y-6">
+                        <div x-show="adminTab === 'izin' && isProjectManager" class="glass-card p-6 rounded-3xl space-y-6">
                             <div>
                                 <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti Karyawan</h2>
                                 <p class="text-xs text-slate-400">Tinjau dan setujui atau tolak pengajuan ketidakhadiran dari karyawan.</p>
@@ -387,13 +392,14 @@
                         </div>
 
                         <!-- TAB 3: MANAJEMEN BASECAMP -->
-                        <div x-show="adminTab === 'basecamp'" class="glass-card p-6 rounded-3xl space-y-6">
+                        <div x-show="adminTab === 'basecamp' && (isProjectManager || isAdmin)" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Kelola Lokasi Basecamp</h2>
-                                    <p class="text-xs text-slate-400">Tambah atau edit koordinat GPS dan radius geofencing basecamp.</p>
+                                    <h2 class="text-xl font-bold text-white">Kelola Lokasi Basecamp <span x-show="isAdmin" class="text-xs text-amber-400 font-normal">(Read Only)</span></h2>
+                                    <p class="text-xs text-slate-400">Lihat koordinat GPS dan radius geofencing basecamp.</p>
                                 </div>
-                                <button @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
+                                <!-- Tambah Basecamp button hidden for Admin -->
+                                <button x-show="isProjectManager" @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
                                     <i class="fa-solid fa-plus mr-1"></i> Tambah Basecamp
                                 </button>
                             </div>
@@ -408,7 +414,8 @@
                                             </div>
                                             <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
                                         </div>
-                                        <div class="flex space-x-2 pt-2 border-t border-slate-800">
+                                        <!-- Edit and Delete buttons hidden for Admin (Read Only) -->
+                                        <div x-show="isProjectManager" class="flex space-x-2 pt-2 border-t border-slate-800">
                                             <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition">Edit</button>
                                             <button @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
                                         </div>
@@ -418,7 +425,7 @@
                         </div>
 
                         <!-- TAB 4: MANAJEMEN KARYAWAN -->
-                        <div x-show="adminTab === 'karyawan'" class="glass-card p-6 rounded-3xl space-y-6">
+                        <div x-show="adminTab === 'karyawan' && isProjectManager" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <h2 class="text-xl font-bold text-white">Kelola Data Karyawan</h2>
@@ -581,7 +588,6 @@
             return false;
         }
 
-        // FUNGSI VALIDASI YANG SEKARANG MEMANGGIL SUPABASE RPC (SERVER-SIDE)
         async function simulateServerSideValidation(payload) {
             const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
             
@@ -614,6 +620,23 @@
                 adminTab: 'rekap',
                 simulationMode: false,
                 isDesktopDevice: window.innerWidth >= 1024,
+                
+                currentUserRole: '',
+                isMasterAdmin: false,
+
+                get isProjectManager() {
+                    if (this.isMasterAdmin) return true;
+                    if (!this.currentUserRole) return false;
+                    const r = this.currentUserRole.toLowerCase();
+                    return r.includes('project manager') || r.includes('pm') || r === 'master';
+                },
+
+                get isAdmin() {
+                    if (this.isMasterAdmin) return false;
+                    if (!this.currentUserRole) return false;
+                    const r = this.currentUserRole.toLowerCase();
+                    return r === 'admin';
+                },
                 
                 employeeTab: 'checkin',
 
@@ -791,21 +814,29 @@
                         this.loadAttendanceData();
                     } else {
                         this.isAdminLoggedIn = false;
+                        this.currentUserRole = '';
+                        this.isMasterAdmin = false;
                     }
                 },
 
                 handleAdminLogin() {
                     if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'admin123') {
                         this.isAdminLoggedIn = true;
+                        this.isMasterAdmin = true;
+                        this.currentUserRole = 'Project Manager';
                         this.adminLoginUser = '';
                         this.adminLoginPass = '';
+                        this.adminTab = 'rekap';
                         this.loadAttendanceData();
                     } else {
                         const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
                         if (emp) {
                             this.isAdminLoggedIn = true;
+                            this.isMasterAdmin = false;
+                            this.currentUserRole = emp.role || 'Karyawan';
                             this.adminLoginUser = '';
                             this.adminLoginPass = '';
+                            this.adminTab = 'rekap';
                             this.loadAttendanceData();
                         } else {
                             alert('ID/Username atau Password salah!');
@@ -815,6 +846,8 @@
 
                 adminLogout() {
                     this.isAdminLoggedIn = false;
+                    this.currentUserRole = '';
+                    this.isMasterAdmin = false;
                 },
 
                 async handleCheckIn() {
