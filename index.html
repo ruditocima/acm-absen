@@ -8,6 +8,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
@@ -53,9 +55,9 @@
                     <i class="fa-solid fa-mobile-screen-button"></i>
                 </div>
                 <h2 class="text-2xl font-bold text-white mb-2">Akses Dibatasi</h2>
-                <p class="text-slate-400 text-sm mb-6">Sistem Absensi Karyawan hanya diizinkan melalui perangkat <strong>Smartphone (HP)</strong>[cite: 1].</p>
+                <p class="text-slate-400 text-sm mb-6">Sistem Absensi Karyawan hanya diizinkan melalui perangkat <strong>Smartphone (HP)</strong>.</p>
                 <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-6">
-                    <i class="fa-solid fa-info-circle mr-1"></i> Jika Anda Administrator di Laptop, aktifkan <strong>Mode Simulasi</strong> di panel Admin atau sudut atas untuk menguji portal karyawan[cite: 1].
+                    <i class="fa-solid fa-info-circle mr-1"></i> Jika Anda Administrator di Laptop, aktifkan <strong>Mode Simulasi</strong> di panel Admin atau sudut atas untuk menguji portal karyawan.
                 </div>
             </div>
         </template>
@@ -538,6 +540,13 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // Konfigurasi Supabase (Ganti dengan URL dan Anon Key proyek Anda)
+        const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         function getLocalDate(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -574,84 +583,96 @@
         }
 
         async function simulateServerSideValidation(payload) {
-            return new Promise((resolve) => {
-                setTimeout(async () => {
-                    const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
-                    
-                    const serverEmployees = JSON.parse(localStorage.getItem('bc_employees')) || [];
-                    const serverBasecamps = JSON.parse(localStorage.getItem('bc_basecamps')) || [];
-                    const serverAttendance = JSON.parse(localStorage.getItem('bc_attendance')) || [];
+            return new Promise(async (resolve) => {
+                const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
+                
+                // Ambil data karyawan dari Supabase
+                const { data: employees, error: empErr } = await _supabase.from('employees').select('*');
+                if (empErr || !employees) {
+                    resolve({ success: false, message: 'Gagal terhubung ke database Supabase.' });
+                    return;
+                }
 
-                    const emp = serverEmployees.find(e => e.id === loginId && e.password === loginPass);
-                    if (!emp) {
-                        resolve({ success: false, message: 'ID Karyawan atau Password salah!' });
-                        return;
-                    }
+                const emp = employees.find(e => e.id === loginId && e.password === loginPass);
+                if (!emp) {
+                    resolve({ success: false, message: 'ID Karyawan atau Password salah!' });
+                    return;
+                }
 
-                    if (!emp.deviceId) {
-                        emp.deviceId = deviceId;
-                        localStorage.setItem('bc_employees', JSON.stringify(serverEmployees));
-                    } else if (emp.deviceId !== deviceId && !simulationMode) {
-                        resolve({ success: false, message: 'Akses ditolak! Akun ini sudah terikat dengan perangkat HP lain.' });
-                        return;
-                    }
+                if (!emp.device_id) {
+                    await _supabase.from('employees').update({ device_id: deviceId }).eq('id', emp.id);
+                } else if (emp.device_id !== deviceId && !simulationMode) {
+                    resolve({ success: false, message: 'Akses ditolak! Akun ini sudah terikat dengan perangkat HP lain.' });
+                    return;
+                }
 
-                    const serverNow = new Date();
-                    const serverDateToday = getLocalDate(serverNow);
-                    const serverTimestampFormatted = serverNow.toLocaleString('id-ID');
+                const serverNow = new Date();
+                const serverDateToday = getLocalDate(serverNow);
+                const serverTimestampFormatted = serverNow.toLocaleString('id-ID');
 
-                    const alreadyCheckedIn = serverAttendance.some(log => log.empId === emp.id && log.date === serverDateToday);
-                    if (alreadyCheckedIn) {
-                        resolve({ success: false, message: 'Anda sudah melakukan check-in hari ini. Hanya diizinkan 1 kali sehari.' });
-                        return;
-                    }
+                // Cek apakah sudah absen hari ini di Supabase
+                const { data: existingLogs } = await _supabase
+                    .from('attendance')
+                    .select('*')
+                    .eq('emp_id', emp.id)
+                    .eq('date', serverDateToday);
 
-                    let verifiedBasecamp = null;
-                    if (simulationMode) {
-                        verifiedBasecamp = { name: 'Simulasi Basecamp (Admin)' };
-                    } else if (currentCoords) {
-                        for (let bc of serverBasecamps) {
-                            const R = 6371e3;
-                            const φ1 = currentCoords.lat * Math.PI/180;
-                            const φ2 = bc.lat * Math.PI/180;
-                            const Δφ = (bc.lat - currentCoords.lat) * Math.PI/180;
-                            const Δλ = (bc.lng - currentCoords.lng) * Math.PI/180;
-                            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                                      Math.cos(φ1) * Math.cos(φ2) *
-                                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                            const distance = R * c;
+                if (existingLogs && existingLogs.length > 0) {
+                    resolve({ success: false, message: 'Anda sudah melakukan check-in hari ini. Hanya diizinkan 1 kali sehari.' });
+                    return;
+                }
 
-                            if (distance <= bc.radius) {
-                                verifiedBasecamp = bc;
-                                break;
-                            }
+                // Ambil data basecamp dari Supabase
+                const { data: basecamps } = await _supabase.from('basecamps').select('*');
+                let verifiedBasecamp = null;
+
+                if (simulationMode) {
+                    verifiedBasecamp = { name: 'Simulasi Basecamp (Admin)' };
+                } else if (currentCoords && basecamps) {
+                    for (let bc of basecamps) {
+                        const R = 6371e3;
+                        const φ1 = currentCoords.lat * Math.PI/180;
+                        const φ2 = bc.lat * Math.PI/180;
+                        const Δφ = (bc.lat - currentCoords.lat) * Math.PI/180;
+                        const Δλ = (bc.lng - currentCoords.lng) * Math.PI/180;
+                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                  Math.cos(φ1) * Math.cos(φ2) *
+                                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const distance = R * c;
+
+                        if (distance <= bc.radius) {
+                            verifiedBasecamp = bc;
+                            break;
                         }
                     }
+                }
 
-                    if (!verifiedBasecamp && !simulationMode) {
-                        resolve({ success: false, message: 'Validasi Server Gagal: Koordinat Anda berada di luar radius Basecamp manapun!' });
-                        return;
-                    }
+                if (!verifiedBasecamp && !simulationMode) {
+                    resolve({ success: false, message: 'Validasi Server Gagal: Koordinat Anda berada di luar radius Basecamp manapun!' });
+                    return;
+                }
 
-                    const basecampName = verifiedBasecamp ? verifiedBasecamp.name : 'Simulasi Basecamp (Admin)';
+                const basecampName = verifiedBasecamp ? verifiedBasecamp.name : 'Simulasi Basecamp (Admin)';
 
-                    const newLog = {
-                        id: Date.now(),
-                        empId: emp.id,
-                        name: emp.name,
-                        role: emp.role,
-                        basecamp: basecampName,
-                        timestamp: serverTimestampFormatted,
-                        date: serverDateToday,
-                        accuracy: gpsAccuracy || 5
-                    };
+                const newLog = {
+                    id: Date.now(),
+                    emp_id: emp.id,
+                    name: emp.name,
+                    role: emp.role,
+                    basecamp: basecampName,
+                    timestamp: serverTimestampFormatted,
+                    date: serverDateToday,
+                    accuracy: gpsAccuracy || 5
+                };
 
-                    serverAttendance.unshift(newLog);
-                    localStorage.setItem('bc_attendance', JSON.stringify(serverAttendance));
+                const { error: insertError } = await _supabase.from('attendance').insert([newLog]);
+                if (insertError) {
+                    resolve({ success: false, message: 'Gagal menyimpan absensi ke database: ' + insertError.message });
+                    return;
+                }
 
-                    resolve({ success: true, message: `Berhasil Check-in! Selamat bekerja, ${emp.name} di ${basecampName}.` });
-                }, 300);
+                resolve({ success: true, message: `Berhasil Check-in! Selamat bekerja, ${emp.name} di ${basecampName}.` });
             });
         }
 
@@ -682,7 +703,6 @@
                     reason: ''
                 },
 
-                // Default filter mencakup 30 hari ke belakang sampai hari ini agar data lama langsung kelihatan
                 filterStartDate: (() => {
                     const d = new Date();
                     d.setDate(d.getDate() - 30);
@@ -702,44 +722,76 @@
                 editEmployeeIndex: null,
                 employeeForm: { id: '', name: '', role: '', password: '', deviceId: null },
 
-                basecamps: JSON.parse(localStorage.getItem('bc_basecamps')) || [
-                    { id: 1, name: 'BC Palembang', lat: -3.003194, lng: 104.775250, radius: 500 },
-                    { id: 2, name: 'BC Padang', lat: -0.868337, lng: 100.380127, radius: 500 },
-                    { id: 3, name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 }
-                ],
-
-                employees: JSON.parse(localStorage.getItem('bc_employees')) || [
-                    { id: 'rudi01', name: 'RUDI', role: 'Project Manager', password: 'Ounyenk2018#', deviceId: null },
-                    { id: 'bayu01', name: 'Bayu Saputro', role: 'Regional PM', password: 'bay123#', deviceId: null }
-                ],
-                
+                basecamps: [],
+                employees: [],
                 attendanceLogs: [],
-                leaves: JSON.parse(localStorage.getItem('bc_leaves')) || [],
+                leaves: [],
 
                 async init() {
                     this.initGPS();
                     await getOrCreateStableDeviceIdentifier();
-                    this.loadAttendanceData();
+                    await this.loadAttendanceData();
                 },
 
-                loadAttendanceData() {
-                    let rawLogs = JSON.parse(localStorage.getItem('bc_attendance')) || [];
-                    
-                    // Normalisasi otomatis data absensi lama yang belum memiliki properti 'date'
-                    this.attendanceLogs = rawLogs.map(item => ({
-                        ...item,
-                        date: item.date || getLocalDate()
-                    }));
+                async loadAttendanceData() {
+                    // Ambil attendance dari Supabase
+                    let { data: attData } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                    if (attData) {
+                        this.attendanceLogs = attData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            role: item.role,
+                            basecamp: item.basecamp,
+                            timestamp: item.timestamp,
+                            date: item.date || getLocalDate(),
+                            accuracy: item.accuracy
+                        }));
+                    }
 
-                    // Simpan kembali data yang sudah dinormalisasi ke localStorage
-                    localStorage.setItem('bc_attendance', JSON.stringify(this.attendanceLogs));
-                    this.leaves = JSON.parse(localStorage.getItem('bc_leaves')) || [];
+                    // Ambil leaves dari Supabase
+                    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
+                    if (leaveData) {
+                        this.leaves = leaveData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            type: item.type,
+                            startDate: item.start_date,
+                            endDate: item.end_date,
+                            reason: item.reason,
+                            status: item.status,
+                            timestamp: item.timestamp
+                        }));
+                    }
+
+                    // Ambil basecamps dari Supabase
+                    let { data: bcData } = await _supabase.from('basecamps').select('*');
+                    if (bcData && bcData.length > 0) {
+                        this.basecamps = bcData;
+                    }
+
+                    // Ambil employees dari Supabase
+                    let { data: empData } = await _supabase.from('employees').select('*');
+                    if (empData && empData.length > 0) {
+                        this.employees = empData.map(e => ({
+                            id: e.id,
+                            name: e.name,
+                            role: e.role,
+                            password: e.password,
+                            deviceId: e.device_id
+                        }));
+                    }
                 },
 
-                clearAllAttendance() {
+                async clearAllAttendance() {
                     if (confirm('Apakah Anda yakin ingin menghapus seluruh data absensi?')) {
-                        localStorage.removeItem('bc_attendance');
-                        this.attendanceLogs = [];
+                        const { error } = await _supabase.from('attendance').delete().neq('id', 0);
+                        if (!error) {
+                            this.attendanceLogs = [];
+                        } else {
+                            alert('Gagal menghapus data: ' + error.message);
+                        }
                     }
                 },
 
@@ -868,10 +920,10 @@
                     alert(result.message);
                     this.loginId = '';
                     this.loginPass = '';
-                    this.loadAttendanceData();
+                    await this.loadAttendanceData();
                 },
 
-                submitLeaveRequest() {
+                async submitLeaveRequest() {
                     const emp = this.employees.find(e => e.id === this.leaveForm.empId);
                     if (!emp) {
                         alert('ID Karyawan tidak ditemukan!');
@@ -880,27 +932,33 @@
 
                     const newLeave = {
                         id: Date.now(),
-                        empId: emp.id,
+                        emp_id: emp.id,
                         name: emp.name,
                         type: this.leaveForm.type,
-                        startDate: this.leaveForm.startDate,
-                        endDate: this.leaveForm.endDate,
+                        start_date: this.leaveForm.startDate,
+                        end_date: this.leaveForm.endDate,
                         reason: this.leaveForm.reason,
                         status: 'Pending',
                         timestamp: new Date().toLocaleString('id-ID')
                     };
 
-                    this.leaves.unshift(newLeave);
-                    localStorage.setItem('bc_leaves', JSON.stringify(this.leaves));
+                    const { error } = await _supabase.from('leaves').insert([newLeave]);
+                    if (error) {
+                        alert('Gagal mengirim pengajuan: ' + error.message);
+                        return;
+                    }
+
                     alert('Pengajuan berhasil dikirim.');
                     this.leaveForm.reason = '';
+                    await this.loadAttendanceData();
                 },
 
-                updateLeaveStatus(id, status) {
-                    const idx = this.leaves.findIndex(l => l.id === id);
-                    if (idx !== -1) {
-                        this.leaves[idx].status = status;
-                        localStorage.setItem('bc_leaves', JSON.stringify(this.leaves));
+                async updateLeaveStatus(id, status) {
+                    const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
+                    if (!error) {
+                        await this.loadAttendanceData();
+                    } else {
+                        alert('Gagal memperbarui status: ' + error.message);
                     }
                 },
 
@@ -969,20 +1027,44 @@
                     this.showBasecampModal = true;
                     this.$nextTick(() => { this.initMap(); });
                 },
-                saveBasecamp() {
+                async saveBasecamp() {
                     if (this.editBasecampIndex !== null) {
-                        this.basecamps[this.editBasecampIndex] = { ...this.basecampForm, id: this.basecamps[this.editBasecampIndex].id };
+                        const targetId = this.basecamps[this.editBasecampIndex].id;
+                        const { error } = await _supabase.from('basecamps').update({
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        }).eq('id', targetId);
+                        if (error) {
+                            alert('Gagal mengupdate basecamp: ' + error.message);
+                            return;
+                        }
                     } else {
-                        this.basecampForm.id = Date.now();
-                        this.basecamps.push({ ...this.basecampForm });
+                        const newBc = {
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        };
+                        const { error } = await _supabase.from('basecamps').insert([newBc]);
+                        if (error) {
+                            alert('Gagal menambah basecamp: ' + error.message);
+                            return;
+                        }
                     }
-                    localStorage.setItem('bc_basecamps', JSON.stringify(this.basecamps));
                     this.showBasecampModal = false;
+                    await this.loadAttendanceData();
                 },
-                deleteBasecamp(index) {
+                async deleteBasecamp(index) {
                     if (confirm('Hapus basecamp ini?')) {
-                        this.basecamps.splice(index, 1);
-                        localStorage.setItem('bc_basecamps', JSON.stringify(this.basecamps));
+                        const targetId = this.basecamps[index].id;
+                        const { error } = await _supabase.from('basecamps').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus basecamp: ' + error.message);
+                        }
                     }
                 },
 
@@ -996,26 +1078,56 @@
                     this.employeeForm = { ...this.employees[index] };
                     this.showEmployeeModal = true;
                 },
-                saveEmployee() {
+                async saveEmployee() {
                     if (this.editEmployeeIndex !== null) {
-                        this.employees[this.editEmployeeIndex] = { ...this.employeeForm };
+                        const targetEmpId = this.employees[this.editEmployeeIndex].id;
+                        const { error } = await _supabase.from('employees').update({
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password
+                        }).eq('id', targetEmpId);
+                        if (error) {
+                            alert('Gagal mengupdate karyawan: ' + error.message);
+                            return;
+                        }
                     } else {
-                        this.employees.push({ ...this.employeeForm });
+                        const newEmp = {
+                            id: this.employeeForm.id,
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password,
+                            device_id: null
+                        };
+                        const { error } = await _supabase.from('employees').insert([newEmp]);
+                        if (error) {
+                            alert('Gagal menambah karyawan: ' + error.message);
+                            return;
+                        }
                     }
-                    localStorage.setItem('bc_employees', JSON.stringify(this.employees));
                     this.showEmployeeModal = false;
+                    await this.loadAttendanceData();
                 },
-                deleteEmployee(index) {
+                async deleteEmployee(index) {
                     if (confirm('Hapus karyawan ini?')) {
-                        this.employees.splice(index, 1);
-                        localStorage.setItem('bc_employees', JSON.stringify(this.employees));
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus karyawan: ' + error.message);
+                        }
                     }
                 },
-                resetDevice(index) {
+                async resetDevice(index) {
                     if (confirm('Reset perangkat terikat?')) {
-                        this.employees[index].deviceId = null;
-                        localStorage.setItem('bc_employees', JSON.stringify(this.employees));
-                        alert('Device berhasil direset.');
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').update({ device_id: null }).eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                            alert('Device berhasil direset.');
+                        } else {
+                            alert('Gagal mereset device: ' + error.message);
+                        }
                     }
                 },
 
