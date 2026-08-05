@@ -1060,42 +1060,48 @@
                     }
                 },
 
-                handleAdminLogin() {
-                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
-                        this.isAdminLoggedIn = true;
-                        this.isMasterAdmin = true;
-                        this.currentUserRole = 'Master Admin';
-                        this.currentEmpId = null;
-                        this.adminLoginUser = '';
-                        this.adminLoginPass = '';
-                        this.adminTab = 'rekap';
-                        this.loadAttendanceData();
-                        this.loadMessagesData();
-                    } else {
-                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
-                        if (emp) {
-                            this.isAdminLoggedIn = true;
-                            this.isMasterAdmin = false;
-                            this.currentUserRole = emp.role || 'Admin';
-                            this.currentEmpId = emp.id;
-                            this.adminLoginUser = '';
-                            this.adminLoginPass = '';
-                            
-                            if (this.canAccessRekap) {
-                                this.adminTab = 'rekap';
-                            } else if (this.canAccessIzin) {
-                                this.adminTab = 'izin';
-                            } else {
-                                this.adminTab = 'basecamp';
-                            }
+                async handleAdminLogin() {
+    if (!this.adminLoginUser || !this.adminLoginPass) {
+        alert('Masukkan ID/Username dan Password!');
+        return;
+    }
 
-                            this.loadAttendanceData();
-                            this.loadMessagesData();
-                        } else {
-                            alert('ID/Username atau Password salah!');
-                        }
-                    }
-                },
+    // Panggil backend Supabase RPC alih-alih validasi lokal
+    const { data, error } = await _supabase.rpc('validate_admin_login', {
+        p_username: this.adminLoginUser.trim(),
+        p_password: this.adminLoginPass
+    });
+
+    if (error) {
+        alert('Gagal menghubungi server database: ' + error.message);
+        return;
+    }
+
+    if (data && data.success) {
+        this.isAdminLoggedIn = true;
+        this.currentUserRole = data.role;
+        this.isMasterAdmin = (data.role === 'Master Admin');
+        this.currentEmpId = this.isMasterAdmin ? null : this.adminLoginUser.trim();
+        
+        // Bersihkan input form login
+        this.adminLoginUser = '';
+        this.adminLoginPass = '';
+        
+        // Arahkan ke tab default sesuai hak akses
+        if (this.canAccessRekap) {
+            this.adminTab = 'rekap';
+        } else if (this.canAccessIzin) {
+            this.adminTab = 'izin';
+        } else {
+            this.adminTab = 'basecamp';
+        }
+
+        await this.loadAttendanceData();
+        await this.loadMessagesData();
+    } else {
+        alert(data.message || 'ID/Username atau Password salah!');
+    }
+},
 
                 adminLogout() {
                     this.isAdminLoggedIn = false;
