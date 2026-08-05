@@ -220,9 +220,8 @@
                                 <div class="bg-amber-500/10 border border-amber-500/30 text-amber-800 text-xs p-3 rounded-xl space-y-1">
                                     <div><i class="fa-solid fa-info-circle mr-1"></i> <strong>Info RBAC:</strong></div>
                                     <ul class="list-disc list-inside pl-1 text-[11px] space-y-0.5">
-                                        <li><strong>Regional PM:</strong> Basecamp (Read Only)</li>
+                                        <li><strong>Regional PM / Project Supervisor / Fiber Installer / SND Engineer:</strong> Basecamp (Read Only), Rekap Absensi (Read Only & Milik Sendiri), Persetujuan Izin (Read Only & Milik Sendiri)</li>
                                         <li><strong>Admin:</strong> Basecamp (Read Only) & Persetujuan Izin (Read Only)</li>
-                                        <li><strong>SND Engineer / Fiber Installer / Project Supervisor:</strong> Basecamp (Read Only) & Rekap Absensi (Read Only)</li>
                                     </ul>
                                 </div>
 
@@ -249,19 +248,19 @@
 
                             <div class="flex items-center space-x-3">
                                 <div class="flex flex-wrap gap-2">
-                                    <!-- Rekap Absensi: Accessible to Master Admin, PM, SND Engineer, Fiber Installer, Project Supervisor -->
+                                    <!-- Rekap Absensi -->
                                     <button x-show="canAccessRekap" @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
                                     </button>
-                                    <!-- Persetujuan Izin: Accessible to Master Admin, PM, Admin -->
+                                    <!-- Persetujuan Izin -->
                                     <button x-show="canAccessIzin" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
                                     </button>
-                                    <!-- Basecamp: Accessible to All Roles -->
+                                    <!-- Basecamp -->
                                     <button x-show="canAccessBasecamp" @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
                                     </button>
-                                    <!-- Data Karyawan: Accessible to Master Admin & Project Manager -->
+                                    <!-- Data Karyawan -->
                                     <button x-show="canAccessKaryawan" @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-users-gear mr-1"></i> Data Karyawan
                                     </button>
@@ -276,8 +275,11 @@
                         <div x-show="adminTab === 'rekap' && canAccessRekap" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex flex-wrap justify-between items-center gap-4">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi Seluruh Karyawan</h2>
-                                    <p class="text-xs text-slate-400">Filter berdasarkan rentang waktu dan export ke CSV. <span x-show="!canResetRekap" class="text-amber-400 italic">(Read Only)</span></p>
+                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi <span x-show="isSpecialRole" class="text-amber-400 text-xs font-normal">(Milik Anda Sendiri)</span></h2>
+                                    <p class="text-xs text-slate-400">
+                                        <span x-show="!canResetRekap" class="text-amber-400 italic">Mode Read Only (Menampilkan riwayat absensi berdasarkan ID login Anda).</span>
+                                        <span x-show="canResetRekap">Filter berdasarkan rentang waktu dan export ke CSV.</span>
+                                    </p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-3">
                                     <div>
@@ -338,10 +340,10 @@
                         <div x-show="adminTab === 'izin' && canAccessIzin" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
-                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti Karyawan</h2>
+                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti Karyawan <span x-show="isSpecialRole" class="text-amber-400 text-xs font-normal">(Milik Anda Sendiri)</span></h2>
                                     <p class="text-xs text-slate-400">
                                         <span x-show="canModifyIzin">Tinjau dan setujui atau tolak pengajuan ketidakhadiran dari karyawan.</span>
-                                        <span x-show="!canModifyIzin" class="text-amber-400 italic">Mode Read Only (Hanya Melihat Daftar Pengajuan).</span>
+                                        <span x-show="!canModifyIzin" class="text-amber-400 italic">Mode Read Only (Hanya menampilkan daftar pengajuan Anda sendiri).</span>
                                     </p>
                                 </div>
                             </div>
@@ -359,7 +361,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(leave, index) in leaves" :key="leave.id">
+                                        <template x-for="(leave, index) in filteredLeaves" :key="leave.id">
                                             <tr class="hover:bg-slate-900/50 transition">
                                                 <td class="p-4 font-semibold text-slate-300" x-text="leave.timestamp"></td>
                                                 <td class="p-4">
@@ -398,7 +400,7 @@
                                                 </td>
                                             </tr>
                                         </template>
-                                        <template x-if="leaves.length === 0">
+                                        <template x-if="filteredLeaves.length === 0">
                                             <tr>
                                                 <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada pengajuan izin atau sakit.</td>
                                             </tr>
@@ -415,7 +417,7 @@
                                     <h2 class="text-xl font-bold text-white">Kelola Lokasi Basecamp</h2>
                                     <p class="text-xs text-slate-400">
                                         <span x-show="canModifyBasecamp">Lihat koordinat GPS, radius geofencing, serta tambah/edit basecamp.</span>
-                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Mode Read Only (Hanya Melihat Daftar & Lokasi Basecamp).</span>
+                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Mode Read Only (Anda dapat melihat peta dan mengeklik edit untuk memeriksa detail, namun tidak dapat menyimpan atau menghapus).</span>
                                     </p>
                                 </div>
                                 <!-- Tambah Basecamp button: Master Admin & Project Manager Only -->
@@ -434,10 +436,10 @@
                                             </div>
                                             <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
                                         </div>
-                                        <!-- Edit and Delete buttons: Master Admin & Project Manager Only -->
-                                        <div x-show="canModifyBasecamp" class="flex space-x-2 pt-2 border-t border-slate-800">
-                                            <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition">Edit</button>
-                                            <button @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
+                                        <!-- Edit and Delete buttons -->
+                                        <div class="flex space-x-2 pt-2 border-t border-slate-800">
+                                            <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"><span x-text="canModifyBasecamp ? 'Edit' : 'Lihat / Peta'"></span></button>
+                                            <button x-show="canModifyBasecamp" @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
                                         </div>
                                     </div>
                                 </template>
@@ -499,33 +501,36 @@
     <!-- MODAL BASECAMP -->
     <div x-show="showBasecampModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
         <div class="glass-card max-w-lg w-full p-6 rounded-3xl space-y-4 border border-slate-700 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Edit Basecamp' : 'Tambah Basecamp Baru'"></h3>
+            <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Detail / Edit Basecamp' : 'Tambah Basecamp Baru'"></h3>
+            <div x-show="!canModifyBasecamp" class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl">
+                <i class="fa-solid fa-info-circle mr-1"></i> <strong>Mode Read Only:</strong> Anda dapat melihat peta dan detail lokasi, namun tombol Simpan dinonaktifkan.
+            </div>
             <form @submit.prevent="saveBasecamp" class="space-y-3">
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Basecamp</label>
-                    <input type="text" x-model="basecampForm.name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <input type="text" x-model="basecampForm.name" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Titik Lokasi (Klik Peta atau Geser Marker)</label>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Pilih Titik Lokasi (Peta Basecamp)</label>
                     <div id="basecampMap"></div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Latitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lat" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <input type="number" step="any" x-model="basecampForm.lat" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Longitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lng" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                        <input type="number" step="any" x-model="basecampForm.lng" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Radius (Meter)</label>
-                    <input type="number" x-model="basecampForm.radius" @input="updateMapFromInputs" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                    <input type="number" x-model="basecampForm.radius" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
                 </div>
                 <div class="flex justify-end space-x-2 pt-4">
-                    <button type="button" @click="showBasecampModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
+                    <button type="button" @click="showBasecampModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Tutup</button>
+                    <button type="submit" x-show="canModifyBasecamp" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
                 </div>
             </form>
         </div>
@@ -642,6 +647,7 @@
                 isDesktopDevice: window.innerWidth >= 1024,
                 
                 currentUserRole: '',
+                currentEmpId: null,
                 isMasterAdmin: false,
 
                 // Normalized Role Helpers for RBAC
@@ -663,13 +669,18 @@
                     const r = this.normalizedRole;
                     return r.includes('snd engineer') || r.includes('fiber installer') || r.includes('project supervisor');
                 },
+                get isSpecialRole() {
+                    if (this.isMasterAdmin) return false;
+                    const r = this.normalizedRole;
+                    return r.includes('regional pm') || r.includes('project supervisor') || r.includes('fiber installer') || r.includes('snd engineer');
+                },
 
                 // Tab Access Permissions
                 get canAccessRekap() {
-                    return this.isFullAdmin || this.isFieldEngineerUser;
+                    return this.isFullAdmin || this.isFieldEngineerUser || this.isRegionalPMUser || this.isSpecialRole;
                 },
                 get canAccessIzin() {
-                    return this.isFullAdmin || this.isAdminRoleUser;
+                    return this.isFullAdmin || this.isAdminRoleUser || this.isSpecialRole;
                 },
                 get canAccessBasecamp() {
                     return true; // All roles can see Basecamp
@@ -678,7 +689,7 @@
                     return this.isFullAdmin;
                 },
 
-                // Action / Modification Permissions (Read Only rules enforcement)
+                // Action / Modification Permissions
                 get canModifyBasecamp() {
                     return this.isFullAdmin;
                 },
@@ -866,6 +877,7 @@
                     } else {
                         this.isAdminLoggedIn = false;
                         this.currentUserRole = '';
+                        this.currentEmpId = null;
                         this.isMasterAdmin = false;
                     }
                 },
@@ -875,6 +887,7 @@
                         this.isAdminLoggedIn = true;
                         this.isMasterAdmin = true;
                         this.currentUserRole = 'Master Admin';
+                        this.currentEmpId = null;
                         this.adminLoginUser = '';
                         this.adminLoginPass = '';
                         this.adminTab = 'rekap';
@@ -885,10 +898,10 @@
                             this.isAdminLoggedIn = true;
                             this.isMasterAdmin = false;
                             this.currentUserRole = emp.role || 'Karyawan';
+                            this.currentEmpId = emp.id;
                             this.adminLoginUser = '';
                             this.adminLoginPass = '';
                             
-                            // Set default active tab based on allowed role permissions
                             if (this.canAccessRekap) {
                                 this.adminTab = 'rekap';
                             } else if (this.canAccessIzin) {
@@ -907,6 +920,7 @@
                 adminLogout() {
                     this.isAdminLoggedIn = false;
                     this.currentUserRole = '';
+                    this.currentEmpId = null;
                     this.isMasterAdmin = false;
                 },
 
@@ -989,6 +1003,14 @@
                     return this.leaves.filter(l => l.empId === this.leaveForm.empId);
                 },
 
+                get filteredLeaves() {
+                    let list = this.leaves;
+                    if (this.isSpecialRole && this.currentEmpId) {
+                        list = list.filter(item => item.empId === this.currentEmpId);
+                    }
+                    return list;
+                },
+
                 initMap() {
                     const lat = parseFloat(this.basecampForm.lat) || 0.50653;
                     const lng = parseFloat(this.basecampForm.lng) || 101.42304;
@@ -997,15 +1019,17 @@
                     if (!this.map) {
                         this.map = L.map('basecampMap').setView([lat, lng], 15);
                         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.map);
-                        this.marker = L.marker([lat, lng], { draggable: true }).addTo(this.map);
+                        this.marker = L.marker([lat, lng], { draggable: this.canModifyBasecamp }).addTo(this.map);
                         this.circle = L.circle([lat, lng], { radius: radius, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(this.map);
 
-                        this.marker.on('dragend', (e) => {
-                            const pos = e.target.getLatLng();
-                            this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
-                            this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
-                            this.updateMapVisuals();
-                        });
+                        if (this.canModifyBasecamp) {
+                            this.marker.on('dragend', (e) => {
+                                const pos = e.target.getLatLng();
+                                this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
+                                this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
+                                this.updateMapVisuals();
+                            });
+                        }
                     } else {
                         this.map.invalidateSize();
                         this.map.setView([lat, lng], 15);
@@ -1026,6 +1050,7 @@
                 },
 
                 updateMapFromInputs() {
+                    if (!this.canModifyBasecamp) return;
                     const lat = parseFloat(this.basecampForm.lat);
                     const lng = parseFloat(this.basecampForm.lng);
                     const radius = parseInt(this.basecampForm.radius) || 500;
@@ -1045,14 +1070,17 @@
                     this.$nextTick(() => { this.initMap(); });
                 },
                 editBasecamp(index) {
-                    if (!this.canModifyBasecamp) return;
                     this.editBasecampIndex = index;
                     this.basecampForm = { ...this.basecamps[index] };
                     this.showBasecampModal = true;
                     this.$nextTick(() => { this.initMap(); });
                 },
                 async saveBasecamp() {
-                    if (!this.canModifyBasecamp) return;
+                    if (!this.canModifyBasecamp) {
+                        alert('Akses Dibatasi: Anda memiliki akses Read Only untuk Basecamp (tidak dapat menyimpan perubahan).');
+                        this.showBasecampModal = false;
+                        return;
+                    }
                     if (this.editBasecampIndex !== null) {
                         const targetId = this.basecamps[this.editBasecampIndex].id;
                         const { error } = await _supabase.from('basecamps').update({
@@ -1158,7 +1186,11 @@
                 },
 
                 get filteredAttendance() {
-                    return this.attendanceLogs.filter(item => {
+                    let logs = this.attendanceLogs;
+                    if (this.isSpecialRole && this.currentEmpId) {
+                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                    }
+                    return logs.filter(item => {
                         const itemDate = item.date || getLocalDate();
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
