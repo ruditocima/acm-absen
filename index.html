@@ -96,8 +96,8 @@
                                 <input type="text" x-model="loginId" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: EMP001">
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                                <input type="text" x-model="loginId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
                             </div>
 
                             <!-- GPS & Basecamp Status Box -->
@@ -756,10 +756,23 @@
                     { id: 2, name: 'BC Padang', lat: -0.868337, lng: 100.380127, radius: 150 },
                     { id: 3, name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 150 }
                 ],
-                employees: JSON.parse(localStorage.getItem('bc_employees')) || [
-                    { id: 'rudi01', name: 'RUDI', role: 'Project Manager', password: 'Ounyenk2018#', deviceId: null },
-                    { id: 'bayu01', name: 'Bayu Saputro', role: 'Regional PM', password: 'bay123#', deviceId: null }
-                ],
+                employees: (() => {
+    const defaultEmployees = [
+        { id: 'rudi01', name: 'RUDI', role: 'Project Manager', password: 'Ounyenk2018#', deviceId: null },
+        { id: 'bayu01', name: 'Bayu Saputro', role: 'Regional PM', password: 'bay123#', deviceId: null }
+    ];
+    const saved = JSON.parse(localStorage.getItem('bc_employees'));
+    if (!saved) {
+        localStorage.setItem('bc_employees', JSON.stringify(defaultEmployees));
+        return defaultEmployees;
+    }
+    // Pastikan rudi01 selalu ada jika belum tersimpan di localStorage lama
+    if (!saved.some(e => e.id === 'rudi01')) {
+        saved.unshift(defaultEmployees[0]);
+        localStorage.setItem('bc_employees', JSON.stringify(saved));
+    }
+    return saved;
+})(),
                 attendanceLogs: JSON.parse(localStorage.getItem('bc_attendance')) || [],
                 leaves: JSON.parse(localStorage.getItem('bc_leaves')) || [],
 
