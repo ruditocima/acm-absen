@@ -389,8 +389,9 @@
                                                         <div>
                                                             <template x-if="leave.status === 'Pending'">
                                                                 <div class="flex justify-center space-x-1">
-                                                                    <button @click="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
-                                                                    <button @click="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
+                                                                    <!-- FIX: Tambahkan type="button" dan .prevent.stop untuk mencegah event bubbling -->
+                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
+                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
                                                                 </div>
                                                             </template>
                                                             <template x-if="leave.status !== 'Pending'">
@@ -1174,16 +1175,25 @@
                     await this.loadAttendanceData();
                 },
 
+                // FIX: Menambahkan try-catch dan alert notifikasi sukses
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
                         return;
                     }
-                    const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
-                    if (!error) {
+                    
+                    try {
+                        const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
+                        
+                        if (error) {
+                            alert('Gagal memperbarui status: ' + error.message);
+                            return;
+                        }
+                        
+                        alert(`Pengajuan berhasil ${status}!`);
                         await this.loadAttendanceData();
-                    } else {
-                        alert('Gagal memperbarui status: ' + error.message);
+                    } catch (err) {
+                        alert('Terjadi kesalahan pada sistem: ' + err.message);
                     }
                 },
 
