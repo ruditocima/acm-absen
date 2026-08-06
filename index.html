@@ -1188,31 +1188,24 @@
                     }
                     
                     try {
-                     // 1. Tambahkan .select() di akhir kueri untuk mengambil baris yang berhasil diupdate
-                        const { data, error } = await _supabase.from('leaves').update({ status: status }).eq('id', id).select();
+                        const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
                         
                         if (error) {
-                        if (leaveIndex !== -1) {
-                        this.leaves[leaveIndex].status = previousStatus;
+                            if (leaveIndex !== -1) {
+                                this.leaves[leaveIndex].status = previousStatus;
+                            }
+                            alert('Gagal memperbarui status: ' + error.message);
+                            return;
                         }
-                        alert('Gagal memperbarui status: ' + error.message);
-                        return;
-                    }
-                        if (data && data.length === 0) {
-        if (leaveIndex !== -1) {
-            this.leaves[leaveIndex].status = previousStatus;
-        }
-        alert(`Update gagal! Data tidak berubah. Pastikan tabel 'leaves' memiliki RLS Policy untuk UPDATE.`);
-        return; // Hentikan proses agar tidak memanggil loadAttendanceData yang sia-sia
-    }
+                        
                         alert(`Pengajuan berhasil ${status}!`);
-    await this.loadAttendanceData();
-} catch (err) {
-    if (leaveIndex !== -1) {
-         this.leaves[leaveIndex].status = previousStatus;
-    }
-    alert('Terjadi kesalahan pada sistem: ' + err.message);
-}
+                        await this.loadAttendanceData();
+                    } catch (err) {
+                        if (leaveIndex !== -1) {
+                            this.leaves[leaveIndex].status = previousStatus;
+                        }
+                        alert('Terjadi kesalahan pada sistem: ' + err.message);
+                    }
                 },
 
                 get employeeLeaves() {
