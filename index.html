@@ -9,13 +9,10 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         .glass-card { background: rgba(18, 24, 38, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .glass-light { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
-        #basecampMap { height: 250px; width: 100%; border-radius: 0.75rem; z-index: 10; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between" x-data="absensiApp()">
@@ -39,29 +36,12 @@
 
     <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
 
-        <!-- BLOCKED DESKTOP VIEW -->
-        <template x-if="!isAdminView && isDesktopDevice && !simulationMode">
-            <div class="max-w-md mx-auto mt-16 glass-card p-8 rounded-3xl text-center shadow-2xl border border-red-500/20">
-                <div class="w-20 h-20 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
-                </div>
-                <h2 class="text-2xl font-bold text-white mb-2">Akses Dibatasi</h2>
-                <p class="text-slate-400 text-sm mb-6">Sistem Absensi Karyawan hanya diizinkan melalui perangkat <strong>Smartphone (HP)</strong>.</p>
-                <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-6">
-                    <i class="fa-solid fa-info-circle mr-1"></i> Aktifkan <strong>Mode Simulasi</strong> untuk menguji dari laptop.
-                </div>
-                <button @click="simulationMode = true" class="w-full py-3 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/30">
-                    AKTIFKAN MODE SIMULASI
-                </button>
-            </div>
-        </template>
-
         <!-- KARYAWAN PORTAL -->
-        <template x-if="!isAdminView && (!isDesktopDevice || simulationMode)">
+        <template x-if="!isAdminView">
             <div class="max-w-md mx-auto">
                 <div class="bg-amber-400 text-slate-950 p-4 rounded-2xl mb-6 shadow-xl flex items-center justify-between font-bold">
                     <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-sun text-xl animate-spin"></i>
+                        <i class="fa-solid fa-sun text-xl"></i>
                         <span class="text-sm">MODE CERAH LUAR RUANGAN</span>
                     </div>
                     <button @click="simulationMode = !simulationMode" class="text-xs bg-slate-950 text-amber-400 px-2 py-1 rounded-md">
@@ -88,29 +68,25 @@
                         <form @submit.prevent="handleCheckIn" class="space-y-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                                <input type="text" x-model="loginId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
+                                <input type="text" x-model="loginId" autocapitalize="none" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="Contoh: rudi01">
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                <input type="password" x-model="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
+                                <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="••••••••">
                             </div>
 
                             <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Status GPS:</span>
-                                    <span class="font-bold text-emerald-400" x-text="gpsStatus"></span>
+                                    <span class="font-bold text-emerald-400">GPS Siap (Simulasi)</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-slate-400">Basecamp Terdekat:</span>
-                                    <span class="font-bold text-amber-400" x-text="detectedBasecamp ? detectedBasecamp.name : 'Mencari Lokasi...'"></span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Jarak Real-Time:</span>
-                                    <span class="font-bold text-sky-400" x-text="nearestDistanceText"></span>
+                                    <span class="font-bold text-amber-400">HO Pekanbaru</span>
                                 </div>
                             </div>
 
-                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
                                 <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
                             </button>
                         </form>
@@ -135,16 +111,6 @@
                                         <option value="Izin">Izin</option>
                                         <option value="Cuti">Cuti</option>
                                     </select>
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dari Tanggal</label>
-                                    <input type="date" x-model="leaveForm.startDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sampai Tanggal</label>
-                                    <input type="date" x-model="leaveForm.endDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs outline-none">
                                 </div>
                             </div>
                             <div>
@@ -217,7 +183,7 @@
                                             <th class="p-4">Nama</th>
                                             <th class="p-4">Role</th>
                                             <th class="p-4">Basecamp</th>
-                                            <th class="p-4">Akurasi GPS</th>
+                                            <th class="p-4">Akurasi</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
@@ -228,7 +194,7 @@
                                                 <td class="p-4 font-bold text-white" x-text="item.name"></td>
                                                 <td class="p-4 text-slate-400" x-text="item.role"></td>
                                                 <td class="p-4 text-amber-300 font-semibold" x-text="item.basecamp"></td>
-                                                <td class="p-4 text-emerald-400"><span x-text="item.accuracy"></span> meter</td>
+                                                <td class="p-4 text-emerald-400"><span x-text="item.accuracy"></span> m</td>
                                             </tr>
                                         </template>
                                         <template x-if="attendanceLogs.length === 0">
@@ -245,7 +211,7 @@
                         <div x-show="adminTab === 'karyawan'" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <h2 class="text-xl font-bold text-white">Daftar Karyawan di Supabase</h2>
-                                <button @click="openEmployeeModal()" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-extrabold rounded-xl">Tambah Karyawan</button>
+                                <button @click="showEmployeeModal = true" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-extrabold rounded-xl">Tambah Karyawan</button>
                             </div>
                             <div class="overflow-x-auto rounded-2xl border border-slate-800">
                                 <table class="w-full text-left border-collapse text-xs">
@@ -312,41 +278,43 @@
                 adminLoginUser: '',
                 adminLoginPass: '',
                 adminTab: 'rekap',
-                simulationMode: true, // Default aktif agar mudah diuji di browser laptop
-                isDesktopDevice: window.innerWidth >= 1024,
+                simulationMode: true,
                 currentUserRole: '',
                 
                 employeeTab: 'checkin',
                 loginId: '', loginPass: '',
-                gpsStatus: 'GPS Siap', gpsAccuracy: 5, currentCoords: { lat: 0.50653, lng: 101.42304 }, detectedBasecamp: { name: 'HO Pekanbaru' },
                 leaveForm: { empId: '', type: 'Sakit', startDate: getLocalDate(), endDate: getLocalDate(), reason: '' },
                 
                 showEmployeeModal: false,
                 employeeForm: { id: '', name: '', role: '', password: '' },
 
-                basecamps: [], employees: [], attendanceLogs: [], leaves: [],
+                basecamps: [], employees: [], attendanceLogs: [],
 
                 async init() {
                     await this.loadData();
                 },
 
                 async loadData() {
+                    console.log("Memuat data dari Supabase...");
                     try {
-                        let { data: att, error: errAtt } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
-                        if (errAtt) console.error('Error load attendance:', errAtt);
-                        if (att) {
-                            this.attendanceLogs = att.map(i => ({ 
+                        const { data: att, error: errAtt } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                        if (errAtt) {
+                            console.error('Error load attendance:', errAtt);
+                        } else {
+                            console.log('Data Attendance:', att);
+                            this.attendanceLogs = (att || []).map(i => ({ 
                                 id: i.id, empId: i.emp_id, name: i.name, role: i.role, 
                                 basecamp: i.basecamp, timestamp: i.timestamp, date: i.date, accuracy: i.accuracy 
                             }));
                         }
 
-                        let { data: emp, error: errEmp } = await _supabase.from('employees').select('*');
-                        if (errEmp) console.error('Error load employees:', errEmp);
-                        if (emp) this.employees = emp;
-
-                        let { data: bc } = await _supabase.from('basecamps').select('*');
-                        if (bc) this.basecamps = bc;
+                        const { data: emp, error: errEmp } = await _supabase.from('employees').select('*');
+                        if (errEmp) {
+                            console.error('Error load employees:', errEmp);
+                        } else {
+                            console.log('Data Employees:', emp);
+                            this.employees = emp || [];
+                        }
                     } catch (e) {
                         console.error('Koneksi Supabase Gagal:', e);
                     }
@@ -409,18 +377,20 @@
                         emp_id: emp.id,
                         name: emp.name,
                         role: emp.role || 'Installer',
-                        basecamp: this.detectedBasecamp ? this.detectedBasecamp.name : 'HO Pekanbaru',
+                        basecamp: 'HO Pekanbaru',
                         timestamp: now.toLocaleString('id-ID'),
                         date: getLocalDate(),
-                        accuracy: this.gpsAccuracy || 5
+                        accuracy: 5
                     };
 
-                    const { error: insErr } = await _supabase.from('attendance').insert([record]);
+                    console.log("Mengirim data check-in ke Supabase:", record);
+                    const { data: insData, error: insErr } = await _supabase.from('attendance').insert([record]).select();
                     
                     if (insErr) {
                         alert('Gagal menyimpan ke Supabase: ' + insErr.message);
-                        console.error('Insert Error:', insErr);
+                        console.error('Supabase Insert Error:', insErr);
                     } else {
+                        console.log('Berhasil disimpan:', insData);
                         alert('Berhasil! Check-in untuk ' + emp.name + ' telah tersimpan di Supabase.');
                         this.loginId = ''; 
                         this.loginPass = ''; 
@@ -431,7 +401,7 @@
                 async submitLeaveRequest() {
                     const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                     if (!emp) {
-                        alert('ID Karyawan tidak ditemukan!');
+                        alert('ID Karyawan tidak ditemukan di database!');
                         return;
                     }
                     const { error } = await _supabase.from('leaves').insert([{
@@ -444,11 +414,6 @@
                         alert('Pengajuan berhasil dikirim.'); 
                         this.loadData(); 
                     }
-                },
-
-                openEmployeeModal() { 
-                    this.employeeForm = { id: '', name: '', role: '', password: '' }; 
-                    this.showEmployeeModal = true; 
                 },
 
                 async saveEmployee() {
