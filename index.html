@@ -6,7 +6,6 @@
     <title>Absensi YOFC Team</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
@@ -57,7 +56,7 @@
 
                         <button type="submit" :disabled="isSubmitting" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
                             <span x-show="!isSubmitting"><i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG</span>
-                            <span x-show="isSubmitting">MENYIMPAN DATA...</span>
+                            <span x-show="isSubmitting">MENGIRIM KE SERVER...</span>
                         </button>
                     </form>
                 </div>
@@ -107,7 +106,7 @@
                         <!-- TAB REKAP -->
                         <div class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
-                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi (Live & Supabase)</h2>
+                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi Supabase (REST API)</h2>
                                 <span class="text-xs text-slate-400">Total Baris: <strong class="text-amber-400" x-text="attendanceLogs.length"></strong></span>
                             </div>
                             <div class="overflow-x-auto rounded-2xl border border-slate-800">
@@ -127,7 +126,7 @@
                                             <tr class="hover:bg-slate-900/50 transition">
                                                 <td class="p-4 font-mono text-slate-400" x-text="item.id"></td>
                                                 <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
-                                                <td class="p-4 font-mono text-amber-400" x-text="item.empId"></td>
+                                                <td class="p-4 font-mono text-amber-400" x-text="item.emp_id"></td>
                                                 <td class="p-4 font-bold text-white" x-text="item.name"></td>
                                                 <td class="p-4 text-slate-400" x-text="item.role"></td>
                                                 <td class="p-4 text-amber-300 font-semibold" x-text="item.basecamp"></td>
@@ -145,7 +144,7 @@
 
                         <!-- DEBUGGER DI LAYAR -->
                         <div class="glass-card p-6 rounded-3xl space-y-3">
-                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-terminal mr-2"></i> Log Status Sistem di Layar</h3>
+                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-terminal mr-2"></i> Log Status Sistem Real-Time</h3>
                             <div class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-emerald-400 h-32 overflow-y-auto border border-slate-800">
                                 <template x-for="log in debugLogs">
                                     <div x-text="log" class="mb-1"></div>
@@ -161,9 +160,6 @@
     <script>
         const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
-        
-        const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         function getLocalDate() {
             const d = new Date();
@@ -183,7 +179,7 @@
                 isSubmitting: false,
 
                 attendanceLogs: [],
-                debugLogs: ['Sistem siap diinisialisasi.'],
+                debugLogs: ['Aplikasi diinisialisasi menggunakan Direct REST API.'],
 
                 logMsg(msg) {
                     const time = new Date().toLocaleTimeString();
@@ -191,46 +187,31 @@
                 },
 
                 async init() {
-                    this.logMsg("Memuat data awal...");
-                    // Muat cadangan lokal terlebih dahulu agar langsung tampil
-                    const localData = localStorage.getItem('yofc_attendance');
-                    if (localData) {
-                        try {
-                            this.attendanceLogs = JSON.parse(localData);
-                            this.logMsg("Berhasil memuat " + this.attendanceLogs.length + " data dari penyimpanan lokal.");
-                        } catch(e) {}
-                    }
                     await this.loadData();
                 },
 
                 async loadData() {
-                    this.logMsg("Menghubungkan ke Supabase...");
+                    this.logMsg("Mengambil data dari Supabase (GET)...");
                     try {
-                        const { data, error } = await _supabase
-                            .from('attendance')
-                            .select('*')
-                            .order('id', { ascending: false });
+                        const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance?select=*&order=id.desc`, {
+                            method: 'GET',
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            }
+                        });
 
-                        if (error) {
-                            this.logMsg("Supabase Error: " + error.message);
-                        } else if (data && data.length > 0) {
-                            this.logMsg("Berhasil mengambil " + data.length + " baris dari Supabase.");
-                            this.attendanceLogs = data.map(i => ({
-                                id: i.id,
-                                empId: i.emp_id,
-                                name: i.name,
-                                role: i.role,
-                                basecamp: i.basecamp,
-                                timestamp: i.timestamp,
-                                date: i.date,
-                                accuracy: i.accuracy
-                            }));
-                            localStorage.setItem('yofc_attendance', JSON.stringify(this.attendanceLogs));
-                        } else {
-                            this.logMsg("Supabase terhubung, namun tabel attendance kosong.");
+                        if (!response.ok) {
+                            const errText = await response.text();
+                            this.logMsg("Gagal ambil data: " + errText);
+                            return;
                         }
+
+                        const data = await response.json();
+                        this.attendanceLogs = data || [];
+                        this.logMsg(`Berhasil memuat ${this.attendanceLogs.length} data dari Supabase.`);
                     } catch (err) {
-                        this.logMsg("Koneksi Supabase Gagal / Offline Mode Aktif.");
+                        this.logMsg("Error koneksi jaringan: " + err.message);
                     }
                 },
 
@@ -267,7 +248,7 @@
                     }
 
                     this.isSubmitting = true;
-                    this.logMsg("Memproses Check-in untuk ID: " + this.loginId);
+                    this.logMsg("Mengirim Check-in (POST) ke Supabase...");
 
                     const now = new Date();
                     const record = {
@@ -280,48 +261,33 @@
                         accuracy: 5
                     };
 
-                    // 1. Simpan secara lokal agar langsung tampil seketika di rekapitulasi
-                    const newEntry = {
-                        id: 'LOCAL-' + Date.now().toString().slice(-4),
-                        empId: record.emp_id,
-                        name: record.name,
-                        role: record.role,
-                        basecamp: record.basecamp,
-                        timestamp: record.timestamp,
-                        date: record.date,
-                        accuracy: record.accuracy
-                    };
-                    this.attendanceLogs.unshift(newEntry);
-                    localStorage.setItem('yofc_attendance', JSON.stringify(this.attendanceLogs));
-
                     try {
-                        // 2. Kirim ke Supabase
-                        const { data, error } = await _supabase
-                            .from('attendance')
-                            .insert([{
-                                emp_id: record.emp_id,
-                                name: record.name,
-                                role: record.role,
-                                basecamp: record.basecamp,
-                                timestamp: record.timestamp,
-                                date: record.date,
-                                accuracy: record.accuracy
-                            }])
-                            .select();
+                        const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance`, {
+                            method: 'POST',
+                            headers: {
+                                'apikey': SUPABASE_ANON_KEY,
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                                'Content-Type': 'application/json',
+                                'Prefer': 'return=representation'
+                            },
+                            body: JSON.stringify(record)
+                        });
 
-                        if (error) {
-                            this.logMsg("Gagal sinkron ke Supabase: " + error.message);
-                            alert('Check-in tercatat lokal, tapi gagal ke Supabase: ' + error.message);
+                        if (!response.ok) {
+                            const errJson = await response.json();
+                            this.logMsg("Gagal Insert Supabase: " + (errJson.message || JSON.stringify(errJson)));
+                            alert('Gagal tersimpan ke server: ' + (errJson.message || 'Unknown error'));
                         } else {
-                            this.logMsg("Sukses tersimpan permanen di Supabase!");
-                            alert('Sukses! Check-in berhasil dan tersinkron ke Supabase.');
+                            const resData = await response.json();
+                            this.logMsg("Berhasil! Data masuk ke database.");
+                            alert('Sukses! Check-in berhasil tersimpan di Supabase.');
                             this.loginId = '';
                             this.loginPass = '';
                             await this.loadData();
                         }
                     } catch (e) {
-                        this.logMsg("Exception jaringan Supabase: " + e.message);
-                        alert('Check-in berhasil disimpan di perangkat lokal.');
+                        this.logMsg("Exception HTTP POST: " + e.message);
+                        alert('Terjadi kesalahan jaringan saat mengirim ke Supabase.');
                     } finally {
                         this.isSubmitting = false;
                     }
