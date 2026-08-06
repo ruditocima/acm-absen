@@ -1153,7 +1153,6 @@
                     }
 
                     const newLeave = {
-                        id: Date.now(),
                         emp_id: emp.id,
                         name: emp.name,
                         type: this.leaveForm.type,
@@ -1175,26 +1174,23 @@
                     await this.loadAttendanceData();
                 },
 
-                // DIPERBAIKI: Menggunakan pembaruan status lokal instan (optimistic update) agar UI langsung berubah saat tombol diklik
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
                         return;
                     }
                     
-                    // Simpan status sebelumnya untuk keperluan rollback jika terjadi error
                     const leaveIndex = this.leaves.findIndex(l => l.id === id);
                     let previousStatus = 'Pending';
                     if (leaveIndex !== -1) {
                         previousStatus = this.leaves[leaveIndex].status;
-                        this.leaves[leaveIndex].status = status; // Ubah tampilan UI seketika
+                        this.leaves[leaveIndex].status = status;
                     }
                     
                     try {
                         const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
                         
                         if (error) {
-                            // Rollback jika gagal
                             if (leaveIndex !== -1) {
                                 this.leaves[leaveIndex].status = previousStatus;
                             }
