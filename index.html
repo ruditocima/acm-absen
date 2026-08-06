@@ -675,38 +675,25 @@
         }
 
         async function simulateServerSideValidation(payload) {
-    const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
-    
-    // 1. BLOKIR CHECK-IN JIKA GPS BELUM MENGUNCI LOKASI
-    if (!currentCoords || currentCoords.lat === undefined || currentCoords.lng === undefined) {
-        return { 
-            success: false, 
-            message: 'Lokasi GPS belum terdeteksi. Harap tunggu beberapa saat sampai "Status GPS" aktif sebelum melakukan Check-in.' 
-        };
-    }
+            const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
+            
+            const lat = currentCoords ? currentCoords.lat : 0;
+            const lng = currentCoords ? currentCoords.lng : 0;
 
-    // 2. CASTING TIPE DATA EKSPLISIT (Sesuai kebutuhan PostgreSQL)
-    const lat = parseFloat(currentCoords.lat);
-    const lng = parseFloat(currentCoords.lng);
-    const accuracy = parseFloat(gpsAccuracy || 5);
+            const { data, error } = await _supabase.rpc('validate_and_checkin', {
+                p_login_id: loginId,
+                p_login_pass: loginPass,
+                p_lat: lat,
+                p_lng: lng,
+                p_accuracy: gpsAccuracy || 5,
+                p_simulation_mode: simulationMode,
+                p_device_id: deviceId
+            });
 
-    // 3. PANGGIL SUPABASE RPC DENGAN PARAMETER YANG KETAT
-    const { data, error } = await _supabase.rpc('validate_and_checkin', {
-        p_login_id: String(loginId),
-        p_login_pass: String(loginPass),
-        p_lat: lat,
-        p_lng: lng,
-        p_accuracy: accuracy,
-        p_simulation_mode: Boolean(simulationMode),
-        p_device_id: String(deviceId)
-    });
+            if (error) {
+                return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
+            }
 
-    if (error) {
-        return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
-    }
-
-    return data;
-}
             return data;
         }
 
