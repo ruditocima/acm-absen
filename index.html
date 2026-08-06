@@ -56,7 +56,7 @@
 
                         <button type="submit" :disabled="isSubmitting" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
                             <span x-show="!isSubmitting"><i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG</span>
-                            <span x-show="isSubmitting">MENGIRIM KE SERVER...</span>
+                            <span x-show="isSubmitting">MEMPROSES...</span>
                         </button>
                     </form>
                 </div>
@@ -106,7 +106,7 @@
                         <!-- TAB REKAP -->
                         <div class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
-                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi Supabase (REST API)</h2>
+                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi (Live Data)</h2>
                                 <span class="text-xs text-slate-400">Total Baris: <strong class="text-amber-400" x-text="attendanceLogs.length"></strong></span>
                             </div>
                             <div class="overflow-x-auto rounded-2xl border border-slate-800">
@@ -144,7 +144,7 @@
 
                         <!-- DEBUGGER DI LAYAR -->
                         <div class="glass-card p-6 rounded-3xl space-y-3">
-                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-terminal mr-2"></i> Log Status Sistem Real-Time</h3>
+                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-terminal mr-2"></i> Log Aktivitas Sistem</h3>
                             <div class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-emerald-400 h-32 overflow-y-auto border border-slate-800">
                                 <template x-for="log in debugLogs">
                                     <div x-text="log" class="mb-1"></div>
@@ -179,7 +179,7 @@
                 isSubmitting: false,
 
                 attendanceLogs: [],
-                debugLogs: ['Aplikasi diinisialisasi menggunakan Direct REST API.'],
+                debugLogs: ['Aplikasi siap.'],
 
                 logMsg(msg) {
                     const time = new Date().toLocaleTimeString();
@@ -187,11 +187,18 @@
                 },
 
                 async init() {
+                    // Muat cadangan lokal terlebih dahulu agar langsung tampil instan
+                    const localSaved = localStorage.getItem('yofc_attendance_v2');
+                    if (localSaved) {
+                        try {
+                            this.attendanceLogs = JSON.parse(localSaved);
+                        } catch(e) {}
+                    }
                     await this.loadData();
                 },
 
                 async loadData() {
-                    this.logMsg("Mengambil data dari Supabase (GET)...");
+                    this.logMsg("Memuat data dari Supabase...");
                     try {
                         const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance?select=*&order=id.desc`, {
                             method: 'GET',
@@ -203,15 +210,28 @@
 
                         if (!response.ok) {
                             const errText = await response.text();
-                            this.logMsg("Gagal ambil data: " + errText);
+                            this.logMsg("Gagal ambil dari Supabase: " + errText);
                             return;
                         }
 
                         const data = await response.json();
-                        this.attendanceLogs = data || [];
-                        this.logMsg(`Berhasil memuat ${this.attendanceLogs.length} data dari Supabase.`);
+                        if (data && Array.isArray(data)) {
+                            // Normalisasi properti agar kunci emp_id konsisten
+                            this.attendanceLogs = data.map(item => ({
+                                id: item.id,
+                                emp_id: item.emp_id || item.empId || 'rudi01',
+                                name: item.name || 'Rudi Batubara',
+                                role: item.role || 'Project Manager',
+                                basecamp: item.basecamp || 'HO Pekanbaru',
+                                timestamp: item.timestamp || '-',
+                                date: item.date || getLocalDate(),
+                                accuracy: item.accuracy || 5
+                            }));
+                            localStorage.setItem('yofc_attendance_v2', JSON.stringify(this.attendanceLogs));
+                            this.logMsg(`Berhasil memuat ${this.attendanceLogs.length} data.`);
+                        }
                     } catch (err) {
-                        this.logMsg("Error koneksi jaringan: " + err.message);
+                        this.logMsg("Koneksi jaringan gagal: " + err.message);
                     }
                 },
 
@@ -248,7 +268,7 @@
                     }
 
                     this.isSubmitting = true;
-                    this.logMsg("Mengirim Check-in (POST) ke Supabase...");
+                    this.logMsg("Mengirim Check-in...");
 
                     const now = new Date();
                     const record = {
@@ -275,19 +295,18 @@
 
                         if (!response.ok) {
                             const errJson = await response.json();
-                            this.logMsg("Gagal Insert Supabase: " + (errJson.message || JSON.stringify(errJson)));
-                            alert('Gagal tersimpan ke server: ' + (errJson.message || 'Unknown error'));
+                            this.logMsg("Gagal simpan ke Supabase: " + (errJson.message || JSON.stringify(errJson)));
+                            alert('Gagal tersimpan ke server: ' + (errJson.message || 'Kesalahan server'));
                         } else {
-                            const resData = await response.json();
-                            this.logMsg("Berhasil! Data masuk ke database.");
-                            alert('Sukses! Check-in berhasil tersimpan di Supabase.');
+                            this.logMsg("Check-in berhasil disimpan di Supabase!");
+                            alert('Sukses! Check-in berhasil dan tersimpan di database.');
                             this.loginId = '';
                             this.loginPass = '';
                             await this.loadData();
                         }
                     } catch (e) {
-                        this.logMsg("Exception HTTP POST: " + e.message);
-                        alert('Terjadi kesalahan jaringan saat mengirim ke Supabase.');
+                        this.logMsg("Error jaringan: " + e.message);
+                        alert('Terjadi kesalahan jaringan.');
                     } finally {
                         this.isSubmitting = false;
                     }
