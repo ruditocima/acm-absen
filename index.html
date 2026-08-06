@@ -719,7 +719,7 @@
 
                 get currentUserName() {
                     if (this.isMasterAdmin) return 'Master Admin';
-                    const emp = this.employees.find(e => e.id === this.currentEmpId);
+                    const emp = this.employees.find(e => e.id.toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     return emp ? emp.name : 'User';
                 },
 
@@ -944,7 +944,7 @@
                 },
 
                 getEmployeeName(empId) {
-                    const emp = this.employees.find(e => e.id === empId);
+                    const emp = this.employees.find(e => e.id.toLowerCase() === (empId || '').toLowerCase());
                     return emp ? emp.name : empId;
                 },
 
@@ -1083,7 +1083,7 @@
                         this.loadAttendanceData();
                         this.loadMessagesData();
                     } else {
-                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
+                        const emp = this.employees.find(e => e.id.toLowerCase() === this.adminLoginUser.trim().toLowerCase() && e.password === this.adminLoginPass);
                         if (emp) {
                             this.isAdminLoggedIn = true;
                             this.isMasterAdmin = false;
@@ -1143,7 +1143,7 @@
                     let pmMessageText = "";
                     let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
                     if (msgData && msgData.length > 0) {
-                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === this.loginId);
+                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id.toLowerCase() === this.loginId.trim().toLowerCase());
                         if (targetMsg) {
                             pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
                         }
@@ -1156,7 +1156,7 @@
                 },
 
                 async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                     if (!emp) {
                         alert('ID Karyawan tidak ditemukan!');
                         return;
@@ -1229,13 +1229,13 @@
 
                 get employeeLeaves() {
                     if (!this.leaveForm.empId) return [];
-                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
+                    return this.leaves.filter(l => (l.empId || '').toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                 },
 
                 get displayedLeaves() {
                     let items = this.leaves;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        items = items.filter(l => l.empId === this.currentEmpId);
+                        items = items.filter(l => (l.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     }
                     return items;
                 },
@@ -1420,10 +1420,11 @@
                 get filteredAttendance() {
                     let logs = this.attendanceLogs;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                        logs = logs.filter(item => (item.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     }
                     return logs.filter(item => {
-                        const itemDate = item.date ? item.date.split('T')[0] : getLocalDate();
+                        const rawDate = item.date || item.timestamp || getLocalDate();
+                        const itemDate = String(rawDate).split('T')[0].split(' ')[0];
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
                         }
