@@ -389,7 +389,6 @@
                                                         <div>
                                                             <template x-if="leave.status === 'Pending'">
                                                                 <div class="flex justify-center space-x-1">
-                                                                    <!-- FIX: Tambahkan type="button" dan .prevent.stop untuk mencegah event bubbling -->
                                                                     <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
                                                                     <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
                                                                 </div>
@@ -482,7 +481,6 @@
                                         <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Anda dapat melihat peta dan mengeklik detail/peta basecamp (Read Only, tanpa hak edit atau hapus).</span>
                                     </p>
                                 </div>
-                                <!-- Tambah Basecamp button: Master Admin / PM Only -->
                                 <button x-show="canModifyBasecamp" @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
                                     <i class="fa-solid fa-plus mr-1"></i> Tambah Basecamp
                                 </button>
@@ -498,7 +496,6 @@
                                             </div>
                                             <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
                                         </div>
-                                        <!-- Edit/Inspect and Delete buttons -->
                                         <div class="flex space-x-2 pt-2 border-t border-slate-800">
                                             <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"><span x-text="canModifyBasecamp ? 'Edit' : 'Lihat Peta / Detail'"></span></button>
                                             <button x-show="canModifyBasecamp" @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
@@ -1174,14 +1171,14 @@
                     await this.loadAttendanceData();
                 },
 
-                // LOGIKA YANG SUDAH DIPERBAIKI (OPTIMISTIC UI UPDATE)
+                // PERBAIKAN FUNGSI updateLeaveStatus (MENGATASI RLS & TYPE ID MISMATCH)
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
                         return;
                     }
                     
-                    const leaveIndex = this.leaves.findIndex(l => l.id === id);
+                    const leaveIndex = this.leaves.findIndex(l => l.id == id);
                     if (leaveIndex === -1) {
                         alert('Data tidak ditemukan!');
                         return;
@@ -1189,13 +1186,11 @@
 
                     let previousStatus = this.leaves[leaveIndex].status;
                     
-                    // 1. Optimistic Update: Langsung ubah di layar untuk memutus race-condition
+                    // Optimistic UI Update
                     this.leaves[leaveIndex].status = status;
-                    // 2. Force Reactivity: Paksa Alpine.js membaca ulang array agar tombol langsung hilang
                     this.leaves = [...this.leaves]; 
                     
                     try {
-                        // 3. Update ke Supabase, gunakan .select() untuk memastikan ada baris yang di-update
                         const { data, error } = await _supabase
                             .from('leaves')
                             .update({ status: status })
@@ -1207,16 +1202,13 @@
                         }
 
                         if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server (Bisa jadi karena RLS atau ID salah).");
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
-                        // CATATAN: Fungsi this.loadAttendanceData() DIHILANGKAN dari sini.
-                        // Penarikan data langsung secara instan kadang mengambil data 'Pending' lama 
-                        // karena ada jeda sepersekian detik di database Supabase (Replication Lag).
                         
                     } catch (err) {
-                        // Rollback ke status semula jika proses ke server gagal
+                        // Rollback jika terjadi kegagalan server
                         if (leaveIndex !== -1) {
                             this.leaves[leaveIndex].status = previousStatus;
                             this.leaves = [...this.leaves];
