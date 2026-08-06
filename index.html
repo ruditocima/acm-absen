@@ -644,6 +644,20 @@
             return `${year}-${month}-${day}`;
         }
 
+        function parseDateFromTimestamp(ts) {
+            if (!ts) return getLocalDate();
+            if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
+            let d = new Date(ts);
+            if (!isNaN(d.getTime())) {
+                return getLocalDate(d);
+            }
+            let parts = ts.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+            if (parts) {
+                return `${parts[3]}-${parts[2]}-${parts[1]}`;
+            }
+            return getLocalDate();
+        }
+
         async function getOrCreateStableDeviceIdentifier() {
             let deviceId = localStorage.getItem('bc_device_uuid');
             if (deviceId) return deviceId;
@@ -819,6 +833,21 @@
                     await getOrCreateStableDeviceIdentifier();
                     await this.loadAttendanceData();
                     await this.loadMessagesData();
+
+                    // Supabase Realtime Subscription untuk otomatis memperbarui rekap absensi dan izin saat ada data baru
+                    try {
+                        _supabase
+                            .channel('public-realtime-changes')
+                            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, async () => {
+                                await this.loadAttendanceData();
+                            })
+                            .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, async () => {
+                                await this.loadAttendanceData();
+                            })
+                            .subscribe();
+                    } catch (e) {
+                        console.error('Realtime subscription error:', e);
+                    }
                 },
 
                 get employeeDeadlineText() {
@@ -880,7 +909,7 @@
                             role: item.role,
                             basecamp: item.basecamp,
                             timestamp: item.timestamp,
-                            date: item.date || getLocalDate(),
+                            date: item.date || parseDateFromTimestamp(item.timestamp),
                             accuracy: item.accuracy
                         }));
                     }
@@ -1200,7 +1229,7 @@
                         }
 
                         if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan).");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
@@ -1405,12 +1434,12 @@
                 },
 
                 get filteredAttendance() {
-                    let logs = this.attendanceLogs;
+                    let logs = this.attendanceLogs || [];
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
                         logs = logs.filter(item => item.empId === this.currentEmpId);
                     }
                     return logs.filter(item => {
-                        const itemDate = item.date || getLocalDate();
+                        const itemDate = item.date || parseDateFromTimestamp(item.timestamp);
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
                         }
