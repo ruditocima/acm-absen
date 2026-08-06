@@ -44,83 +44,41 @@
                         <i class="fa-solid fa-sun text-xl"></i>
                         <span class="text-sm">MODE CERAH LUAR RUANGAN</span>
                     </div>
-                    <button @click="simulationMode = !simulationMode" class="text-xs bg-slate-950 text-amber-400 px-2 py-1 rounded-md">
-                        Simulasi: <span x-text="simulationMode ? 'ON' : 'OFF'"></span>
-                    </button>
                 </div>
 
-                <div class="flex bg-slate-900 p-1.5 rounded-2xl mb-6 border border-slate-800">
-                    <button @click="employeeTab = 'checkin'" :class="employeeTab === 'checkin' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
-                        <i class="fa-solid fa-fingerprint mr-1"></i> Check-in Absen
-                    </button>
-                    <button @click="employeeTab = 'pengajuan'" :class="employeeTab === 'pengajuan' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
-                        <i class="fa-solid fa-file-pen mr-1"></i> Ajukan Izin/Sakit
-                    </button>
+                <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
+                    <div class="text-center mb-6">
+                        <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
+                        <p class="text-xs font-semibold text-slate-600 mt-1">Uji Coba: ID <strong class="text-amber-600">rudi01</strong> | Pass <strong class="text-amber-600">123456</strong></p>
+                    </div>
+
+                    <form @submit.prevent="handleCheckIn" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                            <input type="text" x-model="loginId" autocapitalize="none" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="Contoh: rudi01">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                            <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="••••••••">
+                        </div>
+
+                        <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Status Supabase:</span>
+                                <span class="font-bold" :class="dbConnected ? 'text-emerald-400' : 'text-red-400'" x-text="dbStatusText"></span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-slate-400">Basecamp Terdekat:</span>
+                                <span class="font-bold text-amber-400">HO Pekanbaru</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" :disabled="isSubmitting" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
+                            <span x-show="!isSubmitting"><i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG</span>
+                            <span x-show="isSubmitting">MEMPROSES KE SUPABASE...</span>
+                        </button>
+                    </form>
                 </div>
-
-                <template x-if="employeeTab === 'checkin'">
-                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                        <div class="text-center mb-6">
-                            <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
-                            <p class="text-xs font-semibold text-slate-600 mt-1">Uji Coba: ID <strong class="text-amber-600">rudi01</strong> | Pass <strong class="text-amber-600">123456</strong></p>
-                        </div>
-
-                        <form @submit.prevent="handleCheckIn" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                                <input type="text" x-model="loginId" autocapitalize="none" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="Contoh: rudi01">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="••••••••">
-                            </div>
-
-                            <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Status GPS:</span>
-                                    <span class="font-bold text-emerald-400">GPS Siap (Simulasi)</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Basecamp Terdekat:</span>
-                                    <span class="font-bold text-amber-400">HO Pekanbaru</span>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
-                                <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
-                            </button>
-                        </form>
-                    </div>
-                </template>
-
-                <template x-if="employeeTab === 'pengajuan'">
-                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white space-y-6">
-                        <div class="text-center">
-                            <h2 class="text-2xl font-black text-slate-900">Pengajuan Izin / Sakit</h2>
-                        </div>
-                        <form @submit.prevent="submitLeaveRequest" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                                    <input type="text" x-model="leaveForm.empId" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis</label>
-                                    <select x-model="leaveForm.type" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs outline-none">
-                                        <option value="Sakit">Sakit</option>
-                                        <option value="Izin">Izin</option>
-                                        <option value="Cuti">Cuti</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alasan</label>
-                                <textarea x-model="leaveForm.reason" rows="3" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs outline-none" placeholder="Tuliskan alasan..."></textarea>
-                            </div>
-                            <button type="submit" class="w-full py-3 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-sm shadow-lg">KIRIM PENGAJUAN</button>
-                        </form>
-                    </div>
-                </template>
             </div>
         </template>
 
@@ -162,39 +120,38 @@
                                 <span class="text-xs font-bold text-slate-200 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800" x-text="currentUserRole"></span>
                             </div>
                             <div class="flex items-center space-x-3">
-                                <button @click="adminTab = 'rekap'; loadData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300'" class="px-4 py-2 rounded-xl text-xs transition">Rekap Absensi</button>
-                                <button @click="adminTab = 'karyawan'; loadData()" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300'" class="px-4 py-2 rounded-xl text-xs transition">Karyawan</button>
+                                <button @click="loadData()" class="px-3 py-2 bg-slate-800 text-amber-400 text-xs font-bold rounded-xl"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh Data</button>
                                 <button @click="adminLogout()" class="px-3 py-2 bg-red-500/20 text-red-300 rounded-xl text-xs font-bold">Logout</button>
                             </div>
                         </div>
 
                         <!-- TAB REKAP -->
-                        <div x-show="adminTab === 'rekap'" class="glass-card p-6 rounded-3xl space-y-6">
+                        <div class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi Supabase</h2>
-                                <button @click="loadData()" class="px-3 py-2 bg-slate-800 text-amber-400 text-xs font-bold rounded-xl"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh Data</button>
+                                <span class="text-xs text-slate-400">Total Data: <strong class="text-amber-400" x-text="attendanceLogs.length"></strong></span>
                             </div>
                             <div class="overflow-x-auto rounded-2xl border border-slate-800">
                                 <table class="w-full text-left border-collapse text-xs">
                                     <thead>
                                         <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
+                                            <th class="p-4">ID Baris</th>
                                             <th class="p-4">Waktu</th>
-                                            <th class="p-4">ID</th>
+                                            <th class="p-4">ID Karyawan</th>
                                             <th class="p-4">Nama</th>
                                             <th class="p-4">Role</th>
                                             <th class="p-4">Basecamp</th>
-                                            <th class="p-4">Akurasi</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
                                         <template x-for="item in attendanceLogs" :key="item.id">
                                             <tr class="hover:bg-slate-900/50 transition">
+                                                <td class="p-4 font-mono text-slate-500" x-text="item.id"></td>
                                                 <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
                                                 <td class="p-4 font-mono text-amber-400" x-text="item.empId"></td>
                                                 <td class="p-4 font-bold text-white" x-text="item.name"></td>
                                                 <td class="p-4 text-slate-400" x-text="item.role"></td>
                                                 <td class="p-4 text-amber-300 font-semibold" x-text="item.basecamp"></td>
-                                                <td class="p-4 text-emerald-400"><span x-text="item.accuracy"></span> m</td>
                                             </tr>
                                         </template>
                                         <template x-if="attendanceLogs.length === 0">
@@ -206,58 +163,11 @@
                                 </table>
                             </div>
                         </div>
-
-                        <!-- TAB KARYAWAN -->
-                        <div x-show="adminTab === 'karyawan'" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <h2 class="text-xl font-bold text-white">Daftar Karyawan di Supabase</h2>
-                                <button @click="showEmployeeModal = true" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-extrabold rounded-xl">Tambah Karyawan</button>
-                            </div>
-                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">ID</th>
-                                            <th class="p-4">Nama</th>
-                                            <th class="p-4">Role</th>
-                                            <th class="p-4">Password</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        <template x-for="emp in employees" :key="emp.id">
-                                            <tr class="hover:bg-slate-900/50 transition">
-                                                <td class="p-4 font-mono text-amber-400" x-text="emp.id"></td>
-                                                <td class="p-4 font-bold text-white" x-text="emp.name"></td>
-                                                <td class="p-4 text-slate-300" x-text="emp.role"></td>
-                                                <td class="p-4 font-mono text-slate-400" x-text="emp.password"></td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
                     </div>
                 </template>
             </div>
         </template>
     </main>
-
-    <!-- MODAL KARYAWAN -->
-    <div x-show="showEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4">
-        <div class="glass-card max-w-md w-full p-6 rounded-3xl space-y-4 border border-slate-700">
-            <h3 class="text-lg font-bold text-white">Tambah Karyawan Baru</h3>
-            <form @submit.prevent="saveEmployee" class="space-y-3">
-                <input type="text" x-model="employeeForm.id" placeholder="ID Karyawan (contoh: rudi02)" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                <input type="text" x-model="employeeForm.name" placeholder="Nama Lengkap" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                <input type="text" x-model="employeeForm.role" placeholder="Role / Jabatan" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                <input type="text" x-model="employeeForm.password" placeholder="Password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
-                <div class="flex justify-end space-x-2 pt-4">
-                    <button type="button" @click="showEmployeeModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
     <script>
         const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
@@ -277,46 +187,52 @@
                 isAdminLoggedIn: false,
                 adminLoginUser: '',
                 adminLoginPass: '',
-                adminTab: 'rekap',
-                simulationMode: true,
                 currentUserRole: '',
                 
-                employeeTab: 'checkin',
-                loginId: '', loginPass: '',
-                leaveForm: { empId: '', type: 'Sakit', startDate: getLocalDate(), endDate: getLocalDate(), reason: '' },
-                
-                showEmployeeModal: false,
-                employeeForm: { id: '', name: '', role: '', password: '' },
+                loginId: 'rudi01', 
+                loginPass: '123456',
+                isSubmitting: false,
+                dbConnected: true,
+                dbStatusText: 'Terhubung',
 
-                basecamps: [], employees: [], attendanceLogs: [],
+                attendanceLogs: [],
+                employees: [
+                    { id: 'rudi01', name: 'Rudi Batubara', role: 'Project Manager', password: '123456' }
+                ],
 
                 async init() {
                     await this.loadData();
                 },
 
                 async loadData() {
-                    console.log("Memuat data dari Supabase...");
                     try {
-                        const { data: att, error: errAtt } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
-                        if (errAtt) {
-                            console.error('Error load attendance:', errAtt);
+                        const { data, error } = await _supabase
+                            .from('attendance')
+                            .select('*')
+                            .order('id', { ascending: false });
+
+                        if (error) {
+                            console.error('Gagal mengambil data dari Supabase:', error);
+                            this.dbConnected = false;
+                            this.dbStatusText = 'Error: ' + error.message;
                         } else {
-                            console.log('Data Attendance:', att);
-                            this.attendanceLogs = (att || []).map(i => ({ 
-                                id: i.id, empId: i.emp_id, name: i.name, role: i.role, 
-                                basecamp: i.basecamp, timestamp: i.timestamp, date: i.date, accuracy: i.accuracy 
+                            this.dbConnected = true;
+                            this.dbStatusText = 'Terhubung & Sinkron';
+                            this.attendanceLogs = (data || []).map(i => ({
+                                id: i.id,
+                                empId: i.emp_id,
+                                name: i.name,
+                                role: i.role,
+                                basecamp: i.basecamp,
+                                timestamp: i.timestamp,
+                                date: i.date,
+                                accuracy: i.accuracy
                             }));
                         }
-
-                        const { data: emp, error: errEmp } = await _supabase.from('employees').select('*');
-                        if (errEmp) {
-                            console.error('Error load employees:', errEmp);
-                        } else {
-                            console.log('Data Employees:', emp);
-                            this.employees = emp || [];
-                        }
-                    } catch (e) {
-                        console.error('Koneksi Supabase Gagal:', e);
+                    } catch (err) {
+                        console.error('Network / Koneksi Exception:', err);
+                        this.dbConnected = false;
+                        this.dbStatusText = 'Terblokir / Offline';
                     }
                 },
 
@@ -333,17 +249,10 @@
                         this.adminLoginUser = ''; this.adminLoginPass = ''; 
                         this.loadData();
                     } else {
-                        const emp = this.employees.find(e => e.id.toLowerCase() === this.adminLoginUser.trim().toLowerCase() && e.password === this.adminLoginPass);
-                        if (emp) {
-                            this.isAdminLoggedIn = true; 
-                            this.currentUserRole = emp.role; 
-                            this.adminLoginUser = ''; this.adminLoginPass = ''; 
-                            this.loadData();
-                        } else {
-                            alert('Login Gagal! Periksa ID atau Password.');
-                        }
+                        alert('Login Gagal! Gunakan admin / Ounyenk2018#');
                     }
                 },
+
                 adminLogout() { 
                     this.isAdminLoggedIn = false; 
                 },
@@ -354,76 +263,46 @@
                         return;
                     }
 
-                    // 1. Validasi Karyawan ke Supabase
-                    const { data: empList, error: empErr } = await _supabase
-                        .from('employees')
-                        .select('*')
-                        .ilike('id', this.loginId.trim());
-
-                    if (empErr || !empList || empList.length === 0) {
-                        alert('Check-in Gagal: ID Karyawan "' + this.loginId + '" tidak ditemukan di database Supabase!');
+                    if (this.loginId !== 'rudi01' || this.loginPass !== '123456') {
+                        alert('ID atau Password salah! Gunakan rudi01 / 123456');
                         return;
                     }
 
-                    const emp = empList[0];
-                    if (emp.password !== this.loginPass) {
-                        alert('Check-in Gagal: Password salah!');
-                        return;
-                    }
+                    this.isSubmitting = true;
 
-                    // 2. Simpan Data Absensi ke Supabase
                     const now = new Date();
                     const record = {
-                        emp_id: emp.id,
-                        name: emp.name,
-                        role: emp.role || 'Installer',
+                        emp_id: this.loginId,
+                        name: 'Rudi Batubara',
+                        role: 'Project Manager',
                         basecamp: 'HO Pekanbaru',
                         timestamp: now.toLocaleString('id-ID'),
                         date: getLocalDate(),
                         accuracy: 5
                     };
 
-                    console.log("Mengirim data check-in ke Supabase:", record);
-                    const { data: insData, error: insErr } = await _supabase.from('attendance').insert([record]).select();
-                    
-                    if (insErr) {
-                        alert('Gagal menyimpan ke Supabase: ' + insErr.message);
-                        console.error('Supabase Insert Error:', insErr);
-                    } else {
-                        console.log('Berhasil disimpan:', insData);
-                        alert('Berhasil! Check-in untuk ' + emp.name + ' telah tersimpan di Supabase.');
-                        this.loginId = ''; 
-                        this.loginPass = ''; 
-                        await this.loadData();
-                    }
-                },
+                    try {
+                        // Kirim langsung ke tabel attendance Supabase
+                        const { data, error } = await _supabase
+                            .from('attendance')
+                            .insert([record])
+                            .select();
 
-                async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
-                    if (!emp) {
-                        alert('ID Karyawan tidak ditemukan di database!');
-                        return;
-                    }
-                    const { error } = await _supabase.from('leaves').insert([{
-                        emp_id: emp.id, name: emp.name, type: this.leaveForm.type,
-                        start_date: this.leaveForm.startDate, end_date: this.leaveForm.endDate,
-                        reason: this.leaveForm.reason, status: 'Pending', timestamp: new Date().toLocaleString('id-ID')
-                    }]);
-                    if (error) alert('Gagal: ' + error.message); 
-                    else { 
-                        alert('Pengajuan berhasil dikirim.'); 
-                        this.loadData(); 
-                    }
-                },
-
-                async saveEmployee() {
-                    const { error } = await _supabase.from('employees').upsert([this.employeeForm]);
-                    if (error) {
-                        alert('Gagal menyimpan karyawan: ' + error.message);
-                    } else {
-                        alert('Karyawan berhasil disimpan ke Supabase!');
-                        this.showEmployeeModal = false;
-                        this.loadData();
+                        if (error) {
+                            alert('Gagal disimpan ke Supabase: ' + error.message);
+                            console.error('Supabase Error:', error);
+                        } else {
+                            alert('Sukses! Data check-in berhasil masuk ke Supabase.');
+                            this.loginId = '';
+                            this.loginPass = '';
+                            // Refresh data rekapitulasi secara otomatis
+                            await this.loadData();
+                        }
+                    } catch (e) {
+                        alert('Terjadi kesalahan jaringan/koneksi saat mengirim data.');
+                        console.error(e);
+                    } finally {
+                        this.isSubmitting = false;
                     }
                 }
             }
