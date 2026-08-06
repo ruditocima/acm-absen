@@ -805,7 +805,7 @@
 
                 showBasecampModal: false,
                 editBasecampIndex: null,
-                basecampForm: { name: '', lat: 0.50653, lng: 101.42304, radius: 500 },
+                basecampForm: { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 },
 
                 showEmployeeModal: false,
                 editEmployeeIndex: null,
@@ -1175,17 +1175,29 @@
                     await this.loadAttendanceData();
                 },
 
-                // FIX: Menambahkan try-catch dan alert notifikasi sukses
+                // DIPERBAIKI: Menggunakan pembaruan status lokal instan (optimistic update) agar UI langsung berubah saat tombol diklik
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
                         return;
                     }
                     
+                    // Simpan status sebelumnya untuk keperluan rollback jika terjadi error
+                    const leaveIndex = this.leaves.findIndex(l => l.id === id);
+                    let previousStatus = 'Pending';
+                    if (leaveIndex !== -1) {
+                        previousStatus = this.leaves[leaveIndex].status;
+                        this.leaves[leaveIndex].status = status; // Ubah tampilan UI seketika
+                    }
+                    
                     try {
                         const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
                         
                         if (error) {
+                            // Rollback jika gagal
+                            if (leaveIndex !== -1) {
+                                this.leaves[leaveIndex].status = previousStatus;
+                            }
                             alert('Gagal memperbarui status: ' + error.message);
                             return;
                         }
@@ -1193,6 +1205,9 @@
                         alert(`Pengajuan berhasil ${status}!`);
                         await this.loadAttendanceData();
                     } catch (err) {
+                        if (leaveIndex !== -1) {
+                            this.leaves[leaveIndex].status = previousStatus;
+                        }
                         alert('Terjadi kesalahan pada sistem: ' + err.message);
                     }
                 },
