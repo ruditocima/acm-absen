@@ -56,7 +56,7 @@
 
                         <button type="submit" :disabled="isSubmitting" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
                             <span x-show="!isSubmitting"><i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG</span>
-                            <span x-show="isSubmitting">MEMPROSES...</span>
+                            <span x-show="isSubmitting">MENYIMPAN...</span>
                         </button>
                     </form>
                 </div>
@@ -106,7 +106,7 @@
                         <!-- TAB REKAP -->
                         <div class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
-                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi (Live & Backup)</h2>
+                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi (Live & Sync)</h2>
                                 <span class="text-xs text-slate-400">Total Baris: <strong class="text-amber-400" x-text="attendanceLogs.length"></strong></span>
                             </div>
                             <div class="overflow-x-auto rounded-2xl border border-slate-800">
@@ -122,7 +122,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        <template x-for="item in attendanceLogs" :key="item.id">
+                                        <template x-for="(item, index) in attendanceLogs" :key="item.uniqueKey || index">
                                             <tr class="hover:bg-slate-900/50 transition">
                                                 <td class="p-4 font-mono text-slate-400" x-text="item.id"></td>
                                                 <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
@@ -187,19 +187,29 @@
                 },
 
                 async init() {
-                    // Muat data lokal terlebih dahulu agar langsung instan terlihat
-                    const localSaved = localStorage.getItem('yofc_attendance_v3');
-                    if (localSaved) {
-                        try {
-                            this.attendanceLogs = JSON.parse(localSaved);
-                            this.logMsg(`Memuat ${this.attendanceLogs.length} data dari penyimpanan lokal.`);
-                        } catch(e) {}
-                    }
+                    this.loadLocalData();
                     await this.loadData();
                 },
 
+                loadLocalData() {
+                    const localSaved = localStorage.getItem('yofc_attendance_v4');
+                    if (localSaved) {
+                        try {
+                            const parsed = JSON.parse(localSaved);
+                            if (Array.isArray(parsed)) {
+                                this.attendanceLogs = parsed;
+                                this.logMsg(`Memuat ${parsed.length} data dari lokal.`);
+                            }
+                        } catch(e) {}
+                    }
+                },
+
+                saveLocalData() {
+                    localStorage.setItem('yofc_attendance_v4', JSON.stringify(this.attendanceLogs));
+                },
+
                 async loadData() {
-                    this.logMsg("Mengambil data terbaru dari Supabase...");
+                    this.logMsg("Sinkronisasi data dengan Supabase...");
                     try {
                         const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance?select=*&order=id.desc`, {
                             method: 'GET',
@@ -215,9 +225,10 @@
                             return;
                         }
 
-                        const data = await response.json();
-                        if (data && Array.isArray(data) && data.length > 0) {
-                            this.attendanceLogs = data.map(item => ({
+                        const serverData = await response.json();
+                        if (serverData && Array.isArray(serverData)) {
+                            // Format data server dan beri uniqueKey gabungan ID + Timestamp
+                            const formattedServer = serverData.map(item => ({
                                 id: item.id,
                                 emp_id: item.emp_id || 'rudi01',
                                 name: item.name || 'Rudi Batubara',
@@ -225,15 +236,27 @@
                                 basecamp: item.basecamp || 'HO Pekanbaru',
                                 timestamp: item.timestamp || '-',
                                 date: item.date || getLocalDate(),
-                                accuracy: item.accuracy || 5
+                                accuracy: item.accuracy || 5,
+                                uniqueKey: `srv-${item.id}-${item.timestamp}`
                             }));
-                            localStorage.setItem('yofc_attendance_v3', JSON.stringify(this.attendanceLogs));
-                            this.logMsg(`Berhasil memuat ${this.attendanceLogs.length} baris dari Supabase.`);
-                        } else {
-                            this.logMsg("Supabase merespons, namun data kosong atau terhalang RLS.");
+
+                            // Ambil data lokal yang mungkin belum masuk server
+                            const localSaved = localStorage.getItem('yofc_attendance_v4') || '[]';
+                            const localData = JSON.parse(localSaved);
+
+                            // Gabungkan server dan lokal tanpa duplikat
+                            const map = new Map();
+                            [...formattedServer, ...localData].forEach(item => {
+                                const key = item.id + '-' + item.timestamp;
+                                map.set(key, item);
+                            });
+
+                            this.attendanceLogs = Array.from(map.values());
+                            this.saveLocalData();
+                            this.logMsg(`Sinkronisasi sukses. Total data: ${this.attendanceLogs.length}`);
                         }
                     } catch (err) {
-                        this.logMsg("Koneksi jaringan gagal: " + err.message);
+                        this.logMsg("Mode offline / Gagal koneksi: " + err.message);
                     }
                 },
 
@@ -270,26 +293,31 @@
                     }
 
                     this.isSubmitting = true;
-                    this.logMsg("Mengirim Check-in...");
+                    this.logMsg("Memproses Check-in baru...");
 
                     const now = new Date();
+                    const timestampStr = now.toLocaleString('id-ID');
                     const record = {
                         emp_id: this.loginId,
                         name: 'Rudi Batubara',
                         role: 'Project Manager',
                         basecamp: 'HO Pekanbaru',
-                        timestamp: now.toLocaleString('id-ID'),
+                        timestamp: timestampStr,
                         date: getLocalDate(),
                         accuracy: 5
                     };
 
-                    // Simpan secara lokal seketika agar langsung tampil di rekapitulasi tanpa jeda
+                    // Masukkan instan ke array terdepan agar langsung tampil di rekap
+                    const tempId = 'LOC-' + Date.now();
                     const immediateEntry = {
-                        id: 'LOC-' + Date.now().toString().slice(-4),
-                        ...record
+                        id: tempId,
+                        ...record,
+                        uniqueKey: `loc-${tempId}-${timestampStr}`
                     };
+                    
                     this.attendanceLogs.unshift(immediateEntry);
-                    localStorage.setItem('yofc_attendance_v3', JSON.stringify(this.attendanceLogs));
+                    this.saveLocalData();
+                    this.logMsg("Check-in berhasil dirender secara lokal.");
 
                     try {
                         const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance`, {
@@ -305,18 +333,18 @@
 
                         if (!response.ok) {
                             const errJson = await response.json();
-                            this.logMsg("Gagal simpan ke Supabase: " + (errJson.message || JSON.stringify(errJson)));
-                            alert('Check-in tersimpan di lokal, tetapi gagal ke server: ' + (errJson.message || 'Kesalahan server'));
+                            this.logMsg("Peringatan Server: " + (errJson.message || 'Gagal simpan database'));
+                            alert('Check-in tersimpan lokal, namun server merespons: ' + (errJson.message || 'Error'));
                         } else {
-                            this.logMsg("Check-in berhasil tersimpan permanen di Supabase!");
+                            this.logMsg("Data berhasil dikonfirmasi masuk ke database Supabase!");
                             alert('Sukses! Check-in berhasil dan tersimpan di database.');
                             this.loginId = '';
                             this.loginPass = '';
                             await this.loadData();
                         }
                     } catch (e) {
-                        this.logMsg("Error jaringan: " + e.message);
-                        alert('Check-in berhasil disimpan secara lokal pada perangkat.');
+                        this.logMsg("Jaringan terputus, data aman di penyimpanan lokal.");
+                        alert('Check-in berhasil disimpan di perangkat.');
                     } finally {
                         this.isSubmitting = false;
                     }
