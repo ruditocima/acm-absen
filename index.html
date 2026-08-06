@@ -723,7 +723,7 @@
                 get currentUserName() {
                     if (this.isMasterAdmin) return 'Master Admin';
                     const emp = this.employees.find(e => e.id === this.currentEmpId);
-                    return emp ? emp.name : 'Rudi';
+                    return emp ? emp.name : 'User';
                 },
 
                 get normalizedRole() {
@@ -1174,6 +1174,7 @@
                     await this.loadAttendanceData();
                 },
 
+                // LOGIKA YANG SUDAH DIPERBAIKI (OPTIMISTIC UI UPDATE)
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
@@ -1181,28 +1182,44 @@
                     }
                     
                     const leaveIndex = this.leaves.findIndex(l => l.id === id);
-                    let previousStatus = 'Pending';
-                    if (leaveIndex !== -1) {
-                        previousStatus = this.leaves[leaveIndex].status;
-                        this.leaves[leaveIndex].status = status;
+                    if (leaveIndex === -1) {
+                        alert('Data tidak ditemukan!');
+                        return;
                     }
+
+                    let previousStatus = this.leaves[leaveIndex].status;
+                    
+                    // 1. Optimistic Update: Langsung ubah di layar untuk memutus race-condition
+                    this.leaves[leaveIndex].status = status;
+                    // 2. Force Reactivity: Paksa Alpine.js membaca ulang array agar tombol langsung hilang
+                    this.leaves = [...this.leaves]; 
                     
                     try {
-                        const { error } = await _supabase.from('leaves').update({ status: status }).eq('id', id);
+                        // 3. Update ke Supabase, gunakan .select() untuk memastikan ada baris yang di-update
+                        const { data, error } = await _supabase
+                            .from('leaves')
+                            .update({ status: status })
+                            .eq('id', id)
+                            .select();
                         
                         if (error) {
-                            if (leaveIndex !== -1) {
-                                this.leaves[leaveIndex].status = previousStatus;
-                            }
-                            alert('Gagal memperbarui status: ' + error.message);
-                            return;
+                            throw error;
+                        }
+
+                        if (!data || data.length === 0) {
+                            throw new Error("Update ditolak oleh server (Bisa jadi karena RLS atau ID salah).");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
-                        await this.loadAttendanceData();
+                        // CATATAN: Fungsi this.loadAttendanceData() DIHILANGKAN dari sini.
+                        // Penarikan data langsung secara instan kadang mengambil data 'Pending' lama 
+                        // karena ada jeda sepersekian detik di database Supabase (Replication Lag).
+                        
                     } catch (err) {
+                        // Rollback ke status semula jika proses ke server gagal
                         if (leaveIndex !== -1) {
                             this.leaves[leaveIndex].status = previousStatus;
+                            this.leaves = [...this.leaves];
                         }
                         alert('Terjadi kesalahan pada sistem: ' + err.message);
                     }
