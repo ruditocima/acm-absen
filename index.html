@@ -675,24 +675,87 @@
         async function simulateServerSideValidation(payload) {
             const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
             
-            const lat = currentCoords ? currentCoords.lat : 0;
-            const lng = currentCoords ? currentCoords.lng : 0;
+            // Verifikasi langsung ke tabel employees Supabase untuk memastikan keandalan
+            const { data: empList, error: empError } = await _supabase
+                .from('employees')
+                .select('*')
+                .ilike('id', loginId.trim());
 
-            const { data, error } = await _supabase.rpc('validate_and_checkin', {
-                p_login_id: loginId,
-                p_login_pass: loginPass,
-                p_lat: lat,
-                p_lng: lng,
-                p_accuracy: gpsAccuracy || 5,
-                p_simulation_mode: simulationMode,
-                p_device_id: deviceId
-            });
-
-            if (error) {
-                return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
+            if (empError || !empList || empList.length === 0) {
+                return { success: false, message: 'ID Karyawan tidak ditemukan di database.' };
             }
 
-            return data;
+            const emp = empList[0];
+
+            if (emp.password !== loginPass) {
+                return { success: false, message: 'Password salah!' };
+            }
+
+            if (emp.device_id && emp.device_id !== deviceId && !simulationMode) {
+                return { success: false, message: 'Akun ini sudah terikat dengan perangkat HP lain. Harap hubungi Admin untuk reset device.' };
+            }
+
+            if (!emp.device_id && !simulationMode) {
+                await _supabase.from('employees').update({ device_id: deviceId }).eq('id', emp.id);
+            }
+
+            let detectedBasecampName = 'Luar Basecamp';
+            if (!simulationMode) {
+                if (!currentCoords) {
+                    return { success: false, message: 'Lokasi GPS belum terdeteksi. Pastikan GPS aktif.' };
+                }
+                
+                const { data: bcList } = await _supabase.from('basecamps').select('*');
+                let foundBc = null;
+                if (bcList) {
+                    for (let bc of bcList) {
+                        const R = 6371e3;
+                        const φ1 = currentCoords.lat * Math.PI/180;
+                        const φ2 = bc.lat * Math.PI/180;
+                        const Δφ = (bc.lat - currentCoords.lat) * Math.PI/180;
+                        const Δλ = (bc.lng - currentCoords.lng) * Math.PI/180;
+                        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                                  Math.cos(φ1) * Math.cos(φ2) *
+                                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                        const dist = R * c;
+
+                        if (dist <= bc.radius) {
+                            foundBc = bc;
+                            break;
+                        }
+                    }
+                }
+
+                if (!foundBc) {
+                    return { success: false, message: 'Anda berada di luar radius Basecamp yang diizinkan!' };
+                }
+                detectedBasecampName = foundBc.name;
+            } else {
+                detectedBasecampName = 'HO Pekanbaru (Simulasi)';
+            }
+
+            const now = new Date();
+            const timestampStr = now.toLocaleString('id-ID');
+            const dateStr = getLocalDate(now);
+
+            const attendanceRecord = {
+                emp_id: emp.id,
+                name: emp.name,
+                role: emp.role || 'Installer',
+                basecamp: detectedBasecampName,
+                timestamp: timestampStr,
+                date: dateStr,
+                accuracy: gpsAccuracy || 5
+            };
+
+            const { error: insertError } = await _supabase.from('attendance').insert([attendanceRecord]);
+
+            if (insertError) {
+                return { success: false, message: 'Gagal menyimpan data absensi ke Supabase: ' + insertError.message };
+            }
+
+            return { success: true, message: `Check-in berhasil untuk ${emp.name} di ${detectedBasecampName}!` };
         }
 
         function absensiApp() {
@@ -884,58 +947,57 @@
                 },
 
                 async loadAttendanceData() {
-    let { data: attData, error } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
-    
-    if (error) {
-        console.error('Gagal memuat absensi dari Supabase:', error.message);
-        return;
-    }
+                    let { data: attData, error } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                    
+                    if (error) {
+                        console.error('Gagal memuat absensi dari Supabase:', error.message);
+                        return;
+                    }
 
-    if (attData) {
-        console.log('DATA ABSENSI BERHASIL DIAMBIL DARI SUPABASE:', attData); // Cek F12 Console browser Anda
-        this.attendanceLogs = attData.map(item => ({
-            id: item.id,
-            empId: item.emp_id || item.empId || '',
-            name: item.name || '',
-            role: item.role || '',
-            basecamp: item.basecamp || '',
-            timestamp: item.timestamp || '',
-            date: item.date || (item.timestamp ? item.timestamp.substring(0, 10) : getLocalDate()),
-            accuracy: item.accuracy || 0
-        }));
-    }
+                    if (attData) {
+                        this.attendanceLogs = attData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id || item.empId || '',
+                            name: item.name || '',
+                            role: item.role || '',
+                            basecamp: item.basecamp || '',
+                            timestamp: item.timestamp || '',
+                            date: item.date || (item.timestamp ? item.timestamp.substring(0, 10) : getLocalDate()),
+                            accuracy: item.accuracy || 0
+                        }));
+                    }
 
-    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
-    if (leaveData) {
-        this.leaves = leaveData.map(item => ({
-            id: item.id,
-            empId: item.emp_id || item.empId || '',
-            name: item.name || '',
-            type: item.type || '',
-            startDate: item.start_date || '',
-            endDate: item.end_date || '',
-            reason: item.reason || '',
-            status: item.status || 'Pending',
-            timestamp: item.timestamp || ''
-        }));
-    }
+                    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
+                    if (leaveData) {
+                        this.leaves = leaveData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id || item.empId || '',
+                            name: item.name || '',
+                            type: item.type || '',
+                            startDate: item.start_date || '',
+                            endDate: item.end_date || '',
+                            reason: item.reason || '',
+                            status: item.status || 'Pending',
+                            timestamp: item.timestamp || ''
+                        }));
+                    }
 
-    let { data: bcData } = await _supabase.from('basecamps').select('*');
-    if (bcData && bcData.length > 0) {
-        this.basecamps = bcData;
-    }
+                    let { data: bcData } = await _supabase.from('basecamps').select('*');
+                    if (bcData && bcData.length > 0) {
+                        this.basecamps = bcData;
+                    }
 
-    let { data: empData } = await _supabase.from('employees').select('*');
-    if (empData && empData.length > 0) {
-        this.employees = empData.map(e => ({
-            id: e.id,
-            name: e.name,
-            role: e.role,
-            password: e.password,
-            deviceId: e.device_id || e.deviceId
-        }));
-    }
-},
+                    let { data: empData } = await _supabase.from('employees').select('*');
+                    if (empData && empData.length > 0) {
+                        this.employees = empData.map(e => ({
+                            id: e.id,
+                            name: e.name,
+                            role: e.role,
+                            password: e.password,
+                            deviceId: e.device_id || e.deviceId
+                        }));
+                    }
+                },
 
                 async loadMessagesData() {
                     let { data, error } = await _supabase.from('messages').select('*').order('id', { ascending: false });
@@ -1425,46 +1487,44 @@
                 },
 
                 get filteredAttendance() {
-    let logs = this.attendanceLogs;
-    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-        logs = logs.filter(item => (item.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
-    }
+                    let logs = this.attendanceLogs;
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        logs = logs.filter(item => (item.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
+                    }
 
-    // Jika filter tanggal kosong, langsung tampilkan semua data terbaru tanpa filter
-    if (!this.filterStartDate || !this.filterEndDate) {
-        return logs;
-    }
+                    if (!this.filterStartDate || !this.filterEndDate) {
+                        return logs;
+                    }
 
-    return logs.filter(item => {
-        let raw = String(item.date || item.timestamp || '').trim();
-        if (!raw) return true; // Jika tanggal kosong, tetap tampilkan agar data tidak hilang
+                    return logs.filter(item => {
+                        let raw = String(item.date || item.timestamp || '').trim();
+                        if (!raw) return true;
 
-        raw = raw.replace(/,/g, '').replace(/\./g, '-');
-        let dateStr = raw.split(' ')[0].split('T')[0];
+                        raw = raw.replace(/,/g, '').replace(/\./g, '-');
+                        let dateStr = raw.split(' ')[0].split('T')[0];
 
-        // Format DD/MM/YYYY atau DD-MM-YYYY dikonversi ke YYYY-MM-DD
-        if (dateStr.includes('/')) {
-            let parts = dateStr.split('/');
-            if (parts.length === 3) {
-                let day = parts[0].padStart(2, '0');
-                let month = parts[1].padStart(2, '0');
-                let year = parts[2].trim();
-                if (year.length === 4) {
-                    dateStr = `${year}-${month}-${day}`;
-                }
-            }
-        } else if (dateStr.split('-')[0].length <= 2) {
-            let parts = dateStr.split('-');
-            if (parts.length === 3) {
-                dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-            }
-        }
+                        if (dateStr.includes('/')) {
+                            let parts = dateStr.split('/');
+                            if (parts.length === 3) {
+                                let day = parts[0].padStart(2, '0');
+                                let month = parts[1].padStart(2, '0');
+                                let year = parts[2].trim();
+                                if (year.length === 4) {
+                                    dateStr = `${year}-${month}-${day}`;
+                                }
+                            }
+                        } else if (dateStr.split('-')[0].length <= 2) {
+                            let parts = dateStr.split('-');
+                            if (parts.length === 3) {
+                                dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            }
+                        }
 
-        if (!dateStr || dateStr.length < 10) return true;
+                        if (!dateStr || dateStr.length < 10) return true;
 
-        return dateStr >= this.filterStartDate && dateStr <= this.filterEndDate;
-    });
-},
+                        return dateStr >= this.filterStartDate && dateStr <= this.filterEndDate;
+                    });
+                },
 
                 exportCSV() {
                     let csvContent = "data:text/csv;charset=utf-8,ID,Nama,Role,Basecamp,Tanggal Waktu,Terlambat,Akurasi GPS\n";
