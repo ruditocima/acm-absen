@@ -647,7 +647,9 @@
         function parseDateFromTimestamp(ts) {
             if (!ts) return getLocalDate();
             if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
-            let d = new Date(ts);
+            // Perbaikan agar timestamp format SQL ("YYYY-MM-DD HH:MM:SS") bisa dibaca JavaScript dengan benar
+            let normalizedTs = ts.includes(' ') && !ts.includes('T') ? ts.replace(' ', 'T') : ts;
+            let d = new Date(normalizedTs);
             if (!isNaN(d.getTime())) {
                 return getLocalDate(d);
             }
@@ -834,7 +836,7 @@
                     await this.loadAttendanceData();
                     await this.loadMessagesData();
 
-                    // Supabase Realtime Subscription untuk otomatis memperbarui rekap absensi dan izin saat ada data baru
+                    // Supabase Realtime Listener untuk update otomatis saat ada entri baru
                     try {
                         _supabase
                             .channel('public-realtime-changes')
@@ -869,7 +871,8 @@
                         h = parseInt(match[1], 10);
                         m = parseInt(match[2], 10);
                     } else {
-                        let d = new Date(timestamp);
+                        let normalizedTs = timestamp.includes(' ') && !timestamp.includes('T') ? timestamp.replace(' ', 'T') : timestamp;
+                        let d = new Date(normalizedTs);
                         if (!isNaN(d.getTime())) {
                             h = d.getHours();
                             m = d.getMinutes();
