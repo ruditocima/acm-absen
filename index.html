@@ -644,22 +644,6 @@
             return `${year}-${month}-${day}`;
         }
 
-        function parseDateFromTimestamp(ts) {
-            if (!ts) return getLocalDate();
-            if (/^\d{4}-\d{2}-\d{2}$/.test(ts)) return ts;
-            // Perbaikan agar timestamp format SQL ("YYYY-MM-DD HH:MM:SS") bisa dibaca JavaScript dengan benar
-            let normalizedTs = ts.includes(' ') && !ts.includes('T') ? ts.replace(' ', 'T') : ts;
-            let d = new Date(normalizedTs);
-            if (!isNaN(d.getTime())) {
-                return getLocalDate(d);
-            }
-            let parts = ts.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-            if (parts) {
-                return `${parts[3]}-${parts[2]}-${parts[1]}`;
-            }
-            return getLocalDate();
-        }
-
         async function getOrCreateStableDeviceIdentifier() {
             let deviceId = localStorage.getItem('bc_device_uuid');
             if (deviceId) return deviceId;
@@ -835,21 +819,6 @@
                     await getOrCreateStableDeviceIdentifier();
                     await this.loadAttendanceData();
                     await this.loadMessagesData();
-
-                    // Supabase Realtime Listener untuk update otomatis saat ada entri baru
-                    try {
-                        _supabase
-                            .channel('public-realtime-changes')
-                            .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, async () => {
-                                await this.loadAttendanceData();
-                            })
-                            .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, async () => {
-                                await this.loadAttendanceData();
-                            })
-                            .subscribe();
-                    } catch (e) {
-                        console.error('Realtime subscription error:', e);
-                    }
                 },
 
                 get employeeDeadlineText() {
@@ -871,8 +840,7 @@
                         h = parseInt(match[1], 10);
                         m = parseInt(match[2], 10);
                     } else {
-                        let normalizedTs = timestamp.includes(' ') && !timestamp.includes('T') ? timestamp.replace(' ', 'T') : timestamp;
-                        let d = new Date(normalizedTs);
+                        let d = new Date(timestamp);
                         if (!isNaN(d.getTime())) {
                             h = d.getHours();
                             m = d.getMinutes();
@@ -912,7 +880,7 @@
                             role: item.role,
                             basecamp: item.basecamp,
                             timestamp: item.timestamp,
-                            date: item.date || parseDateFromTimestamp(item.timestamp),
+                            date: item.date || getLocalDate(),
                             accuracy: item.accuracy
                         }));
                     }
@@ -1091,7 +1059,9 @@
                 },
 
                 handleAdminLogin() {
-                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
+                    const safeAdminUser = this.adminLoginUser.trim().toLowerCase(); // Mencegah typo case-sensitive
+                    
+                    if (safeAdminUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
                         this.isAdminLoggedIn = true;
                         this.isMasterAdmin = true;
                         this.currentUserRole = 'Master Admin';
@@ -1102,7 +1072,7 @@
                         this.loadAttendanceData();
                         this.loadMessagesData();
                     } else {
-                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
+                        const emp = this.employees.find(e => (e.id || '').toLowerCase() === safeAdminUser && e.password === this.adminLoginPass);
                         if (emp) {
                             this.isAdminLoggedIn = true;
                             this.isMasterAdmin = false;
@@ -1141,8 +1111,12 @@
                     }
 
                     const currentDeviceId = await getOrCreateStableDeviceIdentifier();
+                    
+                    // PERBAIKAN: Memaksa format id menjadi huruf kecil mencegah typo auto-capitalized dari keyboard HP
+                    const safeLoginId = this.loginId.trim().toLowerCase();
+
                     const payload = {
-                        loginId: this.loginId,
+                        loginId: safeLoginId,
                         loginPass: this.loginPass,
                         currentCoords: this.currentCoords,
                         gpsAccuracy: this.gpsAccuracy,
@@ -1162,7 +1136,7 @@
                     let pmMessageText = "";
                     let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
                     if (msgData && msgData.length > 0) {
-                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === this.loginId);
+                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id.toLowerCase() === safeLoginId);
                         if (targetMsg) {
                             pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
                         }
@@ -1175,7 +1149,9 @@
                 },
 
                 async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    const safeEmpId = this.leaveForm.empId.trim().toLowerCase();
+                    const emp = this.employees.find(e => (e.id || '').toLowerCase() === safeEmpId);
+                    
                     if (!emp) {
                         alert('ID Karyawan tidak ditemukan!');
                         return;
@@ -1232,7 +1208,7 @@
                         }
 
                         if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan).");
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
@@ -1248,13 +1224,15 @@
 
                 get employeeLeaves() {
                     if (!this.leaveForm.empId) return [];
-                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
+                    const safeEmpId = this.leaveForm.empId.trim().toLowerCase();
+                    return this.leaves.filter(l => (l.empId || '').toLowerCase() === safeEmpId);
                 },
 
                 get displayedLeaves() {
                     let items = this.leaves;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        items = items.filter(l => l.empId === this.currentEmpId);
+                        const safeCurrentId = (this.currentEmpId || '').toLowerCase();
+                        items = items.filter(l => (l.empId || '').toLowerCase() === safeCurrentId);
                     }
                     return items;
                 },
@@ -1437,12 +1415,23 @@
                 },
 
                 get filteredAttendance() {
-                    let logs = this.attendanceLogs || [];
+                    let logs = this.attendanceLogs;
+                    
+                    // PERBAIKAN: Case-Insensitive Filter ID Karyawan saat dilihat oleh Non-Admin (Supervisor/Karyawan)
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                        const safeCurrentId = (this.currentEmpId || '').toLowerCase();
+                        logs = logs.filter(item => (item.empId || '').toLowerCase() === safeCurrentId);
                     }
+                    
                     return logs.filter(item => {
-                        const itemDate = item.date || parseDateFromTimestamp(item.timestamp);
+                        let itemDate = item.date || item.timestamp || getLocalDate();
+                        
+                        // PERBAIKAN: Memisahkan komponen jam (apabila ada format ISO/Timestamp dari Supabase) 
+                        // agar tidak menyebabkan error pada perbandingan string <= dengan filterEndDate
+                        if (typeof itemDate === 'string') {
+                            itemDate = itemDate.split('T')[0].split(' ')[0];
+                        }
+                        
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
                         }
