@@ -1423,12 +1423,28 @@
                         logs = logs.filter(item => (item.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     }
                     return logs.filter(item => {
-                        const rawDate = item.date || item.timestamp || getLocalDate();
-                        const itemDate = String(rawDate).split('T')[0].split(' ')[0];
-                        if (this.filterStartDate && this.filterEndDate) {
-                            return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
+                        if (!this.filterStartDate || !this.filterEndDate) return true;
+
+                        let raw = item.date || item.timestamp || '';
+                        let dateStr = '';
+                        if (raw.includes('T')) {
+                            dateStr = raw.split('T')[0];
+                        } else if (raw.includes(' ')) {
+                            dateStr = raw.split(' ')[0];
+                        } else {
+                            dateStr = raw;
                         }
-                        return true;
+
+                        if (dateStr.includes('/')) {
+                            let parts = dateStr.split('/');
+                            if (parts.length === 3 && parts[2].length === 4) {
+                                dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            }
+                        }
+
+                        if (!dateStr || dateStr.length < 10) return true;
+
+                        return dateStr >= this.filterStartDate && dateStr <= this.filterEndDate;
                     });
                 },
 
