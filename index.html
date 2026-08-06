@@ -819,6 +819,19 @@
                     await getOrCreateStableDeviceIdentifier();
                     await this.loadAttendanceData();
                     await this.loadMessagesData();
+                    this.initRealtimeSubscription();
+                },
+
+                initRealtimeSubscription() {
+                    _supabase
+                        .channel('public:attendance_realtime')
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, (payload) => {
+                            this.loadAttendanceData();
+                        })
+                        .on('postgres_changes', { event: '*', schema: 'public', table: 'leaves' }, (payload) => {
+                            this.loadAttendanceData();
+                        })
+                        .subscribe();
                 },
 
                 get employeeDeadlineText() {
@@ -1171,7 +1184,6 @@
                     await this.loadAttendanceData();
                 },
 
-                // PERBAIKAN FUNGSI updateLeaveStatus (MENGATASI RLS & TYPE ID MISMATCH)
                 async updateLeaveStatus(id, status) {
                     if (!this.canModifyIzin) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
@@ -1186,7 +1198,6 @@
 
                     let previousStatus = this.leaves[leaveIndex].status;
                     
-                    // Optimistic UI Update
                     this.leaves[leaveIndex].status = status;
                     this.leaves = [...this.leaves]; 
                     
@@ -1202,13 +1213,12 @@
                         }
 
                         if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan).");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
                         
                     } catch (err) {
-                        // Rollback jika terjadi kegagalan server
                         if (leaveIndex !== -1) {
                             this.leaves[leaveIndex].status = previousStatus;
                             this.leaves = [...this.leaves];
@@ -1413,7 +1423,7 @@
                         logs = logs.filter(item => item.empId === this.currentEmpId);
                     }
                     return logs.filter(item => {
-                        const itemDate = item.date || getLocalDate();
+                        const itemDate = item.date ? item.date.split('T')[0] : getLocalDate();
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
                         }
