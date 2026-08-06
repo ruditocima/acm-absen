@@ -240,23 +240,18 @@
 
                             <div class="flex items-center space-x-3">
                                 <div class="flex flex-wrap gap-2">
-                                    <!-- Rekap Absensi -->
                                     <button x-show="canAccessRekap" @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
                                     </button>
-                                    <!-- Persetujuan Izin -->
                                     <button x-show="canAccessIzin" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
                                     </button>
-                                    <!-- Kirim Pesan (Project Manager Only) -->
                                     <button x-show="canAccessMessages" @click="adminTab = 'messages'; loadMessagesData()" :class="adminTab === 'messages' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-envelope mr-1"></i> Kirim Pesan
                                     </button>
-                                    <!-- Basecamp -->
                                     <button x-show="canAccessBasecamp" @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
                                     </button>
-                                    <!-- Data Karyawan (Master Admin Only) -->
                                     <button x-show="canAccessKaryawan" @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
                                         <i class="fa-solid fa-users-gear mr-1"></i> Data Karyawan
                                     </button>
@@ -290,7 +285,6 @@
                                     <button @click="loadAttendanceData()" class="mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl transition" title="Muat Ulang Data">
                                         <i class="fa-solid fa-rotate-right"></i> Refresh
                                     </button>
-                                    <!-- Reset Data button: Master Admin & Project Manager Only -->
                                     <button x-show="canResetRekap" @click="clearAllAttendance" class="mt-4 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl transition" title="Reset Data Absensi">
                                         <i class="fa-solid fa-trash-can mr-1"></i> Reset Data
                                     </button>
@@ -414,7 +408,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB: KIRIM PESAN PROJECT MANAGER -->
+                        <!-- TAB 3: KIRIM PESAN -->
                         <div x-show="adminTab === 'messages' && canAccessMessages" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -424,7 +418,6 @@
                             </div>
 
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <!-- Form Kirim Pesan -->
                                 <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
                                     <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-paper-plane mr-2 text-amber-500"></i>Buat Pesan Baru</h3>
                                     <form @submit.prevent="sendMessage" class="space-y-4">
@@ -447,7 +440,6 @@
                                     </form>
                                 </div>
 
-                                <!-- Riwayat Pesan Terkirim -->
                                 <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
                                     <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-history mr-2 text-amber-500"></i>Riwayat Pesan Terkirim</h3>
                                     <div class="space-y-3 max-h-72 overflow-y-auto">
@@ -471,7 +463,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB 3: MANAJEMEN BASECAMP -->
+                        <!-- TAB 4: MANAJEMEN BASECAMP -->
                         <div x-show="adminTab === 'basecamp' && canAccessBasecamp" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -505,7 +497,7 @@
                             </div>
                         </div>
 
-                        <!-- TAB 4: MANAJEMEN KARYAWAN -->
+                        <!-- TAB 5: MANAJEMEN KARYAWAN -->
                         <div x-show="adminTab === 'karyawan' && canAccessKaryawan" class="glass-card p-6 rounded-3xl space-y-6">
                             <div class="flex justify-between items-center">
                                 <div>
@@ -935,6 +927,7 @@
                     return emp ? emp.name : empId;
                 },
 
+                // PERBAIKAN: Penanganan Error RLS pada tabel messages
                 async sendMessage() {
                     const newMsg = {
                         sender_id: this.currentEmpId || 'PM',
@@ -945,7 +938,11 @@
 
                     const { error } = await _supabase.from('messages').insert([newMsg]);
                     if (error) {
-                        alert('Gagal mengirim pesan: ' + error.message);
+                        if (error.message.includes('row-level security')) {
+                            alert('Gagal: Keamanan server aktif. Matikan (Disable) RLS pada tabel "messages" di dashboard Supabase Anda terlebih dahulu.');
+                        } else {
+                            alert('Gagal mengirim pesan: ' + error.message);
+                        }
                         return;
                     }
 
@@ -954,17 +951,23 @@
                     await this.loadMessagesData();
                 },
 
+                // PERBAIKAN: Penanganan Error RLS pada tabel messages
                 async deleteMessage(id) {
                     if (confirm('Hapus pesan ini?')) {
                         const { error } = await _supabase.from('messages').delete().eq('id', id);
                         if (!error) {
                             await this.loadMessagesData();
                         } else {
-                            alert('Gagal menghapus pesan: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Hapus: RLS pada tabel "messages" mencegah aksi ini. Silakan matikan RLS di Supabase Anda.');
+                            } else {
+                                alert('Gagal menghapus pesan: ' + error.message);
+                            }
                         }
                     }
                 },
 
+                // PERBAIKAN: Penanganan Error RLS pada tabel attendance
                 async clearAllAttendance() {
                     if (!this.canResetRekap) {
                         alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk mereset data absensi.');
@@ -975,7 +978,11 @@
                         if (!error) {
                             this.attendanceLogs = [];
                         } else {
-                            alert('Gagal menghapus data: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Reset: RLS pada tabel "attendance" mencegah aksi penghapusan. Matikan RLS di Supabase Anda terlebih dahulu.');
+                            } else {
+                                alert('Gagal menghapus data: ' + error.message);
+                            }
                         }
                     }
                 },
@@ -1059,7 +1066,7 @@
                 },
 
                 handleAdminLogin() {
-                    const safeAdminUser = this.adminLoginUser.trim().toLowerCase(); // Mencegah typo case-sensitive
+                    const safeAdminUser = this.adminLoginUser.trim().toLowerCase(); 
                     
                     if (safeAdminUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
                         this.isAdminLoggedIn = true;
@@ -1111,8 +1118,6 @@
                     }
 
                     const currentDeviceId = await getOrCreateStableDeviceIdentifier();
-                    
-                    // PERBAIKAN: Memaksa format id menjadi huruf kecil mencegah typo auto-capitalized dari keyboard HP
                     const safeLoginId = this.loginId.trim().toLowerCase();
 
                     const payload = {
@@ -1148,6 +1153,7 @@
                     await this.loadAttendanceData();
                 },
 
+                // PERBAIKAN: Penanganan Error RLS pada tabel leaves
                 async submitLeaveRequest() {
                     const safeEmpId = this.leaveForm.empId.trim().toLowerCase();
                     const emp = this.employees.find(e => (e.id || '').toLowerCase() === safeEmpId);
@@ -1170,7 +1176,11 @@
 
                     const { error } = await _supabase.from('leaves').insert([newLeave]);
                     if (error) {
-                        alert('Gagal mengirim pengajuan: ' + error.message);
+                        if (error.message.includes('row-level security')) {
+                            alert('Gagal: Keamanan server aktif. RLS pada tabel "leaves" mencegah pengajuan. Hubungi Master Admin untuk mematikan RLS di Supabase.');
+                        } else {
+                            alert('Gagal mengirim pengajuan: ' + error.message);
+                        }
                         return;
                     }
 
@@ -1301,6 +1311,8 @@
                     this.showBasecampModal = true;
                     this.$nextTick(() => { this.initMap(); });
                 },
+                
+                // PERBAIKAN: Penanganan Error RLS pada tabel basecamps
                 async saveBasecamp() {
                     if (!this.canModifyBasecamp) {
                         alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp.');
@@ -1315,8 +1327,13 @@
                             lng: parseFloat(this.basecampForm.lng),
                             radius: parseInt(this.basecampForm.radius)
                         }).eq('id', targetId);
+                        
                         if (error) {
-                            alert('Gagal mengupdate basecamp: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Update: Sistem Keamanan Server (RLS) Aktif!\n\nSilakan buka dashboard Supabase Anda -> Table Editor -> Pilih tabel "basecamps" -> Matikan (Disable) fitur RLS.');
+                            } else {
+                                alert('Gagal mengupdate basecamp: ' + error.message);
+                            }
                             return;
                         }
                     } else {
@@ -1327,14 +1344,21 @@
                             radius: parseInt(this.basecampForm.radius)
                         };
                         const { error } = await _supabase.from('basecamps').insert([newBc]);
+                        
                         if (error) {
-                            alert('Gagal menambah basecamp: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Tambah: Sistem Keamanan Server (RLS) Aktif!\n\nSilakan buka dashboard Supabase Anda -> Table Editor -> Pilih tabel "basecamps" -> Matikan (Disable) fitur RLS.');
+                            } else {
+                                alert('Gagal menambah basecamp: ' + error.message);
+                            }
                             return;
                         }
                     }
                     this.showBasecampModal = false;
                     await this.loadAttendanceData();
                 },
+                
+                // PERBAIKAN: Penanganan Error RLS pada tabel basecamps
                 async deleteBasecamp(index) {
                     if (!this.canModifyBasecamp) {
                         alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk menghapus basecamp.');
@@ -1346,7 +1370,11 @@
                         if (!error) {
                             await this.loadAttendanceData();
                         } else {
-                            alert('Gagal menghapus basecamp: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Hapus: RLS mencegah aksi ini. Matikan RLS pada tabel "basecamps" di Supabase Anda.');
+                            } else {
+                                alert('Gagal menghapus basecamp: ' + error.message);
+                            }
                         }
                     }
                 },
@@ -1361,6 +1389,8 @@
                     this.employeeForm = { ...this.employees[index] };
                     this.showEmployeeModal = true;
                 },
+                
+                // PERBAIKAN: Penanganan Error RLS pada tabel employees
                 async saveEmployee() {
                     if (this.editEmployeeIndex !== null) {
                         const targetEmpId = this.employees[this.editEmployeeIndex].id;
@@ -1370,7 +1400,11 @@
                             password: this.employeeForm.password
                         }).eq('id', targetEmpId);
                         if (error) {
-                            alert('Gagal mengupdate karyawan: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Update: RLS pada tabel "employees" aktif. Matikan RLS di Supabase Anda.');
+                            } else {
+                                alert('Gagal mengupdate karyawan: ' + error.message);
+                            }
                             return;
                         }
                     } else {
@@ -1383,13 +1417,19 @@
                         };
                         const { error } = await _supabase.from('employees').insert([newEmp]);
                         if (error) {
-                            alert('Gagal menambah karyawan: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Tambah: RLS pada tabel "employees" aktif. Matikan RLS di Supabase Anda.');
+                            } else {
+                                alert('Gagal menambah karyawan: ' + error.message);
+                            }
                             return;
                         }
                     }
                     this.showEmployeeModal = false;
                     await this.loadAttendanceData();
                 },
+                
+                // PERBAIKAN: Penanganan Error RLS pada tabel employees
                 async deleteEmployee(index) {
                     if (confirm('Hapus karyawan ini?')) {
                         const targetId = this.employees[index].id;
@@ -1397,10 +1437,16 @@
                         if (!error) {
                             await this.loadAttendanceData();
                         } else {
-                            alert('Gagal menghapus karyawan: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Hapus: RLS pada tabel "employees" aktif. Matikan RLS di Supabase Anda.');
+                            } else {
+                                alert('Gagal menghapus karyawan: ' + error.message);
+                            }
                         }
                     }
                 },
+                
+                // PERBAIKAN: Penanganan Error RLS pada tabel employees
                 async resetDevice(index) {
                     if (confirm('Reset perangkat terikat?')) {
                         const targetId = this.employees[index].id;
@@ -1409,7 +1455,11 @@
                             await this.loadAttendanceData();
                             alert('Device berhasil direset.');
                         } else {
-                            alert('Gagal mereset device: ' + error.message);
+                            if (error.message.includes('row-level security')) {
+                                alert('Gagal Reset: RLS pada tabel "employees" aktif. Matikan RLS di Supabase Anda.');
+                            } else {
+                                alert('Gagal mereset device: ' + error.message);
+                            }
                         }
                     }
                 },
@@ -1417,7 +1467,6 @@
                 get filteredAttendance() {
                     let logs = this.attendanceLogs;
                     
-                    // PERBAIKAN: Case-Insensitive Filter ID Karyawan saat dilihat oleh Non-Admin (Supervisor/Karyawan)
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
                         const safeCurrentId = (this.currentEmpId || '').toLowerCase();
                         logs = logs.filter(item => (item.empId || '').toLowerCase() === safeCurrentId);
@@ -1426,8 +1475,6 @@
                     return logs.filter(item => {
                         let itemDate = item.date || item.timestamp || getLocalDate();
                         
-                        // PERBAIKAN: Memisahkan komponen jam (apabila ada format ISO/Timestamp dari Supabase) 
-                        // agar tidak menyebabkan error pada perbandingan string <= dengan filterEndDate
                         if (typeof itemDate === 'string') {
                             itemDate = itemDate.split('T')[0].split(' ')[0];
                         }
