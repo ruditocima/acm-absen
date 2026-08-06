@@ -893,7 +893,7 @@
                             role: item.role,
                             basecamp: item.basecamp,
                             timestamp: item.timestamp,
-                            date: item.date || getLocalDate(),
+                            date: item.date || (item.timestamp ? item.timestamp.substring(0, 10) : getLocalDate()),
                             accuracy: item.accuracy
                         }));
                     }
@@ -1425,8 +1425,12 @@
                     return logs.filter(item => {
                         if (!this.filterStartDate || !this.filterEndDate) return true;
 
-                        let raw = item.date || item.timestamp || '';
+                        let raw = String(item.date || item.timestamp || '').trim();
                         let dateStr = '';
+                        
+                        // Bersihkan koma atau spasi berlebih
+                        raw = raw.replace(/,/g, '');
+
                         if (raw.includes('T')) {
                             dateStr = raw.split('T')[0];
                         } else if (raw.includes(' ')) {
@@ -1435,10 +1439,21 @@
                             dateStr = raw;
                         }
 
+                        // Tangani format DD/MM/YYYY
                         if (dateStr.includes('/')) {
                             let parts = dateStr.split('/');
-                            if (parts.length === 3 && parts[2].length === 4) {
-                                dateStr = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                            if (parts.length === 3) {
+                                let day = parts[0].padStart(2, '0');
+                                let month = parts[1].padStart(2, '0');
+                                let year = parts[2].trim();
+                                if (year.length === 4) {
+                                    dateStr = `${year}-${month}-${day}`;
+                                }
+                            }
+                        } else if (dateStr.includes('-')) {
+                            let parts = dateStr.split('-');
+                            if (parts.length === 3 && parts[0].length === 4) {
+                                dateStr = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
                             }
                         }
 
