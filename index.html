@@ -652,16 +652,7 @@
             let str = String(raw).trim();
             if (!str) return getLocalDate();
 
-            // Format YYYY-MM-DD
-            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-            if (isoMatch) {
-                let y = isoMatch[1];
-                let m = isoMatch[2].padStart(2, '0');
-                let d = isoMatch[3].padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            }
-
-            // Format DD/MM/YYYY
+            // Tangani format DD/MM/YYYY atau DD-MM-YYYY
             let ddmmyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
             if (ddmmyyyyMatch) {
                 let d = ddmmyyyyMatch[1].padStart(2, '0');
@@ -670,9 +661,20 @@
                 return `${y}-${m}-${d}`;
             }
 
-            let parsed = new Date(str);
+            // Ganti titik pada jam lokal ID (21.47.00 -> 21:47:00) agar Date constructor valid
+            let cleanStr = str.replace(/(\d{2})\.(\d{2})\.(\d{2})/, '$1:$2:$3');
+            let parsed = new Date(cleanStr);
             if (!isNaN(parsed.getTime())) {
                 return getLocalDate(parsed);
+            }
+
+            // Fallback match format ISO YYYY-MM-DD
+            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                let y = isoMatch[1];
+                let m = isoMatch[2].padStart(2, '0');
+                let d = isoMatch[3].padStart(2, '0');
+                return `${y}-${m}-${d}`;
             }
 
             return getLocalDate();
@@ -907,20 +909,33 @@
                 async loadAttendanceData() {
                     try {
                         let { data: attData, error } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
-                        if (attData) {
+                        if (error) {
+                            console.error('Error fetching attendance logs:', error.message || error);
+                        }
+                        if (attData && Array.isArray(attData)) {
                             this.attendanceLogs = attData.map(item => {
                                 let rawDate = item.date || item.created_at || item.timestamp;
                                 let cleanDate = normalizeToYYYYMMDD(rawDate);
 
+                                let displayTime = item.timestamp || item.created_at;
+                                if (!displayTime) {
+                                    displayTime = new Date().toLocaleString('id-ID');
+                                } else if (typeof displayTime === 'string' && displayTime.includes('T')) {
+                                    let parsedDate = new Date(displayTime);
+                                    if (!isNaN(parsedDate.getTime())) {
+                                        displayTime = parsedDate.toLocaleString('id-ID');
+                                    }
+                                }
+
                                 return {
                                     id: item.id,
-                                    empId: item.emp_id || item.empId || item.employee_id || '',
-                                    name: item.name || item.employee_name || '',
+                                    empId: item.emp_id || item.empId || item.employee_id || item.user_id || '',
+                                    name: item.name || item.employee_name || item.user_name || '',
                                     role: item.role || item.employee_role || '',
                                     basecamp: item.basecamp || item.basecamp_name || item.location || '-',
-                                    timestamp: item.timestamp || (item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID')),
+                                    timestamp: displayTime,
                                     date: cleanDate,
-                                    accuracy: item.accuracy || item.gps_accuracy || 0
+                                    accuracy: item.accuracy || item.gps_accuracy || item.accuracy_m || 0
                                 };
                             });
                         }
@@ -1176,19 +1191,46 @@
                     this.gpsStatus = 'Memproses Validasi Server...';
                     const result = await simulateServerSideValidation(payload);
 
-                    if (!result.success) {
-                        alert(result.message);
+                    if (!result || !result.success) {
+                        alert((result && result.message) ? result.message : 'Gagal melakukan check-in.');
                         this.gpsStatus = 'GPS Aktif & Terhubung';
                         return;
                     }
 
-                    let pmMessageText = "";
-                    let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
-                    if (msgData && msgData.length > 0) {
-                        const targetMsg = msgData.find(m => (m.recipient_id || m.recipientId) === 'ALL' || (m.recipient_id || m.recipientId).toLowerCase() === this.loginId.trim().toLowerCase());
-                        if (targetMsg) {
-                            pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
+                    // Sinkronisasi Langsung: Tambahkan data yang baru di-check-in ke state lokal agar langsung tampil
+                    if (result.record || result.data) {
+                        let item = result.record || result.data;
+                        let rawDate = item.date || item.created_at || item.timestamp || new Date();
+                        let cleanDate = normalizeToYYYYMMDD(rawDate);
+                        let displayTime = item.timestamp || (item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'));
+                        
+                        let newRecord = {
+                            id: item.id || Date.now(),
+                            empId: item.emp_id || item.empId || item.employee_id || this.loginId,
+                            name: item.name || item.employee_name || '',
+                            role: item.role || item.employee_role || '',
+                            basecamp: item.basecamp || item.basecamp_name || (this.detectedBasecamp ? this.detectedBasecamp.name : '-'),
+                            timestamp: displayTime,
+                            date: cleanDate,
+                            accuracy: item.accuracy || item.gps_accuracy || this.gpsAccuracy || 0
+                        };
+
+                        if (!this.attendanceLogs.some(l => l.id === newRecord.id)) {
+                            this.attendanceLogs.unshift(newRecord);
                         }
+                    }
+
+                    let pmMessageText = "";
+                    try {
+                        let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                        if (msgData && msgData.length > 0) {
+                            const targetMsg = msgData.find(m => (m.recipient_id || m.recipientId) === 'ALL' || (m.recipient_id || m.recipientId).toLowerCase() === this.loginId.trim().toLowerCase());
+                            if (targetMsg) {
+                                pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
+                            }
+                        }
+                    } catch(e) {
+                        console.error('Error fetching messages on checkin:', e);
                     }
 
                     alert(result.message + pmMessageText);
