@@ -1,1553 +1,455 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" class="h-full bg-slate-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi YOFC Team</title>
-    <!-- Tailwind CSS -->
+    <title>Sistem Absensi Enterprise - Luxury Edition</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
+                    colors: {
+                        gold: { 500: '#d4af37', 600: '#aa8c2c', 400: '#e6ca65' }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .glass-card { background: rgba(18, 24, 38, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .glass-light { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
-        #basecampMap { height: 250px; width: 100%; border-radius: 0.75rem; z-index: 10; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .gold-gradient { background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%); }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between" x-data="absensiApp()">
+<body class="h-full text-slate-100 font-sans flex flex-col">
 
-    <!-- HEADER / NAVBAR -->
-    <header class="glass-card sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-slate-800">
+    <!-- SIMULATION CONTROL BAR -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap justify-between items-center z-50 shadow-lg">
         <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950 font-extrabold text-xl">
+            <div class="w-9 h-9 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold shadow-md">
                 <i class="fa-solid fa-fingerprint"></i>
             </div>
             <div>
-                <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent">YOFC TEAM ATTENDANCE</h1>
-                <p class="text-xs text-slate-400 font-medium">Secure Geofencing Portal</p>
+                <h1 class="text-sm font-bold tracking-wide uppercase text-gold-400">Panel Simulasi Absensi</h1>
+                <p class="text-xs text-slate-400">Pilih mode tampilan perangkat untuk menguji sistem</p>
             </div>
         </div>
-        <div class="flex items-center space-x-3">
-            <button @click="switchRole()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition font-semibold text-amber-400">
-                <i class="fa-solid fa-rotate mr-1"></i> Mode: <span x-text="isAdminView ? 'Admin / Staff Portal' : 'Karyawan (HP)'"></span>
+        <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+            <button onclick="switchMode('mobile')" id="btn-mobile" class="px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen"></i> Tampilan HP (Karyawan)
+            </button>
+            <button onclick="switchMode('desktop')" id="btn-desktop" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-desktop"></i> Tampilan Desktop (Master Admin)
             </button>
         </div>
     </header>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+    <!-- MAIN APP CONTAINER -->
+    <main class="flex-1 overflow-hidden relative flex justify-center items-center bg-slate-950">
 
-        <!-- BLOCKED DESKTOP VIEW FOR EMPLOYEES (EXCEPT SIMULATION MODE) -->
-        <template x-if="!isAdminView && isDesktopDevice && !simulationMode">
-            <div class="max-w-md mx-auto mt-16 glass-card p-8 rounded-3xl text-center shadow-2xl border border-red-500/20">
-                <div class="w-20 h-20 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
-                    <i class="fa-solid fa-mobile-screen-button"></i>
+        <!-- ==================== MOBILE VIEW (KARYAWAN) ==================== -->
+        <div id="view-mobile" class="w-full h-full max-w-md bg-slate-900 flex flex-col shadow-2xl relative overflow-hidden sm:border-x sm:border-slate-800 sm:max-h-[850px] sm:rounded-3xl">
+            <!-- Mobile Header -->
+            <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
+                <div>
+                    <span class="text-[10px] uppercase tracking-wider text-gold-400 font-bold bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">Basecamp: Pekanbaru Pusat</span>
+                    <h2 class="text-lg font-bold text-white mt-1">Halo, Rudi Batubara</h2>
                 </div>
-                <h2 class="text-2xl font-bold text-white mb-2">Akses Dibatasi</h2>
-                <p class="text-slate-400 text-sm mb-6">Sistem Absensi Karyawan hanya diizinkan melalui perangkat <strong>Smartphone (HP)</strong>.</p>
-                <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-6">
-                    <i class="fa-solid fa-info-circle mr-1"></i> Jika Anda Administrator di Laptop, aktifkan <strong>Mode Simulasi</strong> di panel Admin atau sudut atas untuk menguji portal karyawan.
+                <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold">
+                    RB
                 </div>
             </div>
-        </template>
 
-        <!-- KARYAWAN CHECK-IN & IZIN PORTAL -->
-        <template x-if="!isAdminView && (!isDesktopDevice || simulationMode)">
-            <div class="max-w-md mx-auto">
-                <div class="bg-amber-400 text-slate-950 p-4 rounded-2xl mb-6 shadow-xl flex items-center justify-between font-bold">
-                    <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-sun text-xl animate-spin"></i>
-                        <span class="text-sm">MODE CERAH LUAR RUANGAN AKTIF</span>
+            <!-- Mobile Body Content (Tab Content) -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-24">
+                <!-- TAB 1: ABSENSI -->
+                <div id="m-tab-absen" class="space-y-5">
+                    <!-- Device & GPS Security Status Box -->
+                    <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Verifikasi Perangkat:</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-shield-check"></i> Terikat (ID: DEV-9982)</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Anti-Fake GPS:</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aman (Akurasi 3m)</span>
+                        </div>
                     </div>
-                    <span class="text-xs bg-slate-950 text-amber-400 px-2 py-1 rounded-md" x-show="simulationMode">Simulasi On</span>
+
+                    <!-- Clock Card -->
+                    <div class="glass-card p-6 rounded-3xl text-center relative overflow-hidden shadow-xl">
+                        <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
+                        <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
+                        <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
+                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.5071° N, 101.4478° E</p>
+
+                        <div class="mt-6 grid grid-cols-2 gap-3">
+                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-slate-400 block">Jam Masuk</span>
+                                <span class="text-sm font-bold text-emerald-400">--:--</span>
+                            </div>
+                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800">
+                                <span class="text-[10px] text-slate-400 block">Jam Pulang</span>
+                                <span class="text-sm font-bold text-slate-400">--:--</span>
+                            </div>
+                        </div>
+
+                        <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
+                        </button>
+                    </div>
+
+                    <!-- Quick Status Info -->
+                    <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
+                        <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Informasi Lokasi Lapangan / Kantor:</p>
+                        <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar (Kantor atau Titik Proyek Fiber).</p>
+                    </div>
                 </div>
 
-                <div class="flex bg-slate-900 p-1.5 rounded-2xl mb-6 border border-slate-800">
-                    <button @click="employeeTab = 'checkin'" :class="employeeTab === 'checkin' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
-                        <i class="fa-solid fa-fingerprint mr-1"></i> Check-in Absen
+                <!-- TAB 2: PENGAJUAN IZIN -->
+                <div id="m-tab-izin" class="space-y-5 hidden">
+                    <div class="glass-card p-5 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Form Pengajuan Izin / Cuti</h3>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Jenis Pengajuan</label>
+                            <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                                <option>Izin Sakit (Dengan Surat Dokter)</option>
+                                <option>Izin Keperluan Pribadi</option>
+                                <option>Cuti Tahunan</option>
+                                <option>Dinas Luar Lapangan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Tanggal Mulai & Selesai</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Keterangan / Alasan</label>
+                            <textarea rows="3" placeholder="Tuliskan alasan pengajuan..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
+                        </div>
+                        <button onclick="alert('Pengajuan izin berhasil dikirim ke Master Admin!')" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">
+                            Kirim Pengajuan Izin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 3: RIWAYAT SAYA -->
+                <div id="m-tab-riwayat" class="space-y-3 hidden">
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-3">Riwayat Absensi Anda</h3>
+                    <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-emerald-500">
+                        <div class="flex justify-between font-bold text-white">
+                            <span>07 Agustus 2026</span>
+                            <span class="text-emerald-400">Tepat Waktu</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Masuk: 07:45 WIB</span>
+                            <span>Pulang: 17:00 WIB</span>
+                        </div>
+                    </div>
+                    <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-amber-500">
+                        <div class="flex justify-between font-bold text-white">
+                            <span>06 Agustus 2026</span>
+                            <span class="text-amber-400">Terlambat (15 mnt)</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Masuk: 08:15 WIB</span>
+                            <span>Pulang: 17:00 WIB</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Bottom Navigation -->
+            <div class="absolute bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800 px-6 py-3 flex justify-around items-center z-20">
+                <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-gold-400 flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-house text-base"></i>
+                    <span>Absen</span>
+                </button>
+                <button onclick="switchMobileTab('izin')" id="m-nav-izin" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-file-pen text-base"></i>
+                    <span>Izin</span>
+                </button>
+                <button onclick="switchMobileTab('riwayat')" id="m-nav-riwayat" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-clock-rotate-left text-base"></i>
+                    <span>Riwayat</span>
+                </button>
+            </div>
+        </div>
+
+
+        <!-- ==================== DESKTOP VIEW (MASTER ADMIN) ==================== -->
+        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+                <div class="p-5 border-b border-slate-800 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-white tracking-wide">Master Control</h2>
+                        <p class="text-[10px] text-slate-400">Enterprise Dashboard</p>
+                    </div>
+                </div>
+                <nav class="flex-1 p-4 space-y-1 text-xs font-medium">
+                    <button onclick="switchDesktopTab('dashboard')" id="d-nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20">
+                        <i class="fa-solid fa-chart-pie w-5"></i> Dashboard Utama
                     </button>
-                    <button @click="employeeTab = 'pengajuan'" :class="employeeTab === 'pengajuan' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
-                        <i class="fa-solid fa-file-pen mr-1"></i> Ajukan Izin/Sakit
+                    <button onclick="switchDesktopTab('rekap')" id="d-nav-rekap" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-table-list w-5"></i> Rekap Absensi
                     </button>
+                    <button onclick="switchDesktopTab('karyawan')" id="d-nav-karyawan" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-users w-5"></i> Data Karyawan
+                    </button>
+                    <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp
+                    </button>
+                    <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-envelope-open-text w-5"></i> Pengajuan Izin
+                    </button>
+                </nav>
+                <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">
+                    Secure Attendance System v3.2
                 </div>
+            </aside>
 
-                <template x-if="employeeTab === 'checkin'">
-                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                        <div class="text-center mb-6">
-                            <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
-                            <p class="text-xs font-semibold text-slate-600 mt-1">Batas Jam Absen: <strong x-text="employeeDeadlineText">09.45 WIB</strong></p>
+            <!-- Main Content Area -->
+            <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+                <!-- Top Navbar -->
+                <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center">
+                    <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
+                    <div class="flex items-center gap-4 text-xs">
+                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online</span>
+                        <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-bold">AD</div>
+                    </div>
+                </header>
+
+                <!-- Dynamic Content Area -->
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+                    <!-- TAB DASHBOARD -->
+                    <div id="d-tab-dashboard" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
+                                <span class="text-xs text-slate-400">Total Karyawan</span>
+                                <h4 class="text-2xl font-bold text-white mt-1">124 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
+                                <span class="text-xs text-slate-400">Hadir Tepat Waktu</span>
+                                <h4 class="text-2xl font-bold text-emerald-400 mt-1">108 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500">
+                                <span class="text-xs text-slate-400">Terlambat</span>
+                                <h4 class="text-2xl font-bold text-amber-400 mt-1">12 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
+                                <span class="text-xs text-slate-400">Izin / Alpha</span>
+                                <h4 class="text-2xl font-bold text-rose-400 mt-1">4 Orang</h4>
+                            </div>
                         </div>
+                    </div>
 
-                        <form @submit.prevent="handleCheckIn" class="space-y-4">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                                <input type="text" x-model="loginId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
+                    <!-- TAB REKAP ABSENSI (Sesuai Permintaan Kolom Status & Keterlambatan) -->
+                    <div id="d-tab-rekap" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran & Keterlambatan</h4>
+                            <div class="flex gap-2">
+                                <input type="date" class="bg-slate-900 border border-slate-800 text-xs px-3 py-1.5 rounded-lg text-white">
+                                <button class="px-3 py-1.5 bg-gold-500 text-slate-950 font-bold text-xs rounded-lg">Export Excel</button>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                <input type="password" x-model="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
-                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">Nama Karyawan</th>
+                                        <th class="p-3">Basecamp</th>
+                                        <th class="p-3">Jam Masuk</th>
+                                        <th class="p-3">Status</th>
+                                        <th class="p-3">Jumlah Keterlambatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800 text-slate-300">
+                                    <tr>
+                                        <td class="p-3 font-medium text-white">Rudi Batubara</td>
+                                        <td class="p-3 text-slate-400">Pekanbaru Pusat</td>
+                                        <td class="p-3">07:45 WIB</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span></td>
+                                        <td class="p-3 text-slate-500">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium text-white">Budi Santoso</td>
+                                        <td class="p-3 text-slate-400">Palembang Field</td>
+                                        <td class="p-3">08:25 WIB</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span></td>
+                                        <td class="p-3 text-amber-400 font-bold">25 Menit</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-medium text-white">Siti Aminah</td>
+                                        <td class="p-3 text-slate-400">Padang Branch</td>
+                                        <td class="p-3">08:40 WIB</td>
+                                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span></td>
+                                        <td class="p-3 text-amber-400 font-bold">40 Menit</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                            <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Status GPS:</span>
-                                    <span class="font-bold text-emerald-400" x-text="gpsStatus"></span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Basecamp Terdekat:</span>
-                                    <span class="font-bold text-amber-400" x-text="detectedBasecamp ? detectedBasecamp.name : 'Mencari Lokasi...'"></span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Jarak Real-Time:</span>
-                                    <span class="font-bold text-sky-400" x-text="nearestDistanceText"></span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-slate-400">Akurasi GPS:</span>
-                                    <span class="font-bold" :class="gpsAccuracy < 50 ? 'text-emerald-400' : 'text-red-400'" x-text="gpsAccuracy ? gpsAccuracy + ' meter' : 'Memuat...'"></span>
-                                </div>
-                            </div>
-
-                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                                <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
+                    <!-- TAB DATA KARYAWAN -->
+                    <div id="d-tab-karyawan" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Karyawan & Device ID</h4>
+                            <button onclick="alert('Form Tambah Karyawan')" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow">
+                                <i class="fa-solid fa-user-plus"></i> Tambah Karyawan
                             </button>
-                        </form>
-                    </div>
-                </template>
-
-                <template x-if="employeeTab === 'pengajuan'">
-                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white space-y-6">
-                        <div class="text-center">
-                            <h2 class="text-2xl font-black text-slate-900">Pengajuan Izin / Sakit</h2>
-                            <p class="text-xs font-semibold text-slate-600 mt-1">Kirimkan permohonan ketidakhadiran kepada Admin/PM</p>
                         </div>
+                        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">Nama</th>
+                                        <th class="p-3">Basecamp</th>
+                                        <th class="p-3">Device ID (HP Terikat)</th>
+                                        <th class="p-3">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-800 text-slate-300">
+                                    <tr>
+                                        <td class="p-3 font-medium text-white">Rudi Batubara</td>
+                                        <td class="p-3 text-slate-400">Pekanbaru Pusat</td>
+                                        <td class="p-3 font-mono text-emerald-400">DEV-9982 (Locked)</td>
+                                        <td class="p-3"><button class="text-gold-400 hover:underline">Edit / Reset Device</button></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                        <form @submit.prevent="submitLeaveRequest" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                                    <input type="text" x-model="leaveForm.empId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Pengajuan</label>
-                                    <select x-model="leaveForm.type" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
-                                        <option value="Sakit">Sakit</option>
-                                        <option value="Izin">Izin</option>
-                                        <option value="Cuti">Cuti</option>
-                                    </select>
-                                </div>
+                    <!-- TAB BASECAMP -->
+                    <div id="d-tab-basecamp" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
+                            <button class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg">Tambah Basecamp</button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                                <h5 class="font-bold text-white">Basecamp Pekanbaru Pusat</h5>
+                                <p class="text-xs text-slate-400">Jl. Soekarno-Hatta No. 45</p>
+                                <span class="inline-block text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: 50 Meter</span>
                             </div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dari Tanggal</label>
-                                    <input type="date" x-model="leaveForm.startDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sampai Tanggal</label>
-                                    <input type="date" x-model="leaveForm.endDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
-                                </div>
+                            <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                                <h5 class="font-bold text-white">Basecamp Padang Field</h5>
+                                <p class="text-xs text-slate-400">Jl. Khatib Sulaiman</p>
+                                <span class="inline-block text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: 50 Meter</span>
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alasan / Keterangan</label>
-                                <textarea x-model="leaveForm.reason" rows="3" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan alasan pengajuan..."></textarea>
-                            </div>
-
-                            <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                                <i class="fa-solid fa-paper-plane mr-2"></i> KIRIM PENGAJUAN
-                            </button>
-                        </form>
-
-                        <div class="pt-4 border-t border-slate-200">
-                            <h3 class="font-bold text-sm text-slate-900 mb-3">Riwayat Pengajuan Anda</h3>
-                            <div class="space-y-2 max-h-48 overflow-y-auto">
-                                <template x-for="item in employeeLeaves" :key="item.id">
-                                    <div class="bg-slate-100 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
-                                        <div class="flex justify-between font-bold text-slate-900">
-                                            <span x-text="item.type + ' (' + item.startDate + ' s/d ' + item.endDate + ')'"></span>
-                                            <span class="px-2 py-0.5 rounded text-[10px]" 
-                                                :class="item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-800' : (item.status === 'Ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')" 
-                                                x-text="item.status"></span>
-                                        </div>
-                                        <p class="text-slate-600 text-[11px]" x-text="item.reason"></p>
-                                    </div>
-                                </template>
-                                <template x-if="employeeLeaves.length === 0">
-                                    <p class="text-slate-500 text-xs italic text-center py-2">Masukkan ID Karyawan Anda untuk melihat riwayat.</p>
-                                </template>
+                            <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                                <h5 class="font-bold text-white">Basecamp Palembang</h5>
+                                <p class="text-xs text-slate-400">Jl. Jend. Sudirman</p>
+                                <span class="inline-block text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: 50 Meter</span>
                             </div>
                         </div>
                     </div>
-                </template>
+
+                    <!-- TAB PENGAJUAN IZIN ADMIN -->
+                    <div id="d-tab-izin" class="space-y-4 hidden">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan</h4>
+                        <div class="glass-card p-4 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                                <div>
+                                    <h5 class="font-bold text-white text-xs">Rudi Batubara - Cuti Tahunan</h5>
+                                    <p class="text-[10px] text-slate-400">Tanggal: 10 Agt 2026 s/d 12 Agt 2026 | Alasan: Keperluan keluarga</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="alert('Izin disetujui')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg">Setuju</button>
+                                    <button onclick="alert('Izin ditolak')" class="px-3 py-1 bg-rose-500 text-white font-bold text-xs rounded-lg">Tolak</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
             </div>
-        </template>
+        </div>
 
-        <!-- ADMIN / STAFF PORTAL -->
-        <template x-if="isAdminView">
-            <div class="space-y-6">
-
-                <!-- 1. LOGIN ADMIN -->
-                <template x-if="!isAdminLoggedIn">
-                    <div class="max-w-md mx-auto mt-12">
-                        <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                            <div class="text-center mb-6">
-                                <div class="w-16 h-16 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
-                                    <i class="fa-solid fa-user-shield"></i>
-                                </div>
-                                <h2 class="text-2xl font-black text-slate-900">Login Portal Staff & Admin</h2>
-                            </div>
-
-                            <form @submit.prevent="handleAdminLogin" class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID / Username</label>
-                                    <input type="text" x-model="adminLoginUser" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: admin atau rudi01">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                    <input type="password" x-model="adminLoginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
-                                </div>
-
-                                <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
-                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN PORTAL
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- 2. DASHBOARD ADMIN / STAFF -->
-                <template x-if="isAdminLoggedIn">
-                    <div class="space-y-6">
-                        <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-                            <div class="flex items-center space-x-3">
-                                <span class="text-xs font-bold text-slate-200 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800" x-text="timeGreeting + ' : ' + currentUserName"></span>
-                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30" x-text="'Role: ' + (currentUserRole || 'Master Admin')"></span>
-                                <label class="flex items-center cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-                                    <input type="checkbox" x-model="simulationMode" class="sr-only peer">
-                                    <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500 relative"></div>
-                                    <span class="ml-2 text-xs font-bold text-slate-300">[Mode Simulasi]</span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center space-x-3">
-                                <div class="flex flex-wrap gap-2">
-                                    <!-- Rekap Absensi -->
-                                    <button x-show="canAccessRekap" @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-clipboard-user mr-1"></i> Rekapitulasi Absensi
-                                    </button>
-                                    <!-- Persetujuan Izin -->
-                                    <button x-show="canAccessIzin" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
-                                    </button>
-                                    <!-- Kirim Pesan (Project Manager Only) -->
-                                    <button x-show="canAccessMessages" @click="adminTab = 'messages'; loadMessagesData()" :class="adminTab === 'messages' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-envelope mr-1"></i> Kirim Pesan
-                                    </button>
-                                    <!-- Basecamp -->
-                                    <button x-show="canAccessBasecamp" @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
-                                    </button>
-                                    <!-- Data Karyawan (Master Admin Only) -->
-                                    <button x-show="canAccessKaryawan" @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-users-gear mr-1"></i> Data Karyawan
-                                    </button>
-                                </div>
-                                <button @click="adminLogout()" class="px-3 py-2 bg-red-500/25 hover:bg-red-500/40 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition">
-                                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- TAB 1: REKAP ABSENSI -->
-                        <div x-show="adminTab === 'rekap' && canAccessRekap" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex flex-wrap justify-between items-center gap-4">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi</h2>
-                                    <p class="text-xs text-slate-400">
-                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh rekap absensi karyawan (Read Only, tanpa tombol reset).</span>
-                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan rekap absensi berdasarkan ID Anda yang sedang login (Read Only).</span>
-                                        <span x-show="isMasterOrPM">Batas waktu absen normal 09.45 WIB (Regional PM, Supervisor, Installer) & 09.10 WIB (Admin & SND). Filter rentang waktu & export CSV.</span>
-                                    </p>
-                                </div>
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <div>
-                                        <label class="block text-[10px] text-slate-400 uppercase font-bold">Dari Tanggal</label>
-                                        <input type="date" x-model="filterStartDate" class="bg-slate-900 border border-slate-700 text-xs px-3 py-2 rounded-xl text-slate-200">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] text-slate-400 uppercase font-bold">Sampai Tanggal</label>
-                                        <input type="date" x-model="filterEndDate" class="bg-slate-900 border border-slate-700 text-xs px-3 py-2 rounded-xl text-slate-200">
-                                    </div>
-                                    <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer mt-4 bg-slate-900 px-3 py-2 rounded-xl border border-slate-700">
-                                        <input type="checkbox" x-model="showAllDates" class="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-amber-500">
-                                        <span>Semua Tanggal</span>
-                                    </label>
-                                    <button @click="loadAttendanceData()" class="mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl transition" title="Muat Ulang Data">
-                                        <i class="fa-solid fa-rotate-right"></i> Refresh
-                                    </button>
-                                    <!-- Reset Data button: Master Admin & Project Manager Only -->
-                                    <button x-show="canResetRekap" @click="clearAllAttendance" class="mt-4 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl transition" title="Reset Data Absensi">
-                                        <i class="fa-solid fa-trash-can mr-1"></i> Reset Data
-                                    </button>
-                                    <button @click="exportCSV" class="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/30">
-                                        <i class="fa-solid fa-file-csv mr-1"></i> Export CSV
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">Tanggal & Waktu (Server)</th>
-                                            <th class="p-4">ID</th>
-                                            <th class="p-4">Nama</th>
-                                            <th class="p-4">Role</th>
-                                            <th class="p-4">Basecamp</th>
-                                            <th class="p-4">Terlambat</th>
-                                            <th class="p-4">Status GPS</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        <template x-for="item in filteredAttendance" :key="item.id">
-                                            <tr class="hover:bg-slate-900/50 transition">
-                                                <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
-                                                <td class="p-4 font-mono text-amber-400" x-text="item.empId"></td>
-                                                <td class="p-4 font-bold text-white" x-text="item.name"></td>
-                                                <td class="p-4 text-slate-400" x-text="item.role"></td>
-                                                <td class="p-4"><span class="px-2.5 py-1 bg-slate-800 rounded-lg text-amber-300 border border-slate-700 font-semibold" x-text="item.basecamp"></span></td>
-                                                <td class="p-4">
-                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
-                                                        :class="getLatenessMinutes(item.timestamp, item.role) > 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'" 
-                                                        x-text="formatLateness(item.timestamp, item.role)"></span>
-                                                </td>
-                                                <td class="p-4 text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i> Verified (<span x-text="item.accuracy"></span>m)</td>
-                                            </tr>
-                                        </template>
-                                        <template x-if="filteredAttendance.length === 0">
-                                            <tr>
-                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada data absensi untuk akun/rentang tanggal ini.</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- TAB 2: PERSETUJUAN IZIN -->
-                        <div x-show="adminTab === 'izin' && canAccessIzin" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti</h2>
-                                    <p class="text-xs text-slate-400">
-                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh pengajuan izin karyawan (Read Only).</span>
-                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan pengajuan izin berdasarkan ID Anda yang sedang login (Read Only).</span>
-                                        <span x-show="isMasterOrPM">Menampilkan daftar pengajuan izin dari seluruh karyawan untuk disetujui/ditolak.</span>
-                                    </p>
-                                </div>
-                            </div>
-                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">Tanggal Pengajuan</th>
-                                            <th class="p-4">ID / Nama</th>
-                                            <th class="p-4">Jenis</th>
-                                            <th class="p-4">Durasi</th>
-                                            <th class="p-4">Alasan</th>
-                                            <th class="p-4">Status</th>
-                                            <th class="p-4 text-center">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(leave, index) in displayedLeaves" :key="leave.id">
-                                            <tr class="hover:bg-slate-900/50 transition">
-                                                <td class="p-4 font-semibold text-slate-300" x-text="leave.timestamp"></td>
-                                                <td class="p-4">
-                                                    <div class="font-bold text-white" x-text="leave.name"></div>
-                                                    <div class="font-mono text-amber-400 text-[10px]" x-text="leave.empId"></div>
-                                                </td>
-                                                <td class="p-4">
-                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
-                                                        :class="leave.type === 'Sakit' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (leave.type === 'Cuti' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20')" 
-                                                        x-text="leave.type"></span>
-                                                </td>
-                                                <td class="p-4 text-slate-300"><span x-text="leave.startDate"></span> s/d <span x-text="leave.endDate"></span></td>
-                                                <td class="p-4 text-slate-400 max-w-xs truncate" x-text="leave.reason"></td>
-                                                <td class="p-4">
-                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
-                                                        :class="leave.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : (leave.status === 'Ditolak' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')" 
-                                                        x-text="leave.status"></span>
-                                                </td>
-                                                <td class="p-4 text-center">
-                                                    <template x-if="canModifyIzin">
-                                                        <div>
-                                                            <template x-if="leave.status === 'Pending'">
-                                                                <div class="flex justify-center space-x-1">
-                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
-                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
-                                                                </div>
-                                                            </template>
-                                                            <template x-if="leave.status !== 'Pending'">
-                                                                <span class="text-slate-500 italic text-[10px]">Selesai</span>
-                                                            </template>
-                                                        </div>
-                                                    </template>
-                                                    <template x-if="!canModifyIzin">
-                                                        <span class="text-amber-400/80 italic text-[11px] font-semibold">Read Only</span>
-                                                    </template>
-                                                </td>
-                                            </tr>
-                                        </template>
-                                        <template x-if="displayedLeaves.length === 0">
-                                            <tr>
-                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada pengajuan izin atau sakit.</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- TAB: KIRIM PESAN PROJECT MANAGER -->
-                        <div x-show="adminTab === 'messages' && canAccessMessages" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Kirim Pesan ke Karyawan</h2>
-                                    <p class="text-xs text-slate-400">Project Manager dapat mengirim pengumuman broadcast atau pesan personal yang akan otomatis muncul saat karyawan menekan tombol Check-in.</p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                <!-- Form Kirim Pesan -->
-                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-                                    <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-paper-plane mr-2 text-amber-500"></i>Buat Pesan Baru</h3>
-                                    <form @submit.prevent="sendMessage" class="space-y-4">
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Penerima</label>
-                                            <select x-model="messageForm.recipientId" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none font-bold">
-                                                <option value="ALL">🌐 Semua Karyawan (Broadcast)</option>
-                                                <template x-for="emp in employees" :key="emp.id">
-                                                    <option :value="emp.id" x-text="emp.name + ' (' + emp.id + ')'"></option>
-                                                </template>
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Isi Pesan</label>
-                                            <textarea x-model="messageForm.message" rows="4" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan pesan instruksi atau pengumuman untuk karyawan..."></textarea>
-                                        </div>
-                                        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
-                                            <i class="fa-solid fa-paper-plane mr-1"></i> KIRIM PESAN
-                                        </button>
-                                    </form>
-                                </div>
-
-                                <!-- Riwayat Pesan Terkirim -->
-                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
-                                    <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-history mr-2 text-amber-500"></i>Riwayat Pesan Terkirim</h3>
-                                    <div class="space-y-3 max-h-72 overflow-y-auto">
-                                        <template x-for="msg in messages" :key="msg.id">
-                                            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1.5">
-                                                <div class="flex justify-between items-center font-bold">
-                                                    <span class="text-amber-400" x-text="msg.recipientId === 'ALL' ? '🌐 Semua Karyawan' : '👤 ' + getEmployeeName(msg.recipientId)"></span>
-                                                    <span class="text-[10px] text-slate-500" x-text="msg.timestamp"></span>
-                                                </div>
-                                                <p class="text-slate-300 text-[11px]" x-text="msg.message"></p>
-                                                <div class="flex justify-end pt-1">
-                                                    <button @click="deleteMessage(msg.id)" class="text-red-400 hover:text-red-300 text-[10px] font-semibold"><i class="fa-solid fa-trash mr-1"></i>Hapus</button>
-                                                </div>
-                                            </div>
-                                        </template>
-                                        <template x-if="messages.length === 0">
-                                            <p class="text-slate-500 text-xs italic text-center py-6">Belum ada pesan yang dikirim.</p>
-                                        </template>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- TAB 3: MANAJEMEN BASECAMP -->
-                        <div x-show="adminTab === 'basecamp' && canAccessBasecamp" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Lokasi Basecamp</h2>
-                                    <p class="text-xs text-slate-400">
-                                        <span x-show="canModifyBasecamp">Lihat koordinat GPS, radius geofencing, serta tambah/edit basecamp.</span>
-                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Anda dapat melihat peta dan mengeklik detail/peta basecamp (Read Only, tanpa hak edit atau hapus).</span>
-                                    </p>
-                                </div>
-                                <button x-show="canModifyBasecamp" @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
-                                    <i class="fa-solid fa-plus mr-1"></i> Tambah Basecamp
-                                </button>
-                            </div>
-
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                <template x-for="(bc, index) in basecamps" :key="bc.id">
-                                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4">
-                                        <div>
-                                            <div class="flex justify-between items-start mb-2">
-                                                <h3 class="font-extrabold text-base text-white" x-text="bc.name"></h3>
-                                                <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20" x-text="bc.radius + ' meter'"></span>
-                                            </div>
-                                            <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
-                                        </div>
-                                        <div class="flex space-x-2 pt-2 border-t border-slate-800">
-                                            <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"><span x-text="canModifyBasecamp ? 'Edit' : 'Lihat Peta / Detail'"></span></button>
-                                            <button x-show="canModifyBasecamp" @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- TAB 4: MANAJEMEN KARYAWAN -->
-                        <div x-show="adminTab === 'karyawan' && canAccessKaryawan" class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <h2 class="text-xl font-bold text-white">Kelola Data Karyawan</h2>
-                                    <p class="text-xs text-slate-400">Tambah, edit akun, password, dan reset perangkat terikat karyawan.</p>
-                                </div>
-                                <button @click="openEmployeeModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
-                                    <i class="fa-solid fa-user-plus mr-1"></i> Tambah Karyawan
-                                </button>
-                            </div>
-
-                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">ID Karyawan</th>
-                                            <th class="p-4">Nama Lengkap</th>
-                                            <th class="p-4">Role / Posisi</th>
-                                            <th class="p-4">Password</th>
-                                            <th class="p-4">Status Device HP</th>
-                                            <th class="p-4 text-center">Aksi</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(emp, index) in employees" :key="emp.id">
-                                            <tr class="hover:bg-slate-900/50 transition">
-                                                <td class="p-4 font-mono font-bold text-amber-400" x-text="emp.id"></td>
-                                                <td class="p-4 font-bold text-white" x-text="emp.name"></td>
-                                                <td class="p-4 text-slate-300" x-text="emp.role"></td>
-                                                <td class="p-4 font-mono text-slate-400" x-text="emp.password"></td>
-                                                <td class="p-4">
-                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" :class="emp.deviceId ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'" x-text="emp.deviceId ? 'Terikat 1 Device' : 'Belum Terikat'"></span>
-                                                </td>
-                                                <td class="p-4 text-center space-x-2">
-                                                    <button @click="resetDevice(index)" title="Reset Device" class="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition" x-show="emp.deviceId"><i class="fa-solid fa-mobile-screen mr-1"></i> Reset HP</button>
-                                                    <button @click="editEmployee(index)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition"><i class="fa-solid fa-pen"></i></button>
-                                                    <button @click="deleteEmployee(index)" class="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
-                                                </td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-            </div>
-        </template>
     </main>
 
-    <!-- MODAL BASECAMP -->
-    <div x-show="showBasecampModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div class="glass-card max-w-lg w-full p-6 rounded-3xl space-y-4 border border-slate-700 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Detail / Peta Basecamp' : 'Tambah Basecamp Baru'"></h3>
-            <div x-show="!canModifyBasecamp" class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl">
-                <i class="fa-solid fa-info-circle mr-1"></i> <strong>Mode Read Only:</strong> Anda dapat melihat peta dan koordinat basecamp, namun tombol simpan dinonaktifkan.
-            </div>
-            <form @submit.prevent="saveBasecamp" class="space-y-3">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Basecamp</label>
-                    <input type="text" x-model="basecampForm.name" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Peta Lokasi Basecamp</label>
-                    <div id="basecampMap"></div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Latitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lat" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Longitude</label>
-                        <input type="number" step="any" x-model="basecampForm.lng" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Radius (Meter)</label>
-                    <input type="number" x-model="basecampForm.radius" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
-                </div>
-                <div class="flex justify-end space-x-2 pt-4">
-                    <button type="button" @click="showBasecampModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Tutup</button>
-                    <button type="submit" x-show="canModifyBasecamp" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- MODAL KARYAWAN -->
-    <div x-show="showEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-        <div class="glass-card max-w-md w-full p-6 rounded-3xl space-y-4 border border-slate-700">
-            <h3 class="text-lg font-bold text-white" x-text="editEmployeeIndex !== null ? 'Edit Karyawan' : 'Tambah Karyawan Baru'"></h3>
-            <form @submit.prevent="saveEmployee" class="space-y-3">
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">ID Karyawan</label>
-                    <input type="text" x-model="employeeForm.id" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label>
-                    <input type="text" x-model="employeeForm.name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Role / Posisi</label>
-                    <input type="text" x-model="employeeForm.role" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Password</label>
-                    <input type="text" x-model="employeeForm.password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-                <div class="flex justify-end space-x-2 pt-4">
-                    <button type="button" @click="showEmployeeModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Batal</button>
-                    <button type="submit" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- FOOTER -->
-    <footer class="text-center py-6 text-xs text-slate-500 border-t border-slate-900">
-        &copy; 2026 ACM - YOFC Team. All Rights Reserved.
-    </footer>
-
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- JAVASCRIPT LOGIC SIMULATION -->
     <script>
-        const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
-        
-        const { createClient } = supabase;
-        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Live Clock Generator
+        setInterval(() => {
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0];
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.innerText = timeString;
+        }, 1000);
 
-        function getLocalDate(date = new Date()) {
-            if (!(date instanceof Date) || isNaN(date.getTime())) date = new Date();
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+        // Switcher Mode (Mobile vs Desktop)
+        function switchMode(mode) {
+            const viewMobile = document.getElementById('view-mobile');
+            const viewDesktop = document.getElementById('view-desktop');
+            const btnMobile = document.getElementById('btn-mobile');
+            const btnDesktop = document.getElementById('btn-desktop');
+
+            if (mode === 'mobile') {
+                viewMobile.classList.remove('hidden');
+                viewDesktop.classList.add('hidden');
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+            } else {
+                viewMobile.classList.add('hidden');
+                viewDesktop.classList.remove('hidden');
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+            }
         }
 
-        function normalizeToYYYYMMDD(raw) {
-            if (!raw) return getLocalDate();
-            if (raw instanceof Date) return isNaN(raw.getTime()) ? getLocalDate() : getLocalDate(raw);
-            
-            let str = String(raw).trim();
-            if (!str) return getLocalDate();
-
-            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-            if (isoMatch) {
-                let y = isoMatch[1];
-                let m = isoMatch[2].padStart(2, '0');
-                let d = isoMatch[3].padStart(2, '0');
-                return `${y}-${m}-${d}`;
-            }
-
-            let ddmmyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-            if (ddmmyyyyMatch) {
-                let d = ddmmyyyyMatch[1].padStart(2, '0');
-                let m = ddmmyyyyMatch[2].padStart(2, '0');
-                let y = ddmmyyyyMatch[3];
-                return `${y}-${m}-${d}`;
-            }
-
-            let parsed = new Date(str);
-            if (!isNaN(parsed.getTime())) {
-                return getLocalDate(parsed);
-            }
-
-            return getLocalDate();
-        }
-
-        async function getOrCreateStableDeviceIdentifier() {
-            let deviceId = localStorage.getItem('bc_device_uuid');
-            if (deviceId) return deviceId;
-
-            const fingerprintComponents = [
-                navigator.userAgent,
-                navigator.language,
-                screen.width + 'x' + screen.height,
-                new Date().getTimezoneOffset()
-            ].join('|||');
-
-            let hash = 0;
-            for (let i = 0; i < fingerprintComponents.length; i++) {
-                const char = fingerprintComponents.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash |= 0;
-            }
-
-            deviceId = 'FP-' + Math.abs(hash).toString(36).toUpperCase() + '-' + Math.abs(screen.width * screen.height).toString(36).toUpperCase();
-            localStorage.setItem('bc_device_uuid', deviceId);
-            return deviceId;
-        }
-
-        async function checkIsMockLocation(coords) {
-            if (coords && coords.isMocked === true) return true;
-            return false;
-        }
-
-        async function simulateServerSideValidation(payload) {
-            const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
-            
-            const lat = currentCoords ? currentCoords.lat : 0;
-            const lng = currentCoords ? currentCoords.lng : 0;
-
-            const { data, error } = await _supabase.rpc('validate_and_checkin', {
-                p_login_id: loginId,
-                p_login_pass: loginPass,
-                p_lat: lat,
-                p_lng: lng,
-                p_accuracy: gpsAccuracy || 5,
-                p_simulation_mode: simulationMode,
-                p_device_id: deviceId
+        // Mobile Tabs
+        function switchMobileTab(tab) {
+            ['absen', 'izin', 'riwayat'].forEach(t => {
+                document.getElementById(`m-tab-${t}`).classList.add('hidden');
+                document.getElementById(`m-nav-${t}`).className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1";
             });
-
-            if (error) {
-                return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
-            }
-
-            return data;
+            document.getElementById(`m-tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`m-nav-${tab}`).className = "text-gold-400 flex flex-col items-center text-xs space-y-1";
         }
 
-        function absensiApp() {
-            return {
-                isAdminView: false,
-                isAdminLoggedIn: false,
-                adminLoginUser: '',
-                adminLoginPass: '',
-                adminTab: 'rekap',
-                simulationMode: false,
-                isDesktopDevice: window.innerWidth >= 1024,
-                showAllDates: true,
-                
-                currentUserRole: '',
-                currentEmpId: null,
-                isMasterAdmin: false,
-
-                get timeGreeting() {
-                    const hour = new Date().getHours();
-                    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
-                    if (hour >= 11 && hour < 15) return 'Selamat Siang';
-                    if (hour >= 15 && hour < 18) return 'Selamat Sore';
-                    return 'Selamat Malam';
-                },
-
-                get currentUserName() {
-                    if (this.isMasterAdmin) return 'Master Admin';
-                    const emp = this.employees.find(e => e.id === this.currentEmpId);
-                    return emp ? emp.name : 'User';
-                },
-
-                get normalizedRole() {
-                    return (this.currentUserRole || '').trim().toLowerCase();
-                },
-                get isMasterOrPM() {
-                    if (this.isMasterAdmin) return true;
-                    const r = this.normalizedRole;
-                    return r === 'project manager' || r === 'pusat' || r === 'superadmin' || r.includes('project manager');
-                },
-                get isAdminOnly() {
-                    const r = this.normalizedRole;
-                    return r === 'admin' || (r.includes('admin') && !this.isMasterOrPM);
-                },
-                get isOperationalRole() {
-                    const r = this.normalizedRole;
-                    const operationalRoles = ['regional pm', 'project supervisor', 'fiber installer', 'snd engineer'];
-                    return operationalRoles.includes(r) || (!this.isMasterOrPM && !this.isAdminOnly && this.currentEmpId);
-                },
-
-                get canAccessRekap() {
-                    return true;
-                },
-                get canAccessIzin() {
-                    return true;
-                },
-                get canAccessMessages() {
-                    return this.isMasterOrPM;
-                },
-                get canAccessBasecamp() {
-                    return true;
-                },
-                get canAccessKaryawan() {
-                    return this.isMasterOrPM;
-                },
-
-                get canModifyBasecamp() {
-                    return this.isMasterOrPM;
-                },
-                get canModifyIzin() {
-                    return this.isMasterOrPM;
-                },
-                get canResetRekap() {
-                    return this.isMasterOrPM;
-                },
-
-                employeeTab: 'checkin',
-
-                loginId: '',
-                loginPass: '',
-                gpsStatus: 'Mendeteksi GPS...',
-                gpsAccuracy: null,
-                currentCoords: null,
-                detectedBasecamp: null,
-
-                leaveForm: {
-                    empId: '',
-                    type: 'Sakit',
-                    startDate: getLocalDate(),
-                    endDate: getLocalDate(),
-                    reason: ''
-                },
-
-                messageForm: {
-                    recipientId: 'ALL',
-                    message: ''
-                },
-
-                filterStartDate: (() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() - 30);
-                    return getLocalDate(d);
-                })(),
-                filterEndDate: getLocalDate(),
-
-                map: null,
-                marker: null,
-                circle: null,
-
-                showBasecampModal: false,
-                editBasecampIndex: null,
-                basecampForm: { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 },
-
-                showEmployeeModal: false,
-                editEmployeeIndex: null,
-                employeeForm: { id: '', name: '', role: '', password: '', deviceId: null },
-
-                basecamps: [],
-                employees: [],
-                attendanceLogs: [],
-                leaves: [],
-                messages: [],
-
-                async init() {
-                    this.initGPS();
-                    await getOrCreateStableDeviceIdentifier();
-                    await this.loadAttendanceData();
-                    await this.loadMessagesData();
-                },
-
-                get employeeDeadlineText() {
-                    if (!this.loginId) return '09.45 WIB / 09.10 WIB';
-                    const emp = this.employees.find(e => e.id.toLowerCase() === this.loginId.trim().toLowerCase());
-                    if (!emp) return '09.45 WIB';
-                    const r = (emp.role || '').trim().toLowerCase();
-                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
-                        return '09.10 WIB';
-                    }
-                    return '09.45 WIB';
-                },
-
-                getLatenessMinutes(timestamp, role = '') {
-                    if (!timestamp) return 0;
-                    let match = timestamp.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
-                    let h = 0, m = 0;
-                    if (match) {
-                        h = parseInt(match[1], 10);
-                        m = parseInt(match[2], 10);
-                    } else {
-                        let d = new Date(timestamp);
-                        if (!isNaN(d.getTime())) {
-                            h = d.getHours();
-                            m = d.getMinutes();
-                        } else {
-                            return 0;
-                        }
-                    }
-                    const totalMinutes = h * 60 + m;
-                    
-                    const r = (role || '').trim().toLowerCase();
-                    let maxAllowedMinutes = 9 * 60 + 45;
-                    
-                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
-                        maxAllowedMinutes = 9 * 60 + 10;
-                    } else if (r === 'regional pm' || r === 'project supervisor' || r === 'fiber installer') {
-                        maxAllowedMinutes = 9 * 60 + 45;
-                    }
-
-                    return Math.max(0, totalMinutes - maxAllowedMinutes);
-                },
-
-                formatLateness(timestamp, role = '') {
-                    const mins = this.getLatenessMinutes(timestamp, role);
-                    if (mins === 0) {
-                        return 'Tepat Waktu';
-                    }
-                    return `${mins} menit`;
-                },
-
-                async loadAttendanceData() {
-                    try {
-                        let { data: attData, error } = await _supabase.from('attendance').select('*');
-                        if (error) {
-                            console.error('Error fetching attendance logs:', error.message || error);
-                        }
-                        if (attData && Array.isArray(attData)) {
-                            this.attendanceLogs = attData.map(item => {
-                                let rawDate = item.date || item.created_at || item.timestamp;
-                                let cleanDate = normalizeToYYYYMMDD(rawDate);
-
-                                let displayTime = item.timestamp || item.created_at;
-                                if (!displayTime) {
-                                    displayTime = new Date().toLocaleString('id-ID');
-                                } else if (typeof displayTime === 'string' && displayTime.includes('T')) {
-                                    let parsedDate = new Date(displayTime);
-                                    if (!isNaN(parsedDate.getTime())) {
-                                        displayTime = parsedDate.toLocaleString('id-ID');
-                                    }
-                                }
-
-                                return {
-                                    id: item.id || Math.random(),
-                                    empId: item.emp_id || item.empId || item.employee_id || item.user_id || '',
-                                    name: item.name || item.employee_name || item.user_name || '',
-                                    role: item.role || item.employee_role || '',
-                                    basecamp: item.basecamp || item.basecamp_name || item.location || '-',
-                                    timestamp: displayTime,
-                                    date: cleanDate,
-                                    accuracy: item.accuracy || item.gps_accuracy || item.accuracy_m || 0
-                                };
-                            });
-                            this.attendanceLogs.sort((a, b) => (b.id > a.id ? 1 : -1));
-                        }
-                    } catch(err) {
-                        console.error('Error fetching attendance logs:', err);
-                    }
-
-                    try {
-                        let { data: leaveData } = await _supabase.from('leaves').select('*');
-                        if (leaveData && Array.isArray(leaveData)) {
-                            this.leaves = leaveData.map(item => ({
-                                id: item.id,
-                                empId: item.emp_id || item.empId || '',
-                                name: item.name,
-                                type: item.type,
-                                startDate: item.start_date || item.startDate,
-                                endDate: item.end_date || item.endDate,
-                                reason: item.reason,
-                                status: item.status,
-                                timestamp: item.timestamp
-                            }));
-                        }
-                    } catch(err) {
-                        console.error('Error fetching leaves:', err);
-                    }
-
-                    try {
-                        let { data: bcData } = await _supabase.from('basecamps').select('*');
-                        if (bcData && bcData.length > 0) {
-                            this.basecamps = bcData;
-                        }
-                    } catch(err) {
-                        console.error('Error fetching basecamps:', err);
-                    }
-
-                    try {
-                        let { data: empData } = await _supabase.from('employees').select('*');
-                        if (empData && empData.length > 0) {
-                            this.employees = empData.map(e => ({
-                                id: e.id,
-                                name: e.name,
-                                role: e.role,
-                                password: e.password,
-                                deviceId: e.device_id || e.deviceId
-                            }));
-                        }
-                    } catch(err) {
-                        console.error('Error fetching employees:', err);
-                    }
-                },
-
-                async loadMessagesData() {
-                    let { data } = await _supabase.from('messages').select('*');
-                    if (data && Array.isArray(data)) {
-                        this.messages = data.map(m => ({
-                            id: m.id,
-                            senderId: m.sender_id || m.senderId,
-                            recipientId: m.recipient_id || m.recipientId,
-                            message: m.message,
-                            timestamp: m.timestamp
-                        }));
-                    }
-                },
-
-                getEmployeeName(empId) {
-                    const emp = this.employees.find(e => e.id === empId);
-                    return emp ? emp.name : empId;
-                },
-
-                async sendMessage() {
-                    const newMsg = {
-                        sender_id: this.currentEmpId || 'PM',
-                        recipient_id: this.messageForm.recipientId,
-                        message: this.messageForm.message,
-                        timestamp: new Date().toLocaleString('id-ID')
-                    };
-
-                    const { error } = await _supabase.from('messages').insert([newMsg]);
-                    if (error) {
-                        alert('Gagal mengirim pesan: ' + error.message);
-                        return;
-                    }
-
-                    alert('Pesan berhasil dikirim!');
-                    this.messageForm.message = '';
-                    await this.loadMessagesData();
-                },
-
-                async deleteMessage(id) {
-                    if (confirm('Hapus pesan ini?')) {
-                        const { error } = await _supabase.from('messages').delete().eq('id', id);
-                        if (!error) {
-                            await this.loadMessagesData();
-                        } else {
-                            alert('Gagal menghapus pesan: ' + error.message);
-                        }
-                    }
-                },
-
-                async clearAllAttendance() {
-                    if (!this.canResetRekap) {
-                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk mereset data absensi.');
-                        return;
-                    }
-                    if (confirm('Apakah Anda yakin ingin menghapus seluruh data absensi?')) {
-                        const { error } = await _supabase.from('attendance').delete().neq('id', 0);
-                        if (!error) {
-                            this.attendanceLogs = [];
-                        } else {
-                            alert('Gagal menghapus data: ' + error.message);
-                        }
-                    }
-                },
-
-                initGPS() {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.watchPosition(
-                            async (position) => {
-                                const isMocked = position.coords.isMocked || await checkIsMockLocation(position.coords);
-                                this.currentCoords = { 
-                                    lat: position.coords.latitude, 
-                                    lng: position.coords.longitude,
-                                    isMocked: isMocked 
-                                };
-                                this.gpsAccuracy = Math.round(position.coords.accuracy);
-                                this.gpsStatus = isMocked ? 'Peringatan: Mock GPS!' : 'GPS Aktif & Terhubung';
-                                this.checkNearestBasecamp(this.currentCoords.lat, this.currentCoords.lng);
-                            },
-                            (error) => {
-                                this.gpsStatus = 'Gagal mendeteksi GPS.';
-                            },
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-                        );
-                    } else {
-                        this.gpsStatus = 'Browser tidak mendukung GPS.';
-                    }
-                },
-
-                calculateDistance(lat1, lon1, lat2, lon2) {
-                    const R = 6371e3;
-                    const φ1 = lat1 * Math.PI/180;
-                    const φ2 = lat2 * Math.PI/180;
-                    const Δφ = (lat2-lat1) * Math.PI/180;
-                    const Δλ = (lon2-lon1) * Math.PI/180;
-                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                              Math.cos(φ1) * Math.cos(φ2) *
-                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                    return R * c;
-                },
-
-                checkNearestBasecamp(lat, lng) {
-                    let found = null;
-                    for (let bc of this.basecamps) {
-                        const dist = this.calculateDistance(lat, lng, bc.lat, bc.lng);
-                        if (dist <= bc.radius) {
-                            found = bc;
-                            break;
-                        }
-                    }
-                    this.detectedBasecamp = found;
-                },
-
-                get nearestDistanceText() {
-                    if (!this.currentCoords) return 'Menghitung...';
-                    let minDist = Infinity;
-                    let nearestName = '';
-                    let maxRadius = 500;
-                    for (let bc of this.basecamps) {
-                        const dist = this.calculateDistance(this.currentCoords.lat, this.currentCoords.lng, bc.lat, bc.lng);
-                        if (dist < minDist) {
-                            minDist = dist;
-                            nearestName = bc.name;
-                            maxRadius = bc.radius;
-                        }
-                    }
-                    return `${nearestName}: ${Math.round(minDist)} meter (Max ${maxRadius}m)`;
-                },
-
-                switchRole() {
-                    this.isAdminView = !this.isAdminView;
-                    if (this.isAdminView) {
-                        this.loadAttendanceData();
-                        this.loadMessagesData();
-                    } else {
-                        this.isAdminLoggedIn = false;
-                        this.currentUserRole = '';
-                        this.currentEmpId = null;
-                        this.isMasterAdmin = false;
-                    }
-                },
-
-                handleAdminLogin() {
-                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
-                        this.isAdminLoggedIn = true;
-                        this.isMasterAdmin = true;
-                        this.currentUserRole = 'Master Admin';
-                        this.currentEmpId = null;
-                        this.adminLoginUser = '';
-                        this.adminLoginPass = '';
-                        this.adminTab = 'rekap';
-                        this.loadAttendanceData();
-                        this.loadMessagesData();
-                    } else {
-                        const emp = this.employees.find(e => e.id.toLowerCase() === this.adminLoginUser.trim().toLowerCase() && e.password === this.adminLoginPass);
-                        if (emp) {
-                            this.isAdminLoggedIn = true;
-                            this.isMasterAdmin = false;
-                            this.currentUserRole = emp.role || 'Admin';
-                            this.currentEmpId = emp.id;
-                            this.adminLoginUser = '';
-                            this.adminLoginPass = '';
-                            
-                            if (this.canAccessRekap) {
-                                this.adminTab = 'rekap';
-                            } else if (this.canAccessIzin) {
-                                this.adminTab = 'izin';
-                            } else {
-                                this.adminTab = 'basecamp';
-                            }
-
-                            this.loadAttendanceData();
-                            this.loadMessagesData();
-                        } else {
-                            alert('ID/Username atau Password salah!');
-                        }
-                    }
-                },
-
-                adminLogout() {
-                    this.isAdminLoggedIn = false;
-                    this.currentUserRole = '';
-                    this.currentEmpId = null;
-                    this.isMasterAdmin = false;
-                },
-
-                async handleCheckIn() {
-                    if (!this.loginId || !this.loginPass) {
-                        alert('Masukkan ID Karyawan dan Password!');
-                        return;
-                    }
-
-                    const currentDeviceId = await getOrCreateStableDeviceIdentifier();
-                    const payload = {
-                        loginId: this.loginId,
-                        loginPass: this.loginPass,
-                        currentCoords: this.currentCoords,
-                        gpsAccuracy: this.gpsAccuracy,
-                        simulationMode: this.simulationMode,
-                        deviceId: currentDeviceId
-                    };
-
-                    this.gpsStatus = 'Memproses Validasi Server...';
-                    const result = await simulateServerSideValidation(payload);
-
-                    if (!result || !result.success) {
-                        alert((result && result.message) ? result.message : 'Gagal melakukan check-in.');
-                        this.gpsStatus = 'GPS Aktif & Terhubung';
-                        return;
-                    }
-
-                    if (result.record || result.data) {
-                        let item = result.record || result.data;
-                        let rawDate = item.date || item.created_at || item.timestamp || new Date();
-                        let cleanDate = normalizeToYYYYMMDD(rawDate);
-                        let displayTime = item.timestamp || (item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID'));
-                        
-                        let newRecord = {
-                            id: item.id || Date.now(),
-                            empId: item.emp_id || item.empId || item.employee_id || this.loginId,
-                            name: item.name || item.employee_name || '',
-                            role: item.role || item.employee_role || '',
-                            basecamp: item.basecamp || item.basecamp_name || (this.detectedBasecamp ? this.detectedBasecamp.name : '-'),
-                            timestamp: displayTime,
-                            date: cleanDate,
-                            accuracy: item.accuracy || item.gps_accuracy || this.gpsAccuracy || 0
-                        };
-
-                        if (!this.attendanceLogs.some(l => l.id === newRecord.id)) {
-                            this.attendanceLogs.unshift(newRecord);
-                        }
-                    }
-
-                    await this.loadAttendanceData();
-
-                    const todayStr = getLocalDate();
-                    if (this.filterEndDate < todayStr) {
-                        this.filterEndDate = todayStr;
-                    }
-                    if (this.filterStartDate > todayStr) {
-                        this.filterStartDate = todayStr;
-                    }
-
-                    let pmMessageText = "";
-                    try {
-                        let { data: msgData } = await _supabase.from('messages').select('*');
-                        if (msgData && msgData.length > 0) {
-                            const targetMsg = msgData.find(m => (m.recipient_id || m.recipientId) === 'ALL' || (m.recipient_id || m.recipientId).toLowerCase() === this.loginId.trim().toLowerCase());
-                            if (targetMsg) {
-                                pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
-                            }
-                        }
-                    } catch(e) {
-                        console.error('Error fetching messages on checkin:', e);
-                    }
-
-                    alert(result.message + pmMessageText);
-                    this.loginId = '';
-                    this.loginPass = '';
-                },
-
-                async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
-                    if (!emp) {
-                        alert('ID Karyawan tidak ditemukan!');
-                        return;
-                    }
-
-                    const newLeave = {
-                        emp_id: emp.id,
-                        name: emp.name,
-                        type: this.leaveForm.type,
-                        start_date: this.leaveForm.startDate,
-                        end_date: this.leaveForm.endDate,
-                        reason: this.leaveForm.reason,
-                        status: 'Pending',
-                        timestamp: new Date().toLocaleString('id-ID')
-                    };
-
-                    const { error } = await _supabase.from('leaves').insert([newLeave]);
-                    if (error) {
-                        alert('Gagal mengirim pengajuan: ' + error.message);
-                        return;
-                    }
-
-                    alert('Pengajuan berhasil dikirim.');
-                    this.leaveForm.reason = '';
-                    await this.loadAttendanceData();
-                },
-
-                async updateLeaveStatus(id, status) {
-                    if (!this.canModifyIzin) {
-                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
-                        return;
-                    }
-                    
-                    const leaveIndex = this.leaves.findIndex(l => l.id == id);
-                    if (leaveIndex === -1) {
-                        alert('Data tidak ditemukan!');
-                        return;
-                    }
-
-                    let previousStatus = this.leaves[leaveIndex].status;
-                    
-                    this.leaves[leaveIndex].status = status;
-                    this.leaves = [...this.leaves]; 
-                    
-                    try {
-                        const { data, error } = await _supabase
-                            .from('leaves')
-                            .update({ status: status })
-                            .eq('id', id)
-                            .select();
-                        
-                        if (error) throw error;
-
-                        if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server.");
-                        }
-                        
-                        alert(`Pengajuan berhasil ${status}!`);
-                        
-                    } catch (err) {
-                        if (leaveIndex !== -1) {
-                            this.leaves[leaveIndex].status = previousStatus;
-                            this.leaves = [...this.leaves];
-                        }
-                        alert('Terjadi kesalahan pada sistem: ' + err.message);
-                    }
-                },
-
-                get employeeLeaves() {
-                    if (!this.leaveForm.empId) return [];
-                    return this.leaves.filter(l => (l.empId || '').toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
-                },
-
-                get displayedLeaves() {
-                    let items = this.leaves;
-                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        items = items.filter(l => (l.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
-                    }
-                    return items;
-                },
-
-                initMap() {
-                    const lat = parseFloat(this.basecampForm.lat) || 0.50653;
-                    const lng = parseFloat(this.basecampForm.lng) || 101.42304;
-                    const radius = parseInt(this.basecampForm.radius) || 500;
-
-                    if (!this.map) {
-                        this.map = L.map('basecampMap').setView([lat, lng], 15);
-                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.map);
-                        this.marker = L.marker([lat, lng], { draggable: this.canModifyBasecamp }).addTo(this.map);
-                        this.circle = L.circle([lat, lng], { radius: radius, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(this.map);
-
-                        if (this.canModifyBasecamp) {
-                            this.marker.on('dragend', (e) => {
-                                const pos = e.target.getLatLng();
-                                this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
-                                this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
-                                this.updateMapVisuals();
-                            });
-                        }
-                    } else {
-                        this.map.invalidateSize();
-                        this.map.setView([lat, lng], 15);
-                        this.marker.setLatLng([lat, lng]);
-                        this.circle.setLatLng([lat, lng]);
-                        this.circle.setRadius(radius);
-                    }
-                },
-
-                updateMapVisuals() {
-                    const lat = parseFloat(this.basecampForm.lat);
-                    const lng = parseFloat(this.basecampForm.lng);
-                    const radius = parseInt(this.basecampForm.radius) || 500;
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        this.circle.setLatLng([lat, lng]);
-                        this.circle.setRadius(radius);
-                    }
-                },
-
-                updateMapFromInputs() {
-                    if (!this.canModifyBasecamp) return;
-                    const lat = parseFloat(this.basecampForm.lat);
-                    const lng = parseFloat(this.basecampForm.lng);
-                    const radius = parseInt(this.basecampForm.radius) || 500;
-                    if (!isNaN(lat) && !isNaN(lng) && this.map) {
-                        this.marker.setLatLng([lat, lng]);
-                        this.circle.setLatLng([lat, lng]);
-                        this.circle.setRadius(radius);
-                        this.map.setView([lat, lng], this.map.getZoom());
-                    }
-                },
-
-                openBasecampModal() {
-                    if (!this.canModifyBasecamp) return;
-                    this.editBasecampIndex = null;
-                    this.basecampForm = { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 };
-                    this.showBasecampModal = true;
-                    this.$nextTick(() => { this.initMap(); });
-                },
-                editBasecamp(index) {
-                    this.editBasecampIndex = index;
-                    this.basecampForm = { ...this.basecamps[index] };
-                    this.showBasecampModal = true;
-                    this.$nextTick(() => { this.initMap(); });
-                },
-                async saveBasecamp() {
-                    if (!this.canModifyBasecamp) {
-                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp.');
-                        this.showBasecampModal = false;
-                        return;
-                    }
-                    if (this.editBasecampIndex !== null) {
-                        const targetId = this.basecamps[this.editBasecampIndex].id;
-                        const { error } = await _supabase.from('basecamps').update({
-                            name: this.basecampForm.name,
-                            lat: parseFloat(this.basecampForm.lat),
-                            lng: parseFloat(this.basecampForm.lng),
-                            radius: parseInt(this.basecampForm.radius)
-                        }).eq('id', targetId);
-                        if (error) {
-                            alert('Gagal mengupdate basecamp: ' + error.message);
-                            return;
-                        }
-                    } else {
-                        const newBc = {
-                            name: this.basecampForm.name,
-                            lat: parseFloat(this.basecampForm.lat),
-                            lng: parseFloat(this.basecampForm.lng),
-                            radius: parseInt(this.basecampForm.radius)
-                        };
-                        const { error } = await _supabase.from('basecamps').insert([newBc]);
-                        if (error) {
-                            alert('Gagal menambah basecamp: ' + error.message);
-                            return;
-                        }
-                    }
-                    this.showBasecampModal = false;
-                    await this.loadAttendanceData();
-                },
-                async deleteBasecamp(index) {
-                    if (!this.canModifyBasecamp) {
-                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk menghapus basecamp.');
-                        return;
-                    }
-                    if (confirm('Hapus basecamp ini?')) {
-                        const targetId = this.basecamps[index].id;
-                        const { error } = await _supabase.from('basecamps').delete().eq('id', targetId);
-                        if (!error) {
-                            await this.loadAttendanceData();
-                        } else {
-                            alert('Gagal menghapus basecamp: ' + error.message);
-                        }
-                    }
-                },
-
-                openEmployeeModal() {
-                    this.editEmployeeIndex = null;
-                    this.employeeForm = { id: '', name: '', role: '', password: '', deviceId: null };
-                    this.showEmployeeModal = true;
-                },
-                editEmployee(index) {
-                    this.editEmployeeIndex = index;
-                    this.employeeForm = { ...this.employees[index] };
-                    this.showEmployeeModal = true;
-                },
-                async saveEmployee() {
-                    if (this.editEmployeeIndex !== null) {
-                        const targetEmpId = this.employees[this.editEmployeeIndex].id;
-                        const { error } = await _supabase.from('employees').update({
-                            name: this.employeeForm.name,
-                            role: this.employeeForm.role,
-                            password: this.employeeForm.password
-                        }).eq('id', targetEmpId);
-                        if (error) {
-                            alert('Gagal mengupdate karyawan: ' + error.message);
-                            return;
-                        }
-                    } else {
-                        const newEmp = {
-                            id: this.employeeForm.id,
-                            name: this.employeeForm.name,
-                            role: this.employeeForm.role,
-                            password: this.employeeForm.password,
-                            device_id: null
-                        };
-                        const { error } = await _supabase.from('employees').insert([newEmp]);
-                        if (error) {
-                            alert('Gagal menambah karyawan: ' + error.message);
-                            return;
-                        }
-                    }
-                    this.showEmployeeModal = false;
-                    await this.loadAttendanceData();
-                },
-                async deleteEmployee(index) {
-                    if (confirm('Hapus karyawan ini?')) {
-                        const targetId = this.employees[index].id;
-                        const { error } = await _supabase.from('employees').delete().eq('id', targetId);
-                        if (!error) {
-                            await this.loadAttendanceData();
-                        } else {
-                            alert('Gagal menghapus karyawan: ' + error.message);
-                        }
-                    }
-                },
-                async resetDevice(index) {
-                    if (confirm('Reset perangkat terikat?')) {
-                        const targetId = this.employees[index].id;
-                        const { error } = await _supabase.from('employees').update({ device_id: null }).eq('id', targetId);
-                        if (!error) {
-                            await this.loadAttendanceData();
-                            alert('Device berhasil direset.');
-                        } else {
-                            alert('Gagal mereset device: ' + error.message);
-                        }
-                    }
-                },
-
-                get filteredAttendance() {
-                    let logs = this.attendanceLogs || [];
-                    
-                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        const currEmpId = (this.currentEmpId || '').toLowerCase().trim();
-                        if (currEmpId) {
-                            logs = logs.filter(item => (item.empId || '').toLowerCase().trim() === currEmpId);
-                        }
-                    }
-
-                    if (this.showAllDates) {
-                        return logs;
-                    }
-
-                    return logs.filter(item => {
-                        let itemDate = item.date;
-                        if (!itemDate) return true;
-
-                        if (this.filterStartDate && this.filterEndDate) {
-                            return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
-                        }
-                        return true;
-                    });
-                },
-
-                exportCSV() {
-                    let csvContent = "data:text/csv;charset=utf-8,ID,Nama,Role,Basecamp,Tanggal Waktu,Terlambat,Akurasi GPS\n";
-                    this.filteredAttendance.forEach(row => {
-                        let latenessText = this.formatLateness(row.timestamp, row.role);
-                        csvContent += `"${row.empId}","${row.name}","${row.role}","${row.basecamp}","${row.timestamp}","${latenessText}","${row.accuracy}m"\r\n`;
-                    });
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `rekap_absensi_${this.filterStartDate}_sampai_${this.filterEndDate}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                }
+        // Desktop Tabs
+        function switchDesktopTab(tab) {
+            const tabs = ['dashboard', 'rekap', 'karyawan', 'basecamp', 'izin'];
+            tabs.forEach(t => {
+                document.getElementById(`d-tab-${t}`).classList.add('hidden');
+                document.getElementById(`d-nav-${t}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+            });
+            document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`d-nav-${tab}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            
+            const titles = {
+                'dashboard': 'Dashboard & Statistik',
+                'rekap': 'Rekapitulasi Absensi & Keterlambatan',
+                'karyawan': 'Manajemen Data Karyawan',
+                'basecamp': 'Pengaturan Basecamp & Radius GPS',
+                'izin': 'Persetujuan Pengajuan Izin'
+            };
+            document.getElementById('desktop-title').innerText = titles[tab];
+        }
+
+        // Simulation Absen Handler with Anti-Fake GPS Notice
+        function handleAbsen() {
+            // Simulasi pemeriksaan GPS & Anti-Fake GPS Tingkat Tinggi
+            const isFakeGPS = false; // Mock boolean for fake detection algorithm
+            if(isFakeGPS) {
+                alert('Peringatan: Sistem mendeteksi penggunaan Fake GPS / Mock Location! Absensi ditolak.');
+            } else {
+                alert('Absensi Berhasil! Lokasi dalam radius basecamp dan perangkat terverifikasi.');
             }
         }
     </script>
