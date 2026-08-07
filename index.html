@@ -638,6 +638,7 @@
         const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         function getLocalDate(date = new Date()) {
+            if (!(date instanceof Date) || isNaN(date.getTime())) date = new Date();
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
@@ -873,27 +874,47 @@
                 async loadAttendanceData() {
                     let { data: attData } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
                     if (attData) {
-                        this.attendanceLogs = attData.map(item => ({
-                            id: item.id,
-                            empId: item.emp_id,
-                            name: item.name,
-                            role: item.role,
-                            basecamp: item.basecamp,
-                            timestamp: item.timestamp,
-                            date: item.date || getLocalDate(),
-                            accuracy: item.accuracy
-                        }));
+                        this.attendanceLogs = attData.map(item => {
+                            let cleanDate = '';
+                            let rawDate = item.date || item.created_at || item.timestamp;
+                            
+                            if (rawDate) {
+                                if (typeof rawDate === 'string') {
+                                    if (rawDate.includes('T')) cleanDate = rawDate.split('T')[0];
+                                    else if (rawDate.includes(' ')) cleanDate = rawDate.split(' ')[0];
+                                    else if (rawDate.length === 10) cleanDate = rawDate;
+                                } else {
+                                    cleanDate = getLocalDate(new Date(rawDate));
+                                }
+                            }
+                            
+                            if (!cleanDate || cleanDate.length !== 10) {
+                                const d = new Date(item.timestamp || item.created_at);
+                                cleanDate = !isNaN(d.getTime()) ? getLocalDate(d) : getLocalDate();
+                            }
+
+                            return {
+                                id: item.id,
+                                empId: item.emp_id || item.empId || '',
+                                name: item.name || '',
+                                role: item.role || '',
+                                basecamp: item.basecamp || '',
+                                timestamp: item.timestamp || item.created_at || new Date().toLocaleString('id-ID'),
+                                date: cleanDate,
+                                accuracy: item.accuracy || 0
+                            };
+                        });
                     }
 
                     let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
                     if (leaveData) {
                         this.leaves = leaveData.map(item => ({
                             id: item.id,
-                            empId: item.emp_id,
+                            empId: item.emp_id || item.empId || '',
                             name: item.name,
                             type: item.type,
-                            startDate: item.start_date,
-                            endDate: item.end_date,
+                            startDate: item.start_date || item.startDate,
+                            endDate: item.end_date || item.endDate,
                             reason: item.reason,
                             status: item.status,
                             timestamp: item.timestamp
@@ -912,7 +933,7 @@
                             name: e.name,
                             role: e.role,
                             password: e.password,
-                            deviceId: e.device_id
+                            deviceId: e.device_id || e.deviceId
                         }));
                     }
                 },
@@ -922,8 +943,8 @@
                     if (data) {
                         this.messages = data.map(m => ({
                             id: m.id,
-                            senderId: m.sender_id,
-                            recipientId: m.recipient_id,
+                            senderId: m.sender_id || m.senderId,
+                            recipientId: m.recipient_id || m.recipientId,
                             message: m.message,
                             timestamp: m.timestamp
                         }));
@@ -1070,7 +1091,7 @@
                         this.loadAttendanceData();
                         this.loadMessagesData();
                     } else {
-                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
+                        const emp = this.employees.find(e => e.id.toLowerCase() === this.adminLoginUser.trim().toLowerCase() && e.password === this.adminLoginPass);
                         if (emp) {
                             this.isAdminLoggedIn = true;
                             this.isMasterAdmin = false;
@@ -1130,7 +1151,7 @@
                     let pmMessageText = "";
                     let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
                     if (msgData && msgData.length > 0) {
-                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === this.loginId);
+                        const targetMsg = msgData.find(m => (m.recipient_id || m.recipientId) === 'ALL' || (m.recipient_id || m.recipientId).toLowerCase() === this.loginId.trim().toLowerCase());
                         if (targetMsg) {
                             pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
                         }
@@ -1143,7 +1164,7 @@
                 },
 
                 async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                     if (!emp) {
                         alert('ID Karyawan tidak ditemukan!');
                         return;
@@ -1218,13 +1239,13 @@
 
                 get employeeLeaves() {
                     if (!this.leaveForm.empId) return [];
-                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
+                    return this.leaves.filter(l => l.empId.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                 },
 
                 get displayedLeaves() {
                     let items = this.leaves;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        items = items.filter(l => l.empId === this.currentEmpId);
+                        items = items.filter(l => l.empId.toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     }
                     return items;
                 },
@@ -1409,10 +1430,15 @@
                 get filteredAttendance() {
                     let logs = this.attendanceLogs;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                        logs = logs.filter(item => (item.empId || '').toLowerCase().trim() === (this.currentEmpId || '').toLowerCase().trim());
                     }
                     return logs.filter(item => {
-                        const itemDate = item.date || getLocalDate();
+                        let itemDate = item.date;
+                        if (typeof itemDate === 'string' && itemDate.length > 10) {
+                            itemDate = itemDate.substring(0, 10);
+                        }
+                        if (!itemDate) itemDate = getLocalDate();
+
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
                         }
