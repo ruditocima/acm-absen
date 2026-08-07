@@ -652,7 +652,6 @@
             let str = String(raw).trim();
             if (!str) return getLocalDate();
 
-            // Tangani format DD/MM/YYYY atau DD-MM-YYYY
             let ddmmyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
             if (ddmmyyyyMatch) {
                 let d = ddmmyyyyMatch[1].padStart(2, '0');
@@ -661,14 +660,12 @@
                 return `${y}-${m}-${d}`;
             }
 
-            // Ganti titik pada jam lokal ID (21.47.00 -> 21:47:00) agar Date constructor valid
             let cleanStr = str.replace(/(\d{2})\.(\d{2})\.(\d{2})/, '$1:$2:$3');
             let parsed = new Date(cleanStr);
             if (!isNaN(parsed.getTime())) {
                 return getLocalDate(parsed);
             }
 
-            // Fallback match format ISO YYYY-MM-DD
             let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
             if (isoMatch) {
                 let y = isoMatch[1];
@@ -1197,7 +1194,6 @@
                         return;
                     }
 
-                    // Tambahkan data yang baru di-checkin langsung ke state lokal agar langsung tampil di rekap
                     if (result.record || result.data) {
                         let item = result.record || result.data;
                         let rawDate = item.date || item.created_at || item.timestamp || new Date();
@@ -1220,10 +1216,8 @@
                         }
                     }
 
-                    // Sinkronisasi penuh dengan server untuk memastikan data terupdate dari DB
                     await this.loadAttendanceData();
 
-                    // Otomatis atur rentang tanggal filter agar mencakup tanggal hari ini secara pasti
                     const todayStr = getLocalDate();
                     if (this.filterEndDate < todayStr) {
                         this.filterEndDate = todayStr;
@@ -1306,7 +1300,7 @@
                         if (error) throw error;
 
                         if (!data || data.length === 0) {
-                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
+                            throw new Error("Update ditolak oleh server.");
                         }
                         
                         alert(`Pengajuan berhasil ${status}!`);
