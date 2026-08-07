@@ -277,7 +277,7 @@
                                         <th class="p-3">Jumlah Keterlambatan</th>
                                     </tr>
                                 </thead>
-                                <tbody class="divide-y divide-slate-800 text-slate-300">
+                                <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300">
                                     <tr>
                                         <td class="p-3 font-medium text-white">Rudi Batubara</td>
                                         <td class="p-3 text-slate-400">Pekanbaru Pusat</td>
@@ -456,7 +456,6 @@
         // Server Time Mock Sync
         async function getServerTime() {
             try {
-                // Di produksi, ganti dengan fetch ke API endpoint server waktu riil
                 return new Date(); 
             } catch (error) {
                 return new Date();
@@ -501,12 +500,41 @@
                     }
 
                     if (distance <= MAX_RADIUS) {
+                        const timeStringShort = serverTime.toTimeString().split(' ')[0].substring(0, 5) + ' WIB';
+                        const timeStringFull = serverTime.toTimeString().split(' ')[0] + ' WIB';
+
                         alert(`Absensi Berhasil! Jarak Anda ${Math.round(distance)} meter dari basecamp (Dalam radius ${MAX_RADIUS}m). Tercatat pada: ${serverTime.toLocaleTimeString()}`);
                         
-                        // Update status jam masuk pada tampilan
+                        // Update status jam masuk pada tampilan mobile
                         const jamMasukEl = document.querySelector('#m-tab-absen .grid-cols-2 div:first-child span.text-emerald-400');
                         if (jamMasukEl) {
-                            jamMasukEl.innerText = serverTime.toTimeString().split(' ')[0].substring(0, 5) + ' WIB';
+                            jamMasukEl.innerText = timeStringShort;
+                        }
+
+                        // Update instantly on Desktop Rekap Absensi Table
+                        const rekapTbody = document.getElementById('rekap-tbody');
+                        if (rekapTbody) {
+                            const hours = serverTime.getHours();
+                            const minutes = serverTime.getMinutes();
+                            // Asumsi jam masuk normal pukul 08:00 WIB
+                            let isLate = hours > 8 || (hours === 8 && minutes > 0);
+                            let statusHtml = isLate 
+                                ? `<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>`
+                                : `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>`;
+                            let lateCount = isLate ? `${(hours - 8) * 60 + minutes} Menit` : '-';
+                            let lateColorClass = isLate ? 'text-amber-400 font-bold' : 'text-slate-500';
+
+                            const rows = rekapTbody.getElementsByTagName('tr');
+                            if (rows.length > 0) {
+                                // Memperbarui baris data pertama (Rudi Batubara) secara real-time
+                                rows[0].innerHTML = `
+                                    <td class="p-3 font-medium text-white">Rudi Batubara</td>
+                                    <td class="p-3 text-slate-400">Pekanbaru Pusat</td>
+                                    <td class="p-3">${timeStringFull}</td>
+                                    <td class="p-3">${statusHtml}</td>
+                                    <td class="p-3 ${lateColorClass}">${lateCount}</td>
+                                `;
+                            }
                         }
                     } else {
                         alert(`Absensi Ditolak: Anda berada di luar radius basecamp! Jarak Anda saat ini ${Math.round(distance)} meter dari titik basecamp (Maksimal ${MAX_RADIUS} meter).`);
