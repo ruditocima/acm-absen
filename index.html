@@ -287,6 +287,10 @@
                                         <label class="block text-[10px] text-slate-400 uppercase font-bold">Sampai Tanggal</label>
                                         <input type="date" x-model="filterEndDate" class="bg-slate-900 border border-slate-700 text-xs px-3 py-2 rounded-xl text-slate-200">
                                     </div>
+                                    <label class="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer mt-4 bg-slate-900 px-3 py-2 rounded-xl border border-slate-700">
+                                        <input type="checkbox" x-model="showAllDates" class="rounded bg-slate-950 border-slate-700 text-amber-500 focus:ring-amber-500">
+                                        <span>Semua Tanggal</span>
+                                    </label>
                                     <button @click="loadAttendanceData()" class="mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl transition" title="Muat Ulang Data">
                                         <i class="fa-solid fa-rotate-right"></i> Refresh
                                     </button>
@@ -652,6 +656,14 @@
             let str = String(raw).trim();
             if (!str) return getLocalDate();
 
+            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                let y = isoMatch[1];
+                let m = isoMatch[2].padStart(2, '0');
+                let d = isoMatch[3].padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
             let ddmmyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
             if (ddmmyyyyMatch) {
                 let d = ddmmyyyyMatch[1].padStart(2, '0');
@@ -660,18 +672,9 @@
                 return `${y}-${m}-${d}`;
             }
 
-            let cleanStr = str.replace(/(\d{2})\.(\d{2})\.(\d{2})/, '$1:$2:$3');
-            let parsed = new Date(cleanStr);
+            let parsed = new Date(str);
             if (!isNaN(parsed.getTime())) {
                 return getLocalDate(parsed);
-            }
-
-            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-            if (isoMatch) {
-                let y = isoMatch[1];
-                let m = isoMatch[2].padStart(2, '0');
-                let d = isoMatch[3].padStart(2, '0');
-                return `${y}-${m}-${d}`;
             }
 
             return getLocalDate();
@@ -737,6 +740,7 @@
                 adminTab: 'rekap',
                 simulationMode: false,
                 isDesktopDevice: window.innerWidth >= 1024,
+                showAllDates: true,
                 
                 currentUserRole: '',
                 currentEmpId: null,
@@ -1512,6 +1516,10 @@
                         if (currEmpId) {
                             logs = logs.filter(item => (item.empId || '').toLowerCase().trim() === currEmpId);
                         }
+                    }
+
+                    if (this.showAllDates) {
+                        return logs;
                     }
 
                     return logs.filter(item => {
