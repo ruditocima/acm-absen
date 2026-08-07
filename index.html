@@ -1,399 +1,1181 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Absensi YOFC Team</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .glass-card { background: rgba(18, 24, 38, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .glass-light { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YOFC TEAM - System Management Absensi & Tim</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between" x-data="absensiApp()">
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col md:flex-row">
 
-    <header class="glass-card sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-slate-800">
+  <!-- SIDEBAR NAVIGATION -->
+  <aside id="sidebar" class="bg-slate-900 text-slate-300 w-full md:w-64 flex-shrink-0 flex flex-col justify-between transition-all duration-300 z-30">
+    <div>
+      <!-- Brand Logo -->
+      <div class="h-16 flex items-center justify-between px-6 bg-slate-950 border-b border-slate-800">
         <div class="flex items-center space-x-3">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950 font-extrabold text-xl">
-                <i class="fa-solid fa-fingerprint"></i>
-            </div>
-            <div>
-                <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent">YOFC TEAM ATTENDANCE</h1>
-                <p class="text-xs text-slate-400 font-medium">Secure Geofencing Portal</p>
-            </div>
+          <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-500/20">
+            <i class="fa-solid fa-network-wired"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-white text-base tracking-wide leading-tight">YOFC TEAM</h1>
+            <p class="text-[10px] text-blue-400 uppercase font-semibold">Absensi & Management</p>
+          </div>
         </div>
-        <div class="flex items-center space-x-3">
-            <button @click="switchRole()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition font-semibold text-amber-400">
-                <i class="fa-solid fa-rotate mr-1"></i> Mode: <span x-text="isAdminView ? 'Admin / Staff Portal' : 'Karyawan (HP)'"></span>
-            </button>
+      </div>
+
+      <!-- User Info Badge -->
+      <div class="p-4 border-b border-slate-800/80 bg-slate-900/50 flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-semibold text-sm border border-slate-600">
+          RB
         </div>
+        <div class="overflow-hidden">
+          <p class="text-sm font-semibold text-white truncate">Rudi Batubara</p>
+          <p class="text-xs text-slate-400 truncate">Project Coordinator / Subkont</p>
+        </div>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="p-4 space-y-1">
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-white bg-blue-600 shadow-sm">
+          <i class="fa-solid fa-chart-pie w-5 text-center"></i>
+          <span>Dashboard</span>
+        </button>
+
+        <button onclick="switchTab('input-absensi')" id="nav-input-absensi" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-clipboard-user w-5 text-center"></i>
+          <span>Input Absensi</span>
+        </button>
+
+        <button onclick="switchTab('data-karyawan')" id="nav-data-karyawan" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-users w-5 text-center"></i>
+          <span>Data Tim & Karyawan</span>
+        </button>
+
+        <button onclick="switchTab('rekap-absensi')" id="nav-rekap-absensi" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-file-invoice w-5 text-center"></i>
+          <span>Rekapitulasi Absensi</span>
+        </button>
+
+        <button onclick="switchTab('pengaturan')" id="nav-pengaturan" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
+          <i class="fa-solid fa-sliders w-5 text-center"></i>
+          <span>Pengaturan System</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- System Status Footer -->
+    <div class="p-4 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
+      <span>Database LocalStorage</span>
+      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Active
+      </span>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+    
+    <!-- TOP HEADER -->
+    <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-xs z-10">
+      <div class="flex items-center space-x-4">
+        <h2 id="page-title" class="text-xl font-bold text-slate-800 tracking-tight">Dashboard Overview</h2>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <div class="hidden sm:flex items-center space-x-2 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium">
+          <i class="fa-regular fa-calendar text-blue-600"></i>
+          <span id="current-date-display">-- Hari Ini --</span>
+        </div>
+        <button onclick="openNotificationModal()" class="relative p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors">
+          <i class="fa-regular fa-bell text-lg"></i>
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+        </button>
+      </div>
     </header>
 
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+    <!-- MAIN BODY -->
+    <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50">
 
-        <!-- KARYAWAN PORTAL -->
-        <template x-if="!isAdminView">
-            <div class="max-w-md mx-auto">
-                <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                    <div class="text-center mb-6">
-                        <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
-                        <p class="text-xs font-semibold text-slate-600 mt-1">Uji Coba: ID <strong class="text-amber-600">rudi01</strong> | Pass <strong class="text-amber-600">123456</strong></p>
-                    </div>
+      <!-- TOAST CONTAINER -->
+      <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
 
-                    <form @submit.prevent="handleCheckIn" class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
-                            <input type="text" x-model="loginId" autocapitalize="none" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="Contoh: rudi01">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                            <input type="password" x-model="loginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="••••••••">
-                        </div>
+      <!-- ========================================== -->
+      <!-- TAB 1: DASHBOARD OVERVIEW -->
+      <!-- ========================================== -->
+      <section id="tab-dashboard" class="tab-content space-y-6">
+        <!-- KPI METRICS STATS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Total Karyawan -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Tim/Karyawan</p>
+              <h3 id="stat-total-karyawan" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
+              <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-users text-blue-500 mr-1"></i> Personil terdaftar</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-user-group"></i>
+            </div>
+          </div>
 
-                        <button type="submit" :disabled="isSubmitting" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
-                            <span x-show="!isSubmitting"><i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG</span>
-                            <span x-show="isSubmitting">MENYIMPAN...</span>
-                        </button>
-                    </form>
+          <!-- Hadir Hari Ini -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hadir Hari Ini</p>
+              <h3 id="stat-hadir-today" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
+              <p class="text-xs text-emerald-600 mt-1" id="stat-hadir-percent">0% Kehadiran</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-user-check"></i>
+            </div>
+          </div>
+
+          <!-- Sakit / Izin -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Izin / Sakit</p>
+              <h3 id="stat-izin-today" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
+              <p class="text-xs text-amber-600 mt-1">Tercatat dispensasi</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-user-clock"></i>
+            </div>
+          </div>
+
+          <!-- Alpha -->
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Alpha (Tanpa Ket.)</p>
+              <h3 id="stat-alpha-today" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
+              <p class="text-xs text-rose-600 mt-1">Belum ada konfirmasi</p>
+            </div>
+            <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
+              <i class="fa-solid fa-user-xmark"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- DASHBOARD ACTION BAR & REKAP PREVIEW -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- LEFT: Quick Actions -->
+          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center space-x-3 mb-4">
+                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <i class="fa-solid fa-bolt"></i>
                 </div>
+                <div>
+                  <h4 class="font-bold text-slate-800">Aksi Cepat Presensi</h4>
+                  <p class="text-xs text-slate-500">Pencatatan kehadiran tim wilayah</p>
+                </div>
+              </div>
+              <p class="text-xs text-slate-600 mb-4 leading-relaxed">
+                Kelola pencatatan kehadiran harian tim lapangan di wilayah Palembang, Padang, Aceh, Pekanbaru, Dumai, dan Sidoarjo secara praktis.
+              </p>
             </div>
-        </template>
 
-        <!-- ADMIN / STAFF PORTAL -->
-        <template x-if="isAdminView">
-            <div class="space-y-6">
-                <!-- LOGIN ADMIN -->
-                <template x-if="!isAdminLoggedIn">
-                    <div class="max-w-md mx-auto mt-12">
-                        <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
-                            <div class="text-center mb-6">
-                                <h2 class="text-2xl font-black text-slate-900">Login Portal Admin</h2>
-                                <p class="text-xs text-slate-500 mt-1">Master User: <strong>admin</strong> | Pass: <strong>Ounyenk2018#</strong></p>
-                            </div>
-
-                            <form @submit.prevent="handleAdminLogin" class="space-y-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID / Username</label>
-                                    <input type="text" x-model="adminLoginUser" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="admin">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
-                                    <input type="password" x-model="adminLoginPass" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 outline-none" placeholder="••••••••">
-                                </div>
-                                <button type="submit" class="w-full py-4 rounded-xl bg-amber-500 text-slate-950 font-extrabold text-base shadow-lg">LOGIN PORTAL</button>
-                            </form>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- DASHBOARD ADMIN -->
-                <template x-if="isAdminLoggedIn">
-                    <div class="space-y-6">
-                        <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-                            <div class="flex items-center space-x-3">
-                                <span class="text-xs font-bold text-slate-200 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800" x-text="currentUserRole"></span>
-                            </div>
-                            <div class="flex items-center space-x-3 flex-wrap gap-2">
-                                <button @click="addDummyData()" class="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow"><i class="fa-solid fa-plus mr-1"></i> Tes Tambah Baris</button>
-                                <button @click="loadData()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh</button>
-                                <button @click="resetCache()" class="px-3 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-300 text-xs font-bold rounded-xl">Reset Cache</button>
-                                <button @click="adminLogout()" class="px-3 py-2 bg-slate-700 text-slate-200 rounded-xl text-xs font-bold">Logout</button>
-                            </div>
-                        </div>
-
-                        <!-- TAB REKAP -->
-                        <div class="glass-card p-6 rounded-3xl space-y-6">
-                            <div class="flex justify-between items-center">
-                                <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi</h2>
-                                <span class="text-xs text-slate-400">Total Baris: <strong class="text-amber-400" x-text="attendanceLogs.length"></strong></span>
-                            </div>
-                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
-                                <table class="w-full text-left border-collapse text-xs">
-                                    <thead>
-                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
-                                            <th class="p-4">ID</th>
-                                            <th class="p-4">Waktu</th>
-                                            <th class="p-4">ID Karyawan</th>
-                                            <th class="p-4">Nama</th>
-                                            <th class="p-4">Role</th>
-                                            <th class="p-4">Basecamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(item, index) in attendanceLogs" :key="item.id || ('idx-' + index)">
-                                            <tr class="hover:bg-slate-900/50 transition">
-                                                <td class="p-4 font-mono text-slate-400" x-text="item.id"></td>
-                                                <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
-                                                <td class="p-4 font-mono text-amber-400" x-text="item.emp_id"></td>
-                                                <td class="p-4 font-bold text-white" x-text="item.name"></td>
-                                                <td class="p-4 text-slate-400" x-text="item.role"></td>
-                                                <td class="p-4 text-amber-300 font-semibold" x-text="item.basecamp"></td>
-                                            </tr>
-                                        </template>
-                                        <template x-if="attendanceLogs.length === 0">
-                                            <tr>
-                                                <td colspan="6" class="p-8 text-center text-slate-500 italic">Belum ada data absensi tercatat.</td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                        <!-- INSPECTOR JSON MENTAH -->
-                        <div class="glass-card p-6 rounded-3xl space-y-3">
-                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-code mr-2"></i> Live Data Inspector (JSON)</h3>
-                            <pre class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-amber-300 h-32 overflow-y-auto border border-slate-800" x-text="JSON.stringify(attendanceLogs, null, 2)"></pre>
-                        </div>
-
-                        <!-- DEBUGGER DI LAYAR -->
-                        <div class="glass-card p-6 rounded-3xl space-y-3">
-                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-terminal mr-2"></i> Log Aktivitas Sistem</h3>
-                            <div class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-emerald-400 h-28 overflow-y-auto border border-slate-800">
-                                <template x-for="log in debugLogs">
-                                    <div x-text="log" class="mb-1"></div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </template>
+            <div class="space-y-2 pt-2">
+              <button onclick="switchTab('input-absensi')" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 shadow-sm">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>Buka Form Absensi Full</span>
+              </button>
+              <button onclick="switchTab('rekap-absensi')" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-file-export"></i>
+                <span>Lihat Laporan Rekapitulasi</span>
+              </button>
             </div>
-        </template>
+          </div>
+
+          <!-- RIGHT: Rekapitulasi Absensi Ringkasan (Dashboard Table Widget) -->
+          <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-chart-column text-blue-600"></i>
+                <h4 class="font-bold text-slate-800">Rekapitulasi Absensi Ringkasan</h4>
+              </div>
+              <span class="text-xs text-slate-500 font-medium">Bulan Ini</span>
+            </div>
+
+            <div class="p-4 overflow-x-auto">
+              <table class="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr class="bg-slate-100/70 text-slate-600 uppercase font-semibold border-b border-slate-200">
+                    <th class="py-2.5 px-3">Karyawan</th>
+                    <th class="py-2.5 px-3">Region Worksite</th>
+                    <th class="py-2.5 px-3 text-center text-emerald-600">Hadir</th>
+                    <th class="py-2.5 px-3 text-center text-amber-600">Izin</th>
+                    <th class="py-2.5 px-3 text-center text-blue-600">Sakit</th>
+                    <th class="py-2.5 px-3 text-center text-rose-600">Alpha</th>
+                    <th class="py-2.5 px-3 text-center">% Kehadiran</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-rekap-tbody" class="divide-y divide-slate-100">
+                  <!-- Populated by JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RECENT ACTIVITY LOGS -->
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="font-bold text-slate-800 text-sm flex items-center">
+              <i class="fa-solid fa-clock-rotate-left text-slate-400 mr-2"></i> Log Activity Absensi Terbaru
+            </h4>
+            <button onclick="switchTab('rekap-absensi')" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Lihat Semua Laporan &rarr;</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+              <thead>
+                <tr class="text-slate-400 border-b border-slate-100 pb-2">
+                  <th class="py-2 px-3">Tanggal & Waktu</th>
+                  <th class="py-2 px-3">Nama Karyawan</th>
+                  <th class="py-2 px-3">Region</th>
+                  <th class="py-2 px-3">Status</th>
+                  <th class="py-2 px-3">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-activity-tbody" class="divide-y divide-slate-100">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: INPUT ABSENSI FULL -->
+      <!-- ========================================== -->
+      <section id="tab-input-absensi" class="tab-content hidden space-y-6">
+        <div class="max-w-3xl mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="bg-slate-900 text-white p-6">
+            <h3 class="text-lg font-bold flex items-center">
+              <i class="fa-solid fa-clipboard-user text-blue-400 mr-3"></i>
+              Form Input Absensi Karyawan
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Lengkapi data absensi di bawah ini untuk mencatat presensi tim.</p>
+          </div>
+
+          <form id="form-absensi" onsubmit="handleAbsensiSubmit(event)" class="p-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Select Karyawan -->
+              <div class="space-y-1 md:col-span-2">
+                <label class="block text-xs font-semibold text-slate-700">Pilih Karyawan / Anggota Tim <span class="text-rose-500">*</span></label>
+                <select id="absen-karyawan-id" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                  <option value="">-- Pilih Nama Karyawan --</option>
+                </select>
+              </div>
+
+              <!-- Tanggal Absen -->
+              <div class="space-y-1">
+                <label class="block text-xs font-semibold text-slate-700">Tanggal Absensi <span class="text-rose-500">*</span></label>
+                <input type="date" id="absen-tanggal" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <!-- Jam Absen -->
+              <div class="space-y-1">
+                <label class="block text-xs font-semibold text-slate-700">Waktu / Jam Absen <span class="text-rose-500">*</span></label>
+                <input type="time" id="absen-jam" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              </div>
+
+              <!-- Status Kehadiran -->
+              <div class="space-y-1">
+                <label class="block text-xs font-semibold text-slate-700">Status Kehadiran <span class="text-rose-500">*</span></label>
+                <select id="absen-status" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                  <option value="Hadir">Hadir (Present)</option>
+                  <option value="Izin">Izin (Leave)</option>
+                  <option value="Sakit">Sakit (Sick)</option>
+                  <option value="Alpha">Alpha (Absent)</option>
+                </select>
+              </div>
+
+              <!-- Region Worksite -->
+              <div class="space-y-1">
+                <label class="block text-xs font-semibold text-slate-700">Lokasi / Region Worksite</label>
+                <select id="absen-region" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                  <option value="Palembang">Palembang (Sumsel)</option>
+                  <option value="Padang">Padang (Sumbar)</option>
+                  <option value="Aceh">Aceh</option>
+                  <option value="Pekanbaru">Pekanbaru (Riau)</option>
+                  <option value="Dumai">Dumai</option>
+                  <option value="Sidoarjo">Sidoarjo (Jawa Timur)</option>
+                </select>
+              </div>
+
+              <!-- Keterangan -->
+              <div class="space-y-1 md:col-span-2">
+                <label class="block text-xs font-semibold text-slate-700">Catatan / Keterangan Pekerjaan</label>
+                <textarea id="absen-keterangan" rows="3" placeholder="Contoh: Pekerjaan penarikan kabel FTTH di Sektor D06, kondisi lapangan aman." class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
+              <button type="button" onclick="setFormNow()" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition">
+                <i class="fa-solid fa-clock mr-1"></i> Waktu Sekarang
+              </button>
+              <button type="submit" class="py-2.5 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-md flex items-center space-x-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Simpan Absensi</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: DATA KARYAWAN -->
+      <!-- ========================================== -->
+      <section id="tab-data-karyawan" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <div>
+              <h3 class="text-lg font-bold text-slate-800">Daftar Tim & Karyawan YOFC</h3>
+              <p class="text-xs text-slate-500">Kelola master data personil teknis dan administrasi</p>
+            </div>
+            <button onclick="openModalKaryawan()" class="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-xs transition flex items-center justify-center space-x-2 shadow-sm">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Tambah Karyawan Baru</span>
+            </button>
+          </div>
+
+          <!-- Search & Filter Bar -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div class="relative">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+              <input type="text" id="search-karyawan" oninput="renderKaryawanTable()" placeholder="Cari Nama / NIK / Jabatan..." class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            </div>
+            <div>
+              <select id="filter-karyawan-region" onchange="renderKaryawanTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                <option value="">Semua Region Worksite</option>
+                <option value="Palembang">Palembang</option>
+                <option value="Padang">Padang</option>
+                <option value="Aceh">Aceh</option>
+                <option value="Pekanbaru">Pekanbaru</option>
+                <option value="Dumai">Dumai</option>
+                <option value="Sidoarjo">Sidoarjo</option>
+              </select>
+            </div>
+            <div>
+              <select id="filter-karyawan-status" onchange="renderKaryawanTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                <option value="">Semua Status Aktif</option>
+                <option value="Aktif">Aktif</option>
+                <option value="Non-Aktif">Non-Aktif</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Karyawan Table -->
+          <div class="overflow-x-auto border border-slate-100 rounded-lg">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="bg-slate-100 text-slate-600 uppercase font-semibold border-b border-slate-200">
+                  <th class="py-3 px-4">NIK</th>
+                  <th class="py-3 px-4">Nama Lengkap</th>
+                  <th class="py-3 px-4">Jabatan / Role</th>
+                  <th class="py-3 px-4">Region Worksite</th>
+                  <th class="py-3 px-4">Kontak / No HP</th>
+                  <th class="py-3 px-4 text-center">Status</th>
+                  <th class="py-3 px-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="table-karyawan-tbody" class="divide-y divide-slate-100">
+                <!-- Dynamic Content -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: REKAPITULASI ABSENSI FULL -->
+      <!-- ========================================== -->
+      <section id="tab-rekap-absensi" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
+            <div>
+              <h3 class="text-lg font-bold text-slate-800">Rekapitulasi Presensi & Kehadiran Tim</h3>
+              <p class="text-xs text-slate-500">Monitoring kumulatif kehadiran bulanan dan statistik personil</p>
+            </div>
+
+            <!-- Export Buttons -->
+            <div class="flex items-center space-x-2">
+              <button onclick="exportRekapToCSV()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-file-excel"></i>
+                <span>Export CSV / Excel</span>
+              </button>
+              <button onclick="window.print()" class="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg text-xs transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-print"></i>
+                <span>Cetak Laporan</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filters Bar -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter Bulan & Tahun</label>
+              <input type="month" id="rekap-filter-month" onchange="renderRekapitulasiTable()" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter Region Worksite</label>
+              <select id="rekap-filter-region" onchange="renderRekapitulasiTable()" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+                <option value="">Semua Region</option>
+                <option value="Palembang">Palembang</option>
+                <option value="Padang">Padang</option>
+                <option value="Aceh">Aceh</option>
+                <option value="Pekanbaru">Pekanbaru</option>
+                <option value="Dumai">Dumai</option>
+                <option value="Sidoarjo">Sidoarjo</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pencarian Nama</label>
+              <input type="text" id="rekap-filter-search" oninput="renderRekapitulasiTable()" placeholder="Cari nama karyawan..." class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            </div>
+
+            <div class="flex items-end">
+              <button onclick="resetRekapFilters()" class="w-full py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg text-xs transition flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Reset Filter</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- MAIN REKAPITULASI TABLE -->
+          <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-900 text-white uppercase font-semibold text-[11px] tracking-wider">
+                  <th class="py-3 px-4">No</th>
+                  <th class="py-3 px-4">Nama Karyawan</th>
+                  <th class="py-3 px-4">Jabatan</th>
+                  <th class="py-3 px-4">Region Worksite</th>
+                  <th class="py-3 px-4 text-center text-emerald-400 bg-slate-800/80">Hadir (H)</th>
+                  <th class="py-3 px-4 text-center text-amber-400 bg-slate-800/80">Izin (I)</th>
+                  <th class="py-3 px-4 text-center text-blue-400 bg-slate-800/80">Sakit (S)</th>
+                  <th class="py-3 px-4 text-center text-rose-400 bg-slate-800/80">Alpha (A)</th>
+                  <th class="py-3 px-4 text-center">Total Entri</th>
+                  <th class="py-3 px-4 text-center">% Kehadiran</th>
+                  <th class="py-3 px-4 text-center">Aksi Detail</th>
+                </tr>
+              </thead>
+              <tbody id="rekap-full-tbody" class="divide-y divide-slate-200">
+                <!-- JS dynamically populates full recapitulation -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: PENGATURAN SYSTEM -->
+      <!-- ========================================== -->
+      <section id="tab-pengaturan" class="tab-content hidden space-y-6">
+        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 max-w-3xl">
+          <h3 class="text-lg font-bold text-slate-800 mb-1">Pengaturan & Manajemen Database Local</h3>
+          <p class="text-xs text-slate-500 mb-6">Kelola konfigurasi sistem absensi dan pemeliharaan data aplikasi.</p>
+
+          <div class="space-y-6 divide-y divide-slate-100">
+            <!-- Reset Demo Data -->
+            <div class="pt-4 flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-semibold text-slate-800">Muat Ulang Sample Data Demo</h4>
+                <p class="text-xs text-slate-500">Restorasi data tim default & catatan absensi awal untuk simulasi.</p>
+              </div>
+              <button onclick="resetToDemoData()" class="py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-xs transition shadow-sm">
+                <i class="fa-solid fa-arrows-rotate mr-1"></i> Reset Demo Data
+              </button>
+            </div>
+
+            <!-- Clear All Data -->
+            <div class="pt-4 flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-semibold text-rose-600">Hapus Semua Data LocalStorage</h4>
+                <p class="text-xs text-slate-500">Peringatan: Tindakan ini akan mengosongkan seluruh database absensi dan tim.</p>
+              </div>
+              <button onclick="clearAllData()" class="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg text-xs transition shadow-sm">
+                <i class="fa-solid fa-trash-can mr-1"></i> Kosongkan Data
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </main>
+  </div>
 
-    <script>
-        const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
+  <!-- ========================================== -->
+  <!-- MODAL: KARYAWAN (TAMBAH / EDIT) -->
+  <!-- ========================================== -->
+  <div id="modal-karyawan" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <h4 id="modal-karyawan-title" class="font-bold text-sm">Tambah Karyawan Baru</h4>
+        <button onclick="closeModalKaryawan()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
 
-        function getLocalDate() {
-            const d = new Date();
-            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      <form id="form-karyawan" onsubmit="handleKaryawanSubmit(event)" class="p-5 space-y-4">
+        <input type="hidden" id="karyawan-id-hidden">
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">NIK / ID Karyawan <span class="text-rose-500">*</span></label>
+          <input type="text" id="karyawan-nik" required placeholder="Contoh: YFC-001" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">Nama Lengkap <span class="text-rose-500">*</span></label>
+          <input type="text" id="karyawan-nama" required placeholder="Nama lengkap personil" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">Jabatan / Peran <span class="text-rose-500">*</span></label>
+          <input type="text" id="karyawan-jabatan" required placeholder="Contoh: Field Engineer / Splicer / Safety Inspector" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">Region Worksite <span class="text-rose-500">*</span></label>
+          <select id="karyawan-region" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            <option value="Palembang">Palembang</option>
+            <option value="Padang">Padang</option>
+            <option value="Aceh">Aceh</option>
+            <option value="Pekanbaru">Pekanbaru</option>
+            <option value="Dumai">Dumai</option>
+            <option value="Sidoarjo">Sidoarjo</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">No HP / WhatsApp</label>
+          <input type="text" id="karyawan-kontak" placeholder="0812xxxxxxxx" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <div class="space-y-1">
+          <label class="block text-xs font-semibold text-slate-700">Status Keaktifan</label>
+          <select id="karyawan-status" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
+            <option value="Aktif">Aktif</option>
+            <option value="Non-Aktif">Non-Aktif</option>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
+          <button type="button" onclick="closeModalKaryawan()" class="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg">Batal</button>
+          <button type="submit" class="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm">Simpan Data</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: DETAIL ABSENSI INDIVIDUAL -->
+  <!-- ========================================== -->
+  <div id="modal-detail-absen" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200">
+      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
+        <div>
+          <h4 id="detail-employee-name" class="font-bold text-sm">Detail Presensi</h4>
+          <p id="detail-employee-sub" class="text-xs text-slate-400">Riwayat log presensi harian</p>
+        </div>
+        <button onclick="closeModalDetail()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
+              <th class="py-2 px-3">Tanggal & Jam</th>
+              <th class="py-2 px-3">Status</th>
+              <th class="py-2 px-3">Region</th>
+              <th class="py-2 px-3">Keterangan</th>
+            </tr>
+          </thead>
+          <tbody id="detail-absen-tbody" class="divide-y divide-slate-100">
+            <!-- Dynamic Content -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+        <button onclick="closeModalDetail()" class="py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-lg">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGIC -->
+  <!-- ========================================== -->
+  <script>
+    // INITIAL SAMPLE DATA DEMO
+    const DEFAULT_KARYAWAN = [
+      { id: '1', nik: 'YFC-001', nama: 'Ahmad Rivai', jabatan: 'Site Manager', region: 'Palembang', kontak: '081271002233', status: 'Aktif' },
+      { id: '2', nik: 'YFC-002', nama: 'Budi Santoso', jabatan: 'Fiber Optic Splicer', region: 'Palembang', kontak: '081368991122', status: 'Aktif' },
+      { id: '3', nik: 'YFC-003', nama: 'Candra Wijaya', jabatan: 'Civil Worker', region: 'Padang', kontak: '085263110044', status: 'Aktif' },
+      { id: '4', nik: 'YFC-004', nama: 'Dedi Kurniawan', jabatan: 'Safety Inspector', region: 'Aceh', kontak: '081165443322', status: 'Aktif' },
+      { id: '5', nik: 'YFC-005', nama: 'Eko Prasetyo', jabatan: 'Project Engineer', region: 'Pekanbaru', kontak: '082170809000', status: 'Aktif' },
+      { id: '6', nik: 'YFC-006', nama: 'Fajar Hidayat', jabatan: 'Logistics Supervisor', region: 'Dumai', kontak: '081277665544', status: 'Aktif' },
+      { id: '7', nik: 'YFC-007', nama: 'Gilang Ramadhan', jabatan: 'FTTH Technician', region: 'Sidoarjo', kontak: '085730112233', status: 'Aktif' }
+    ];
+
+    function generateSampleAbsensi() {
+      const todayStr = new Date().toISOString().split('T')[0];
+      return [
+        { id: 'a1', karyawanId: '1', tanggal: todayStr, jam: '07:45', status: 'Hadir', region: 'Palembang', keterangan: 'Pengawasan site FTTH Palembang' },
+        { id: 'a2', karyawanId: '2', tanggal: todayStr, jam: '08:00', status: 'Hadir', region: 'Palembang', keterangan: 'Jointing closure segment 1' },
+        { id: 'a3', karyawanId: '3', tanggal: todayStr, jam: '08:15', status: 'Izin', region: 'Padang', keterangan: 'Izin urusan keluarga' },
+        { id: 'a4', karyawanId: '4', tanggal: todayStr, jam: '07:30', status: 'Hadir', region: 'Aceh', keterangan: 'Inspeksi K3 Banda Aceh' },
+        { id: 'a5', karyawanId: '5', tanggal: todayStr, jam: '08:05', status: 'Sakit', region: 'Pekanbaru', keterangan: 'Demam & istirahat dokter' },
+        { id: 'a6', karyawanId: '6', tanggal: todayStr, jam: '09:00', status: 'Alpha', region: 'Dumai', keterangan: 'Tidak ada konfirmasi' },
+        { id: 'a7', karyawanId: '7', tanggal: todayStr, jam: '07:50', status: 'Hadir', region: 'Sidoarjo', keterangan: 'Pekerjaan penarikan kabel Sidoarjo' }
+      ];
+    }
+
+    // STATE STORE
+    let karyawanList = [];
+    let absensiList = [];
+
+    // ON PAGE LOAD
+    document.addEventListener('DOMContentLoaded', () => {
+      initDatabase();
+      initUI();
+      switchTab('dashboard');
+    });
+
+    function initDatabase() {
+      const storedKaryawan = localStorage.getItem('yofc_karyawan');
+      const storedAbsensi = localStorage.getItem('yofc_absensi');
+
+      if (!storedKaryawan) {
+        karyawanList = [...DEFAULT_KARYAWAN];
+        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
+      } else {
+        karyawanList = JSON.parse(storedKaryawan);
+      }
+
+      if (!storedAbsensi) {
+        absensiList = generateSampleAbsensi();
+        localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
+      } else {
+        absensiList = JSON.parse(storedAbsensi);
+      }
+    }
+
+    function initUI() {
+      // Date Display
+      const now = new Date();
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById('current-date-display').innerText = now.toLocaleDateString('id-ID', options);
+
+      // Default month filter
+      const monthStr = now.toISOString().slice(0, 7);
+      document.getElementById('rekap-filter-month').value = monthStr;
+
+      // Populate Select Karyawan in Absen Form
+      populateSelectKaryawan();
+      setFormNow();
+    }
+
+    // TAB SWITCHING LOGIC
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('bg-blue-600', 'text-white');
+        el.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+      });
+
+      const targetTab = document.getElementById(`tab-${tabName}`);
+      const targetNav = document.getElementById(`nav-${tabName}`);
+      if (targetTab) targetTab.classList.remove('hidden');
+      if (targetNav) {
+        targetNav.classList.add('bg-blue-600', 'text-white');
+        targetNav.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
+      }
+
+      const titles = {
+        'dashboard': 'Dashboard Overview',
+        'input-absensi': 'Form Presensi Karyawan',
+        'data-karyawan': 'Kelola Data Tim & Karyawan',
+        'rekap-absensi': 'Rekapitulasi Presensi & Laporan',
+        'pengaturan': 'Pengaturan System'
+      };
+      document.getElementById('page-title').innerText = titles[tabName] || 'YOFC App';
+
+      if (tabName === 'dashboard') renderDashboard();
+      if (tabName === 'data-karyawan') renderKaryawanTable();
+      if (tabName === 'rekap-absensi') renderRekapitulasiTable();
+      if (tabName === 'input-absensi') populateSelectKaryawan();
+    }
+
+    // RENDER DASHBOARD
+    function renderDashboard() {
+      // 1. Stats KPI
+      const totalKaryawan = karyawanList.filter(k => k.status === 'Aktif').length;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayAbsens = absensiList.filter(a => a.tanggal === todayStr);
+
+      const hadirToday = todayAbsens.filter(a => a.status === 'Hadir').length;
+      const izinToday = todayAbsens.filter(a => a.status === 'Izin' || a.status === 'Sakit').length;
+      const alphaToday = todayAbsens.filter(a => a.status === 'Alpha').length;
+
+      document.getElementById('stat-total-karyawan').innerText = totalKaryawan;
+      document.getElementById('stat-hadir-today').innerText = hadirToday;
+      document.getElementById('stat-izin-today').innerText = izinToday;
+      document.getElementById('stat-alpha-today').innerText = alphaToday;
+
+      const percent = totalKaryawan > 0 ? Math.round((hadirToday / totalKaryawan) * 100) : 0;
+      document.getElementById('stat-hadir-percent').innerText = `${percent}% Kehadiran`;
+
+      // 2. Dashboard Rekap Summary
+      renderDashboardRekapSummary();
+
+      // 3. Activity Log Table
+      const activityTbody = document.getElementById('dashboard-activity-tbody');
+      activityTbody.innerHTML = '';
+
+      const recentAbsensi = [...absensiList].sort((a, b) => new Date(b.tanggal + 'T' + b.jam) - new Date(a.tanggal + 'T' + a.jam)).slice(0, 5);
+
+      if (recentAbsensi.length === 0) {
+        activityTbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">Belum ada riwayat absensi.</td></tr>`;
+      } else {
+        recentAbsensi.forEach(item => {
+          const kar = karyawanList.find(k => k.id === item.karyawanId) || { nama: 'Unknown Karyawan' };
+          const badgeColor = {
+            'Hadir': 'bg-emerald-100 text-emerald-700',
+            'Izin': 'bg-amber-100 text-amber-700',
+            'Sakit': 'bg-blue-100 text-blue-700',
+            'Alpha': 'bg-rose-100 text-rose-700'
+          }[item.status] || 'bg-slate-100 text-slate-700';
+
+          activityTbody.innerHTML += `
+            <tr class="hover:bg-slate-50">
+              <td class="py-2.5 px-3 font-medium text-slate-700">${item.tanggal} <span class="text-slate-400 text-[10px]">(${item.jam})</span></td>
+              <td class="py-2.5 px-3 font-semibold text-slate-800">${kar.nama}</td>
+              <td class="py-2.5 px-3 text-slate-600">${item.region || '-'}</td>
+              <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeColor}">${item.status}</span></td>
+              <td class="py-2.5 px-3 text-slate-500 truncate max-w-[200px]">${item.keterangan || '-'}</td>
+            </tr>
+          `;
+        });
+      }
+    }
+
+    // DASHBOARD REKAP SUMMARY
+    function renderDashboardRekapSummary() {
+      const tbody = document.getElementById('dashboard-rekap-tbody');
+      tbody.innerHTML = '';
+
+      if (karyawanList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Belum ada data karyawan.</td></tr>`;
+        return;
+      }
+
+      karyawanList.slice(0, 6).forEach(kar => {
+        const karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
+        const hadirCount = karAbsens.filter(a => a.status === 'Hadir').length;
+        const izinCount = karAbsens.filter(a => a.status === 'Izin').length;
+        const sakitCount = karAbsens.filter(a => a.status === 'Sakit').length;
+        const alphaCount = karAbsens.filter(a => a.status === 'Alpha').length;
+        const total = karAbsens.length;
+
+        const rate = total > 0 ? Math.round((hadirCount / total) * 100) : 0;
+
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="py-2.5 px-3 font-semibold text-slate-800">${kar.nama}</td>
+            <td class="py-2.5 px-3 text-slate-500">${kar.region}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${hadirCount}</td>
+            <td class="py-2.5 px-3 text-center text-amber-600">${izinCount}</td>
+            <td class="py-2.5 px-3 text-center text-blue-600">${sakitCount}</td>
+            <td class="py-2.5 px-3 text-center text-rose-600">${alphaCount}</td>
+            <td class="py-2.5 px-3 text-center">
+              <span class="font-bold text-slate-700">${rate}%</span>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // FORM ABSENSI LOGIC
+    function populateSelectKaryawan() {
+      const select = document.getElementById('absen-karyawan-id');
+      select.innerHTML = '<option value="">-- Pilih Nama Karyawan --</option>';
+      karyawanList.filter(k => k.status === 'Aktif').forEach(k => {
+        select.innerHTML += `<option value="${k.id}">${k.nama} (${k.nik} - ${k.region})</option>`;
+      });
+    }
+
+    function setFormNow() {
+      const now = new Date();
+      document.getElementById('absen-tanggal').value = now.toISOString().split('T')[0];
+      const hours = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('absen-jam').value = `${hours}:${mins}`;
+    }
+
+    function handleAbsensiSubmit(e) {
+      e.preventDefault();
+      const karId = document.getElementById('absen-karyawan-id').value;
+      const tanggal = document.getElementById('absen-tanggal').value;
+      const jam = document.getElementById('absen-jam').value;
+      const status = document.getElementById('absen-status').value;
+      const region = document.getElementById('absen-region').value;
+      const keterangan = document.getElementById('absen-keterangan').value;
+
+      const newRecord = {
+        id: 'absen_' + Date.now(),
+        karyawanId: karId,
+        tanggal,
+        jam,
+        status,
+        region,
+        keterangan
+      };
+
+      absensiList.unshift(newRecord);
+      localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
+
+      showToast('Presensi Berhasil', 'Data absensi karyawan berhasil tersimpan.', 'success');
+      document.getElementById('form-absensi').reset();
+      setFormNow();
+    }
+
+    // REKAPITULASI FULL LOGIC
+    function renderRekapitulasiTable() {
+      const monthVal = document.getElementById('rekap-filter-month').value;
+      const regionVal = document.getElementById('rekap-filter-region').value;
+      const searchVal = document.getElementById('rekap-filter-search').value.toLowerCase();
+
+      const tbody = document.getElementById('rekap-full-tbody');
+      tbody.innerHTML = '';
+
+      let filteredKaryawan = karyawanList.filter(k => {
+        const matchesSearch = k.nama.toLowerCase().includes(searchVal) || k.nik.toLowerCase().includes(searchVal);
+        const matchesRegion = !regionVal || k.region === regionVal;
+        return matchesSearch && matchesRegion;
+      });
+
+      if (filteredKaryawan.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400 font-medium">Tidak ada data karyawan yang sesuai filter.</td></tr>`;
+        return;
+      }
+
+      filteredKaryawan.forEach((kar, idx) => {
+        let karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
+
+        if (monthVal) {
+          karAbsens = karAbsens.filter(a => a.tanggal && a.tanggal.startsWith(monthVal));
         }
 
-        function absensiApp() {
-            return {
-                isAdminView: false,
-                isAdminLoggedIn: false,
-                adminLoginUser: '',
-                adminLoginPass: '',
-                currentUserRole: '',
-                
-                loginId: 'rudi01', 
-                loginPass: '123456',
-                isSubmitting: false,
+        const hadir = karAbsens.filter(a => a.status === 'Hadir').length;
+        const izin = karAbsens.filter(a => a.status === 'Izin').length;
+        const sakit = karAbsens.filter(a => a.status === 'Sakit').length;
+        const alpha = karAbsens.filter(a => a.status === 'Alpha').length;
+        const total = karAbsens.length;
+        const rate = total > 0 ? Math.round((hadir / total) * 100) : 0;
 
-                attendanceLogs: [],
-                debugLogs: ['Aplikasi diinisialisasi.'],
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+            <td class="py-3 px-4 font-semibold text-slate-400">${idx + 1}</td>
+            <td class="py-3 px-4">
+              <div class="font-bold text-slate-800">${kar.nama}</div>
+              <div class="text-[10px] text-slate-400">NIK: ${kar.nik}</div>
+            </td>
+            <td class="py-3 px-4 text-slate-600">${kar.jabatan}</td>
+            <td class="py-3 px-4">
+              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">${kar.region}</span>
+            </td>
+            <td class="py-3 px-4 text-center font-bold text-emerald-600 bg-emerald-50/30">${hadir}</td>
+            <td class="py-3 px-4 text-center font-bold text-amber-600 bg-amber-50/30">${izin}</td>
+            <td class="py-3 px-4 text-center font-bold text-blue-600 bg-blue-50/30">${sakit}</td>
+            <td class="py-3 px-4 text-center font-bold text-rose-600 bg-rose-50/30">${alpha}</td>
+            <td class="py-3 px-4 text-center font-semibold text-slate-700">${total} Hari</td>
+            <td class="py-3 px-4 text-center">
+              <span class="px-2 py-1 rounded-full text-xs font-bold ${rate >= 80 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${rate}%</span>
+            </td>
+            <td class="py-3 px-4 text-center">
+              <button onclick="viewDetailAbsensi('${kar.id}')" class="py-1 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold rounded text-[11px] transition">
+                <i class="fa-solid fa-eye mr-1"></i> Log Detail
+              </button>
+            </td>
+          </tr>
+        `;
+      });
+    }
 
-                logMsg(msg) {
-                    const time = new Date().toLocaleTimeString();
-                    this.debugLogs.unshift(`[${time}] ${msg}`);
-                },
+    function resetRekapFilters() {
+      const now = new Date();
+      document.getElementById('rekap-filter-month').value = now.toISOString().slice(0, 7);
+      document.getElementById('rekap-filter-region').value = '';
+      document.getElementById('rekap-filter-search').value = '';
+      renderRekapitulasiTable();
+    }
 
-                init() {
-                    this.loadLocalData();
-                    this.loadData();
-                },
+    function viewDetailAbsensi(karId) {
+      const kar = karyawanList.find(k => k.id === karId);
+      if (!kar) return;
 
-                getLocalSavedData() {
-                    const localSaved = localStorage.getItem('yofc_attendance_v5');
-                    if (localSaved) {
-                        try {
-                            const parsed = JSON.parse(localSaved);
-                            if (Array.isArray(parsed)) return parsed;
-                        } catch(e) {}
-                    }
-                    return [];
-                },
+      document.getElementById('detail-employee-name').innerText = `Log Detail: ${kar.nama}`;
+      document.getElementById('detail-employee-sub').innerText = `Jabatan: ${kar.jabatan} | Region: ${kar.region}`;
 
-                loadLocalData() {
-                    const parsed = this.getLocalSavedData();
-                    if (parsed.length > 0) {
-                        this.attendanceLogs = parsed;
-                        this.logMsg(`Memuat ${parsed.length} data dari LocalStorage.`);
-                    }
-                },
+      const tbody = document.getElementById('detail-absen-tbody');
+      tbody.innerHTML = '';
 
-                saveLocalData() {
-                    localStorage.setItem('yofc_attendance_v5', JSON.stringify(this.attendanceLogs));
-                },
+      const logs = absensiList.filter(a => a.karyawanId === karId);
 
-                resetCache() {
-                    localStorage.removeItem('yofc_attendance_v5');
-                    this.attendanceLogs = [];
-                    this.logMsg("Cache lokal dibersihkan.");
-                    alert("Cache berhasil direset.");
-                },
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">Belum ada catatan presensi.</td></tr>`;
+      } else {
+        logs.forEach(l => {
+          tbody.innerHTML += `
+            <tr>
+              <td class="py-2 px-3 font-medium text-slate-700">${l.tanggal} ${l.jam}</td>
+              <td class="py-2 px-3"><span class="font-bold">${l.status}</span></td>
+              <td class="py-2 px-3 text-slate-600">${l.region}</td>
+              <td class="py-2 px-3 text-slate-500">${l.keterangan || '-'}</td>
+            </tr>
+          `;
+        });
+      }
 
-                addDummyData() {
-                    const now = new Date();
-                    const dummy = {
-                        id: 'TEST-' + Math.floor(Math.random() * 1000),
-                        emp_id: 'rudi01',
-                        name: 'Rudi Batubara (Tes)',
-                        role: 'Project Manager',
-                        basecamp: 'HO Pekanbaru',
-                        timestamp: now.toLocaleString('id-ID'),
-                        date: getLocalDate(),
-                        accuracy: 5
-                    };
-                    this.attendanceLogs.unshift(dummy);
-                    this.saveLocalData();
-                    this.logMsg("Baris tes manual berhasil ditambahkan.");
-                },
+      document.getElementById('modal-detail-absen').classList.remove('hidden');
+    }
 
-                async loadData() {
-                    this.logMsg("Mengambil data dari Supabase...");
-                    let serverFormatted = [];
+    function closeModalDetail() {
+      document.getElementById('modal-detail-absen').classList.add('hidden');
+    }
 
-                    try {
-                        const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance?select=*&order=id.desc`, {
-                            method: 'GET',
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-                            }
-                        });
+    // EXPORT REKAP TO CSV
+    function exportRekapToCSV() {
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "No,Nama,NIK,Jabatan,Region,Hadir,Izin,Sakit,Alpha,Total_Hari,Persentase_Kehadiran\n";
 
-                        if (response.ok) {
-                            const serverData = await response.json();
-                            if (serverData && Array.isArray(serverData)) {
-                                serverFormatted = serverData.map(item => ({
-                                    id: item.id,
-                                    emp_id: item.emp_id || 'rudi01',
-                                    name: item.name || 'Rudi Batubara',
-                                    role: item.role || 'Project Manager',
-                                    basecamp: item.basecamp || 'HO Pekanbaru',
-                                    timestamp: item.timestamp || item.created_at || '-',
-                                    date: item.date || getLocalDate(),
-                                    accuracy: item.accuracy || 5
-                                }));
-                                this.logMsg(`Sukses mengambil ${serverFormatted.length} data dari Supabase.`);
-                            }
-                        } else {
-                            const errText = await response.text();
-                            this.logMsg("Gagal ambil Supabase: " + errText + " (Menggunakan data lokal)");
-                        }
-                    } catch (err) {
-                        this.logMsg("Gagal koneksi jaringan: " + err.message + " (Menggunakan data lokal)");
-                    }
+      karyawanList.forEach((kar, idx) => {
+        const karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
+        const hadir = karAbsens.filter(a => a.status === 'Hadir').length;
+        const izin = karAbsens.filter(a => a.status === 'Izin').length;
+        const sakit = karAbsens.filter(a => a.status === 'Sakit').length;
+        const alpha = karAbsens.filter(a => a.status === 'Alpha').length;
+        const total = karAbsens.length;
+        const rate = total > 0 ? Math.round((hadir / total) * 100) : 0;
 
-                    // Penggabungan aman: Server Data + Local Data tanpa duplikasi atau data hilang
-                    const localData = this.getLocalSavedData();
-                    const mergedMap = new Map();
+        csvContent += `${idx + 1},"${kar.nama}","${kar.nik}","${kar.jabatan}","${kar.region}",${hadir},${izin},${sakit},${alpha},${total},"${rate}%"\n`;
+      });
 
-                    // Prioritaskan server data jika ada
-                    serverFormatted.forEach(item => {
-                        const key = String(item.emp_id) + '_' + String(item.timestamp);
-                        mergedMap.set(key, item);
-                    });
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `Rekap_Absensi_YOFC_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-                    // Gabungkan local data jika belum ada di server (offline / pending sync)
-                    localData.forEach(item => {
-                        const key = String(item.emp_id) + '_' + String(item.timestamp);
-                        if (!mergedMap.has(key)) {
-                            mergedMap.set(key, item);
-                        }
-                    });
+      showToast('Export Berhasil', 'File CSV Rekapitulasi berhasil diunduh.', 'success');
+    }
 
-                    this.attendanceLogs = Array.from(mergedMap.values());
-                    this.saveLocalData();
-                    this.logMsg(`Sinkronisasi sukses. Total data di rekapitulasi: ${this.attendanceLogs.length}`);
-                },
+    // DATA KARYAWAN LOGIC
+    function renderKaryawanTable() {
+      const searchVal = document.getElementById('search-karyawan').value.toLowerCase();
+      const regionVal = document.getElementById('filter-karyawan-region').value;
+      const statusVal = document.getElementById('filter-karyawan-status').value;
 
-                switchRole() { 
-                    this.isAdminView = !this.isAdminView; 
-                    if (this.isAdminView) this.loadData(); 
-                    else this.isAdminLoggedIn = false; 
-                },
+      const tbody = document.getElementById('table-karyawan-tbody');
+      tbody.innerHTML = '';
 
-                handleAdminLogin() {
-                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
-                        this.isAdminLoggedIn = true; 
-                        this.currentUserRole = 'Master Admin';
-                        this.adminLoginUser = ''; this.adminLoginPass = ''; 
-                        this.loadData();
-                    } else {
-                        alert('Login Gagal! Gunakan admin / Ounyenk2018#');
-                    }
-                },
+      let list = karyawanList.filter(k => {
+        const matchesSearch = k.nama.toLowerCase().includes(searchVal) || k.nik.toLowerCase().includes(searchVal) || k.jabatan.toLowerCase().includes(searchVal);
+        const matchesRegion = !regionVal || k.region === regionVal;
+        const matchesStatus = !statusVal || k.status === statusVal;
+        return matchesSearch && matchesRegion && matchesStatus;
+      });
 
-                adminLogout() { 
-                    this.isAdminLoggedIn = false; 
-                },
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 font-medium">Tidak ada data karyawan ditemukan.</td></tr>`;
+        return;
+      }
 
-                async handleCheckIn() {
-                    if (!this.loginId || !this.loginPass) {
-                        alert('Mohon masukkan ID Karyawan dan Password!');
-                        return;
-                    }
+      list.forEach(k => {
+        const statusBadge = k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 border-b border-slate-100">
+            <td class="py-3 px-4 font-mono font-bold text-slate-600">${k.nik}</td>
+            <td class="py-3 px-4 font-bold text-slate-800">${k.nama}</td>
+            <td class="py-3 px-4 text-slate-600">${k.jabatan}</td>
+            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">${k.region}</span></td>
+            <td class="py-3 px-4 text-slate-600">${k.kontak || '-'}</td>
+            <td class="py-3 px-4 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge}">${k.status}</span></td>
+            <td class="py-3 px-4 text-center">
+              <div class="flex items-center justify-center space-x-1">
+                <button onclick="editKaryawan('${k.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"><i class="fa-solid fa-pen-to-square"></i></button>
+                <button onclick="deleteKaryawan('${k.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition"><i class="fa-solid fa-trash-can"></i></button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
 
-                    if (this.loginId !== 'rudi01' || this.loginPass !== '123456') {
-                        alert('ID atau Password salah! Gunakan rudi01 / 123456');
-                        return;
-                    }
+    function openModalKaryawan() {
+      document.getElementById('modal-karyawan-title').innerText = 'Tambah Karyawan Baru';
+      document.getElementById('form-karyawan').reset();
+      document.getElementById('karyawan-id-hidden').value = '';
+      document.getElementById('modal-karyawan').classList.remove('hidden');
+    }
 
-                    this.isSubmitting = true;
-                    this.logMsg("Memproses Check-in...");
+    function closeModalKaryawan() {
+      document.getElementById('modal-karyawan').classList.add('hidden');
+    }
 
-                    const now = new Date();
-                    const timeStr = now.toLocaleString('id-ID');
-                    const record = {
-                        emp_id: this.loginId,
-                        name: 'Rudi Batubara',
-                        role: 'Project Manager',
-                        basecamp: 'HO Pekanbaru',
-                        timestamp: timeStr,
-                        date: getLocalDate(),
-                        accuracy: 5
-                    };
+    function editKaryawan(id) {
+      const k = karyawanList.find(item => item.id === id);
+      if (!k) return;
 
-                    const tempEntry = {
-                        id: 'LOC-' + Date.now().toString().slice(-4),
-                        ...record
-                    };
+      document.getElementById('modal-karyawan-title').innerText = 'Edit Data Karyawan';
+      document.getElementById('karyawan-id-hidden').value = k.id;
+      document.getElementById('karyawan-nik').value = k.nik;
+      document.getElementById('karyawan-nama').value = k.nama;
+      document.getElementById('karyawan-jabatan').value = k.jabatan;
+      document.getElementById('karyawan-region').value = k.region;
+      document.getElementById('karyawan-kontak').value = k.kontak || '';
+      document.getElementById('karyawan-status').value = k.status;
 
-                    // Masukkan ke array dan simpan lokal terlebih dahulu (responsif instan)
-                    this.attendanceLogs.unshift(tempEntry);
-                    this.saveLocalData();
-                    this.logMsg("Data check-in berhasil dimasukkan ke tabel lokal.");
+      document.getElementById('modal-karyawan').classList.remove('hidden');
+    }
 
-                    try {
-                        const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance`, {
-                            method: 'POST',
-                            headers: {
-                                'apikey': SUPABASE_ANON_KEY,
-                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-                                'Content-Type': 'application/json',
-                                'Prefer': 'return=representation'
-                            },
-                            body: JSON.stringify(record)
-                        });
+    function handleKaryawanSubmit(e) {
+      e.preventDefault();
+      const hiddenId = document.getElementById('karyawan-id-hidden').value;
+      const nik = document.getElementById('karyawan-nik').value;
+      const nama = document.getElementById('karyawan-nama').value;
+      const jabatan = document.getElementById('karyawan-jabatan').value;
+      const region = document.getElementById('karyawan-region').value;
+      const kontak = document.getElementById('karyawan-kontak').value;
+      const status = document.getElementById('karyawan-status').value;
 
-                        if (!response.ok) {
-                            const errJson = await response.json().catch(() => ({ message: 'Akses Ditolak/Error Supabase' }));
-                            this.logMsg("Gagal simpan database: " + (errJson.message || 'Error'));
-                            alert('Check-in tersimpan di lokal, namun server menolak: ' + (errJson.message || 'Error'));
-                        } else {
-                            this.logMsg("Check-in berhasil disimpan permanen di Supabase!");
-                            alert('Sukses! Check-in berhasil dan tersimpan di database.');
-                            this.loginId = '';
-                            this.loginPass = '';
-                            await this.loadData();
-                        }
-                    } catch (e) {
-                        this.logMsg("Jaringan offline, data aman tersimpan di lokal.");
-                        alert('Check-in berhasil disimpan secara lokal.');
-                    } finally {
-                        this.isSubmitting = false;
-                    }
-                }
-            }
+      if (hiddenId) {
+        const index = karyawanList.findIndex(k => k.id === hiddenId);
+        if (index !== -1) {
+          karyawanList[index] = { id: hiddenId, nik, nama, jabatan, region, kontak, status };
         }
-    </script>
+        showToast('Update Berhasil', 'Data karyawan telah diperbarui.', 'success');
+      } else {
+        const newKar = {
+          id: 'k_' + Date.now(),
+          nik,
+          nama,
+          jabatan,
+          region,
+          kontak,
+          status
+        };
+        karyawanList.push(newKar);
+        showToast('Karyawan Ditambahkan', 'Personil baru berhasil didaftarkan.', 'success');
+      }
+
+      localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
+      closeModalKaryawan();
+      renderKaryawanTable();
+      populateSelectKaryawan();
+    }
+
+    function deleteKaryawan(id) {
+      if (confirm('Apakah Anda yakin ingin menghapus data karyawan ini?')) {
+        karyawanList = karyawanList.filter(k => k.id !== id);
+        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
+        renderKaryawanTable();
+        populateSelectKaryawan();
+        showToast('Karyawan Dihapus', 'Data personil telah dihapus.', 'info');
+      }
+    }
+
+    // SYSTEM RESET & UTILS
+    function resetToDemoData() {
+      if (confirm('Atur ulang seluruh data ke versi demo standar?')) {
+        karyawanList = [...DEFAULT_KARYAWAN];
+        absensiList = generateSampleAbsensi();
+        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
+        localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
+        showToast('Demo Data Restored', 'Sistem berhasil disetel ulang.', 'success');
+        renderDashboard();
+        renderKaryawanTable();
+        renderRekapitulasiTable();
+      }
+    }
+
+    function clearAllData() {
+      if (confirm('HAPUS SEMUA DATA: Apakah Anda sangat yakin?')) {
+        karyawanList = [];
+        absensiList = [];
+        localStorage.clear();
+        showToast('Database Bersih', 'Seluruh data telah dihapus.', 'info');
+        renderDashboard();
+        renderKaryawanTable();
+        renderRekapitulasiTable();
+      }
+    }
+
+    function showToast(title, message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const bgColor = {
+        'success': 'bg-emerald-600 text-white',
+        'info': 'bg-blue-600 text-white',
+        'error': 'bg-rose-600 text-white'
+      }[type] || 'bg-slate-800 text-white';
+
+      toast.className = `${bgColor} p-3.5 rounded-lg shadow-lg flex items-start space-x-3 text-xs font-medium min-w-[280px] pointer-events-auto transition duration-300 transform translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <div class="flex-1">
+          <p class="font-bold text-sm">${title}</p>
+          <p class="text-xs opacity-90">${message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      `;
+
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    function openNotificationModal() {
+      showToast('Notifikasi System', 'Sistem absensi berjalan normal dan terhubung dengan LocalStorage.', 'info');
+    }
+  </script>
 </body>
 </html>
