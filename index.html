@@ -124,7 +124,7 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-slate-800">
-                                        <template x-for="(item, index) in attendanceLogs" :key="item.id || index">
+                                        <template x-for="(item, index) in attendanceLogs" :key="item.id || ('idx-' + index)">
                                             <tr class="hover:bg-slate-900/50 transition">
                                                 <td class="p-4 font-mono text-slate-400" x-text="item.id"></td>
                                                 <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
@@ -146,7 +146,7 @@
 
                         <!-- INSPECTOR JSON MENTAH -->
                         <div class="glass-card p-6 rounded-3xl space-y-3">
-                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid code mr-2"></i> Live Data Inspector (JSON)</h3>
+                            <h3 class="text-sm font-bold text-amber-400"><i class="fa-solid fa-code mr-2"></i> Live Data Inspector (JSON)</h3>
                             <pre class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-amber-300 h-32 overflow-y-auto border border-slate-800" x-text="JSON.stringify(attendanceLogs, null, 2)"></pre>
                         </div>
 
@@ -199,16 +199,22 @@
                     this.loadData();
                 },
 
-                loadLocalData() {
+                getLocalSavedData() {
                     const localSaved = localStorage.getItem('yofc_attendance_v5');
                     if (localSaved) {
                         try {
                             const parsed = JSON.parse(localSaved);
-                            if (Array.isArray(parsed) && parsed.length > 0) {
-                                this.attendanceLogs = parsed;
-                                this.logMsg(`Memuat ${parsed.length} data dari LocalStorage.`);
-                            }
+                            if (Array.isArray(parsed)) return parsed;
                         } catch(e) {}
+                    }
+                    return [];
+                },
+
+                loadLocalData() {
+                    const parsed = this.getLocalSavedData();
+                    if (parsed.length > 0) {
+                        this.attendanceLogs = parsed;
+                        this.logMsg(`Memuat ${parsed.length} data dari LocalStorage.`);
                     }
                 },
 
@@ -242,6 +248,8 @@
 
                 async loadData() {
                     this.logMsg("Mengambil data dari Supabase...");
+                    let serverFormatted = [];
+
                     try {
                         const response = await fetch(`${SUPABASE_URL}/rest/v1/attendance?select=*&order=id.desc`, {
                             method: 'GET',
@@ -251,41 +259,50 @@
                             }
                         });
 
-                        if (!response.ok) {
+                        if (response.ok) {
+                            const serverData = await response.json();
+                            if (serverData && Array.isArray(serverData)) {
+                                serverFormatted = serverData.map(item => ({
+                                    id: item.id,
+                                    emp_id: item.emp_id || 'rudi01',
+                                    name: item.name || 'Rudi Batubara',
+                                    role: item.role || 'Project Manager',
+                                    basecamp: item.basecamp || 'HO Pekanbaru',
+                                    timestamp: item.timestamp || item.created_at || '-',
+                                    date: item.date || getLocalDate(),
+                                    accuracy: item.accuracy || 5
+                                }));
+                                this.logMsg(`Sukses mengambil ${serverFormatted.length} data dari Supabase.`);
+                            }
+                        } else {
                             const errText = await response.text();
-                            this.logMsg("Gagal ambil Supabase: " + errText);
-                            return;
-                        }
-
-                        const serverData = await response.json();
-                        if (serverData && Array.isArray(serverData)) {
-                            const formatted = serverData.map(item => ({
-                                id: item.id,
-                                emp_id: item.emp_id || 'rudi01',
-                                name: item.name || 'Rudi Batubara',
-                                role: item.role || 'Project Manager',
-                                basecamp: item.basecamp || 'HO Pekanbaru',
-                                timestamp: item.timestamp || '-',
-                                date: item.date || getLocalDate(),
-                                accuracy: item.accuracy || 5
-                            }));
-
-                            // Gabungkan dengan data lokal agar tidak hilang
-                            const localSaved = localStorage.getItem('yofc_attendance_v5') || '[]';
-                            const localData = JSON.parse(localSaved);
-                            
-                            const mergedMap = new Map();
-                            [...formatted, ...localData].forEach(item => {
-                                mergedMap.set(String(item.id) + '-' + item.timestamp, item);
-                            });
-
-                            this.attendanceLogs = Array.from(mergedMap.values());
-                            this.saveLocalData();
-                            this.logMsg(`Sinkronisasi sukses. Total data aktif: ${this.attendanceLogs.length}`);
+                            this.logMsg("Gagal ambil Supabase: " + errText + " (Menggunakan data lokal)");
                         }
                     } catch (err) {
-                        this.logMsg("Gagal koneksi jaringan: " + err.message);
+                        this.logMsg("Gagal koneksi jaringan: " + err.message + " (Menggunakan data lokal)");
                     }
+
+                    // Penggabungan aman: Server Data + Local Data tanpa duplikasi atau data hilang
+                    const localData = this.getLocalSavedData();
+                    const mergedMap = new Map();
+
+                    // Prioritaskan server data jika ada
+                    serverFormatted.forEach(item => {
+                        const key = String(item.emp_id) + '_' + String(item.timestamp);
+                        mergedMap.set(key, item);
+                    });
+
+                    // Gabungkan local data jika belum ada di server (offline / pending sync)
+                    localData.forEach(item => {
+                        const key = String(item.emp_id) + '_' + String(item.timestamp);
+                        if (!mergedMap.has(key)) {
+                            mergedMap.set(key, item);
+                        }
+                    });
+
+                    this.attendanceLogs = Array.from(mergedMap.values());
+                    this.saveLocalData();
+                    this.logMsg(`Sinkronisasi sukses. Total data di rekapitulasi: ${this.attendanceLogs.length}`);
                 },
 
                 switchRole() { 
@@ -324,21 +341,23 @@
                     this.logMsg("Memproses Check-in...");
 
                     const now = new Date();
+                    const timeStr = now.toLocaleString('id-ID');
                     const record = {
                         emp_id: this.loginId,
                         name: 'Rudi Batubara',
                         role: 'Project Manager',
                         basecamp: 'HO Pekanbaru',
-                        timestamp: now.toLocaleString('id-ID'),
+                        timestamp: timeStr,
                         date: getLocalDate(),
                         accuracy: 5
                     };
 
-                    // Masukkan ke array lokal seketika agar langsung tampil
                     const tempEntry = {
                         id: 'LOC-' + Date.now().toString().slice(-4),
                         ...record
                     };
+
+                    // Masukkan ke array dan simpan lokal terlebih dahulu (responsif instan)
                     this.attendanceLogs.unshift(tempEntry);
                     this.saveLocalData();
                     this.logMsg("Data check-in berhasil dimasukkan ke tabel lokal.");
@@ -356,7 +375,7 @@
                         });
 
                         if (!response.ok) {
-                            const errJson = await response.json();
+                            const errJson = await response.json().catch(() => ({ message: 'Akses Ditolak/Error Supabase' }));
                             this.logMsg("Gagal simpan database: " + (errJson.message || 'Error'));
                             alert('Check-in tersimpan di lokal, namun server menolak: ' + (errJson.message || 'Error'));
                         } else {
