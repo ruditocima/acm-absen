@@ -1,1181 +1,1441 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YOFC TEAM - System Management Absensi & Tim</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Fonts -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['Inter', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi YOFC Team</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass-card { background: rgba(18, 24, 38, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-light { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        #basecampMap { height: 250px; width: 100%; border-radius: 0.75rem; z-index: 10; }
+    </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col md:flex-row">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between" x-data="absensiApp()">
 
-  <!-- SIDEBAR NAVIGATION -->
-  <aside id="sidebar" class="bg-slate-900 text-slate-300 w-full md:w-64 flex-shrink-0 flex flex-col justify-between transition-all duration-300 z-30">
-    <div>
-      <!-- Brand Logo -->
-      <div class="h-16 flex items-center justify-between px-6 bg-slate-950 border-b border-slate-800">
+    <!-- HEADER / NAVBAR -->
+    <header class="glass-card sticky top-0 z-50 px-6 py-4 flex justify-between items-center border-b border-slate-800">
         <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-500/20">
-            <i class="fa-solid fa-network-wired"></i>
-          </div>
-          <div>
-            <h1 class="font-bold text-white text-base tracking-wide leading-tight">YOFC TEAM</h1>
-            <p class="text-[10px] text-blue-400 uppercase font-semibold">Absensi & Management</p>
-          </div>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/30 text-slate-950 font-extrabold text-xl">
+                <i class="fa-solid fa-fingerprint"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-amber-400 bg-clip-text text-transparent">YOFC TEAM ATTENDANCE</h1>
+                <p class="text-xs text-slate-400 font-medium">Secure Geofencing Portal</p>
+            </div>
         </div>
-      </div>
-
-      <!-- User Info Badge -->
-      <div class="p-4 border-b border-slate-800/80 bg-slate-900/50 flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 font-semibold text-sm border border-slate-600">
-          RB
+        <div class="flex items-center space-x-3">
+            <button @click="switchRole()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 transition font-semibold text-amber-400">
+                <i class="fa-solid fa-rotate mr-1"></i> Mode: <span x-text="isAdminView ? 'Admin / Staff Portal' : 'Karyawan (HP)'"></span>
+            </button>
         </div>
-        <div class="overflow-hidden">
-          <p class="text-sm font-semibold text-white truncate">Rudi Batubara</p>
-          <p class="text-xs text-slate-400 truncate">Project Coordinator / Subkont</p>
-        </div>
-      </div>
-
-      <!-- Navigation Menu -->
-      <nav class="p-4 space-y-1">
-        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-white bg-blue-600 shadow-sm">
-          <i class="fa-solid fa-chart-pie w-5 text-center"></i>
-          <span>Dashboard</span>
-        </button>
-
-        <button onclick="switchTab('input-absensi')" id="nav-input-absensi" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
-          <i class="fa-solid fa-clipboard-user w-5 text-center"></i>
-          <span>Input Absensi</span>
-        </button>
-
-        <button onclick="switchTab('data-karyawan')" id="nav-data-karyawan" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
-          <i class="fa-solid fa-users w-5 text-center"></i>
-          <span>Data Tim & Karyawan</span>
-        </button>
-
-        <button onclick="switchTab('rekap-absensi')" id="nav-rekap-absensi" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
-          <i class="fa-solid fa-file-invoice w-5 text-center"></i>
-          <span>Rekapitulasi Absensi</span>
-        </button>
-
-        <button onclick="switchTab('pengaturan')" id="nav-pengaturan" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:text-white hover:bg-slate-800">
-          <i class="fa-solid fa-sliders w-5 text-center"></i>
-          <span>Pengaturan System</span>
-        </button>
-      </nav>
-    </div>
-
-    <!-- System Status Footer -->
-    <div class="p-4 border-t border-slate-800 text-xs text-slate-500 flex justify-between items-center">
-      <span>Database LocalStorage</span>
-      <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Active
-      </span>
-    </div>
-  </aside>
-
-  <!-- MAIN CONTENT CONTAINER -->
-  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-    
-    <!-- TOP HEADER -->
-    <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-xs z-10">
-      <div class="flex items-center space-x-4">
-        <h2 id="page-title" class="text-xl font-bold text-slate-800 tracking-tight">Dashboard Overview</h2>
-      </div>
-
-      <div class="flex items-center space-x-4">
-        <div class="hidden sm:flex items-center space-x-2 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-medium">
-          <i class="fa-regular fa-calendar text-blue-600"></i>
-          <span id="current-date-display">-- Hari Ini --</span>
-        </div>
-        <button onclick="openNotificationModal()" class="relative p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors">
-          <i class="fa-regular fa-bell text-lg"></i>
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
-      </div>
     </header>
 
-    <!-- MAIN BODY -->
-    <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scrollbar bg-slate-50">
+    <!-- MAIN CONTENT -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
 
-      <!-- TOAST CONTAINER -->
-      <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+        <!-- BLOCKED DESKTOP VIEW FOR EMPLOYEES (EXCEPT SIMULATION MODE) -->
+        <template x-if="!isAdminView && isDesktopDevice && !simulationMode">
+            <div class="max-w-md mx-auto mt-16 glass-card p-8 rounded-3xl text-center shadow-2xl border border-red-500/20">
+                <div class="w-20 h-20 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center mx-auto mb-6 text-3xl shadow-inner">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">Akses Dibatasi</h2>
+                <p class="text-slate-400 text-sm mb-6">Sistem Absensi Karyawan hanya diizinkan melalui perangkat <strong>Smartphone (HP)</strong>.</p>
+                <div class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl mb-6">
+                    <i class="fa-solid fa-info-circle mr-1"></i> Jika Anda Administrator di Laptop, aktifkan <strong>Mode Simulasi</strong> di panel Admin atau sudut atas untuk menguji portal karyawan.
+                </div>
+            </div>
+        </template>
 
-      <!-- ========================================== -->
-      <!-- TAB 1: DASHBOARD OVERVIEW -->
-      <!-- ========================================== -->
-      <section id="tab-dashboard" class="tab-content space-y-6">
-        <!-- KPI METRICS STATS -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <!-- Total Karyawan -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Tim/Karyawan</p>
-              <h3 id="stat-total-karyawan" class="text-2xl font-bold text-slate-800 mt-1">0</h3>
-              <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-users text-blue-500 mr-1"></i> Personil terdaftar</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-              <i class="fa-solid fa-user-group"></i>
-            </div>
-          </div>
+        <!-- KARYAWAN CHECK-IN & IZIN PORTAL -->
+        <template x-if="!isAdminView && (!isDesktopDevice || simulationMode)">
+            <div class="max-w-md mx-auto">
+                <div class="bg-amber-400 text-slate-950 p-4 rounded-2xl mb-6 shadow-xl flex items-center justify-between font-bold">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-sun text-xl animate-spin"></i>
+                        <span class="text-sm">MODE CERAH LUAR RUANGAN AKTIF</span>
+                    </div>
+                    <span class="text-xs bg-slate-950 text-amber-400 px-2 py-1 rounded-md" x-show="simulationMode">Simulasi On</span>
+                </div>
 
-          <!-- Hadir Hari Ini -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Hadir Hari Ini</p>
-              <h3 id="stat-hadir-today" class="text-2xl font-bold text-emerald-600 mt-1">0</h3>
-              <p class="text-xs text-emerald-600 mt-1" id="stat-hadir-percent">0% Kehadiran</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-              <i class="fa-solid fa-user-check"></i>
-            </div>
-          </div>
+                <div class="flex bg-slate-900 p-1.5 rounded-2xl mb-6 border border-slate-800">
+                    <button @click="employeeTab = 'checkin'" :class="employeeTab === 'checkin' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
+                        <i class="fa-solid fa-fingerprint mr-1"></i> Check-in Absen
+                    </button>
+                    <button @click="employeeTab = 'pengajuan'" :class="employeeTab === 'pengajuan' ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'" class="flex-1 py-2 rounded-xl text-xs transition text-center">
+                        <i class="fa-solid fa-file-pen mr-1"></i> Ajukan Izin/Sakit
+                    </button>
+                </div>
 
-          <!-- Sakit / Izin -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Izin / Sakit</p>
-              <h3 id="stat-izin-today" class="text-2xl font-bold text-amber-600 mt-1">0</h3>
-              <p class="text-xs text-amber-600 mt-1">Tercatat dispensasi</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
-              <i class="fa-solid fa-user-clock"></i>
-            </div>
-          </div>
+                <template x-if="employeeTab === 'checkin'">
+                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
+                        <div class="text-center mb-6">
+                            <h2 class="text-2xl font-black text-slate-900">Check-in Kehadiran</h2>
+                            <p class="text-xs font-semibold text-slate-600 mt-1">Batas Jam Absen: <strong x-text="employeeDeadlineText">09.45 WIB</strong></p>
+                        </div>
 
-          <!-- Alpha -->
-          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-            <div>
-              <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Alpha (Tanpa Ket.)</p>
-              <h3 id="stat-alpha-today" class="text-2xl font-bold text-rose-600 mt-1">0</h3>
-              <p class="text-xs text-rose-600 mt-1">Belum ada konfirmasi</p>
-            </div>
-            <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl">
-              <i class="fa-solid fa-user-xmark"></i>
-            </div>
-          </div>
-        </div>
+                        <form @submit.prevent="handleCheckIn" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                                <input type="text" x-model="loginId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                                <input type="password" x-model="loginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
+                            </div>
 
-        <!-- DASHBOARD ACTION BAR & REKAP PREVIEW -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          <!-- LEFT: Quick Actions -->
-          <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
-            <div>
-              <div class="flex items-center space-x-3 mb-4">
-                <div class="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <i class="fa-solid fa-bolt"></i>
+                            <div class="bg-slate-900 text-slate-100 p-4 rounded-2xl text-xs space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Status GPS:</span>
+                                    <span class="font-bold text-emerald-400" x-text="gpsStatus"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Basecamp Terdekat:</span>
+                                    <span class="font-bold text-amber-400" x-text="detectedBasecamp ? detectedBasecamp.name : 'Mencari Lokasi...'"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Jarak Real-Time:</span>
+                                    <span class="font-bold text-sky-400" x-text="nearestDistanceText"></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-slate-400">Akurasi GPS:</span>
+                                    <span class="font-bold" :class="gpsAccuracy < 50 ? 'text-emerald-400' : 'text-red-400'" x-text="gpsAccuracy ? gpsAccuracy + ' meter' : 'Memuat...'"></span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                                <i class="fa-solid fa-location-arrow mr-2"></i> CHECK-IN SEKARANG
+                            </button>
+                        </form>
+                    </div>
+                </template>
+
+                <template x-if="employeeTab === 'pengajuan'">
+                    <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white space-y-6">
+                        <div class="text-center">
+                            <h2 class="text-2xl font-black text-slate-900">Pengajuan Izin / Sakit</h2>
+                            <p class="text-xs font-semibold text-slate-600 mt-1">Kirimkan permohonan ketidakhadiran kepada Admin/PM</p>
+                        </div>
+
+                        <form @submit.prevent="submitLeaveRequest" class="space-y-4">
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID Karyawan</label>
+                                    <input type="text" x-model="leaveForm.empId" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: rudi01">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Jenis Pengajuan</label>
+                                    <select x-model="leaveForm.type" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                        <option value="Sakit">Sakit</option>
+                                        <option value="Izin">Izin</option>
+                                        <option value="Cuti">Cuti</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Dari Tanggal</label>
+                                    <input type="date" x-model="leaveForm.startDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Sampai Tanggal</label>
+                                    <input type="date" x-model="leaveForm.endDate" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Alasan / Keterangan</label>
+                                <textarea x-model="leaveForm.reason" rows="3" required class="w-full px-3 py-2.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan alasan pengajuan..."></textarea>
+                            </div>
+
+                            <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-sm shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                                <i class="fa-solid fa-paper-plane mr-2"></i> KIRIM PENGAJUAN
+                            </button>
+                        </form>
+
+                        <div class="pt-4 border-t border-slate-200">
+                            <h3 class="font-bold text-sm text-slate-900 mb-3">Riwayat Pengajuan Anda</h3>
+                            <div class="space-y-2 max-h-48 overflow-y-auto">
+                                <template x-for="item in employeeLeaves" :key="item.id">
+                                    <div class="bg-slate-100 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
+                                        <div class="flex justify-between font-bold text-slate-900">
+                                            <span x-text="item.type + ' (' + item.startDate + ' s/d ' + item.endDate + ')'"></span>
+                                            <span class="px-2 py-0.5 rounded text-[10px]" 
+                                                :class="item.status === 'Disetujui' ? 'bg-emerald-100 text-emerald-800' : (item.status === 'Ditolak' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800')" 
+                                                x-text="item.status"></span>
+                                        </div>
+                                        <p class="text-slate-600 text-[11px]" x-text="item.reason"></p>
+                                    </div>
+                                </template>
+                                <template x-if="employeeLeaves.length === 0">
+                                    <p class="text-slate-500 text-xs italic text-center py-2">Masukkan ID Karyawan Anda untuk melihat riwayat.</p>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </template>
+
+        <!-- ADMIN / STAFF PORTAL -->
+        <template x-if="isAdminView">
+            <div class="space-y-6">
+
+                <!-- 1. LOGIN ADMIN -->
+                <template x-if="!isAdminLoggedIn">
+                    <div class="max-w-md mx-auto mt-12">
+                        <div class="glass-light text-slate-900 p-6 sm:p-8 rounded-3xl shadow-2xl border border-white">
+                            <div class="text-center mb-6">
+                                <div class="w-16 h-16 bg-amber-500/10 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+                                    <i class="fa-solid fa-user-shield"></i>
+                                </div>
+                                <h2 class="text-2xl font-black text-slate-900">Login Portal Staff & Admin</h2>
+                            </div>
+
+                            <form @submit.prevent="handleAdminLogin" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">ID / Username</label>
+                                    <input type="text" x-model="adminLoginUser" autocapitalize="none" autocorrect="off" autocomplete="off" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Contoh: admin atau rudi01">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                                    <input type="password" x-model="adminLoginPass" autocomplete="current-password" required class="w-full px-4 py-3 rounded-xl bg-slate-100 border border-slate-300 font-bold text-slate-900 focus:ring-2 focus:ring-amber-500 outline-none" placeholder="••••••••">
+                                </div>
+
+                                <button type="submit" class="w-full py-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-base shadow-lg shadow-amber-500/30 hover:opacity-95 transition transform active:scale-95">
+                                    <i class="fa-solid fa-right-to-bracket mr-2"></i> LOGIN PORTAL
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- 2. DASHBOARD ADMIN / STAFF -->
+                <template x-if="isAdminLoggedIn">
+                    <div class="space-y-6">
+                        <div class="glass-card p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xs font-bold text-slate-200 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800" x-text="timeGreeting + ' : ' + currentUserName"></span>
+                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold border border-amber-500/30" x-text="'Role: ' + (currentUserRole || 'Master Admin')"></span>
+                                <label class="flex items-center cursor-pointer bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+                                    <input type="checkbox" x-model="simulationMode" class="sr-only peer">
+                                    <div class="w-8 h-4 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500 relative"></div>
+                                    <span class="ml-2 text-xs font-bold text-slate-300">[Mode Simulasi]</span>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center space-x-3">
+                                <div class="flex flex-wrap gap-2">
+                                    <!-- Rekap Absensi -->
+                                    <button x-show="canAccessRekap" @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
+                                    </button>
+                                    <!-- Persetujuan Izin -->
+                                    <button x-show="canAccessIzin" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-file-contract mr-1"></i> Persetujuan Izin
+                                    </button>
+                                    <!-- Kirim Pesan (Project Manager Only) -->
+                                    <button x-show="canAccessMessages" @click="adminTab = 'messages'; loadMessagesData()" :class="adminTab === 'messages' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-envelope mr-1"></i> Kirim Pesan
+                                    </button>
+                                    <!-- Basecamp -->
+                                    <button x-show="canAccessBasecamp" @click="adminTab = 'basecamp'" :class="adminTab === 'basecamp' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-map-location-dot mr-1"></i> Basecamp
+                                    </button>
+                                    <!-- Data Karyawan (Master Admin Only) -->
+                                    <button x-show="canAccessKaryawan" @click="adminTab = 'karyawan'" :class="adminTab === 'karyawan' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
+                                        <i class="fa-solid fa-users-gear mr-1"></i> Data Karyawan
+                                    </button>
+                                </div>
+                                <button @click="adminLogout()" class="px-3 py-2 bg-red-500/25 hover:bg-red-500/40 text-red-300 border border-red-500/30 rounded-xl text-xs font-bold transition">
+                                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- TAB 1: REKAP ABSENSI -->
+                        <div x-show="adminTab === 'rekap' && canAccessRekap" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div class="flex flex-wrap justify-between items-center gap-4">
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Rekapitulasi Absensi</h2>
+                                    <p class="text-xs text-slate-400">
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh rekap absensi karyawan (Read Only, tanpa tombol reset).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan rekap absensi berdasarkan ID Anda yang sedang login (Read Only).</span>
+                                        <span x-show="isMasterOrPM">Batas waktu absen normal 09.45 WIB (Regional PM, Supervisor, Installer) & 09.10 WIB (Admin & SND). Filter rentang waktu & export CSV.</span>
+                                    </p>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 uppercase font-bold">Dari Tanggal</label>
+                                        <input type="date" x-model="filterStartDate" class="bg-slate-900 border border-slate-700 text-xs px-3 py-2 rounded-xl text-slate-200">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-slate-400 uppercase font-bold">Sampai Tanggal</label>
+                                        <input type="date" x-model="filterEndDate" class="bg-slate-900 border border-slate-700 text-xs px-3 py-2 rounded-xl text-slate-200">
+                                    </div>
+                                    <button @click="loadAttendanceData()" class="mt-4 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl transition" title="Muat Ulang Data">
+                                        <i class="fa-solid fa-rotate-right"></i> Refresh
+                                    </button>
+                                    <!-- Reset Data button: Master Admin & Project Manager Only -->
+                                    <button x-show="canResetRekap" @click="clearAllAttendance" class="mt-4 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold rounded-xl transition" title="Reset Data Absensi">
+                                        <i class="fa-solid fa-trash-can mr-1"></i> Reset Data
+                                    </button>
+                                    <button @click="exportCSV" class="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-emerald-600/30">
+                                        <i class="fa-solid fa-file-csv mr-1"></i> Export CSV
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
+                                            <th class="p-4">Tanggal & Waktu (Server)</th>
+                                            <th class="p-4">ID</th>
+                                            <th class="p-4">Nama</th>
+                                            <th class="p-4">Role</th>
+                                            <th class="p-4">Basecamp</th>
+                                            <th class="p-4">Terlambat</th>
+                                            <th class="p-4">Status GPS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        <template x-for="item in filteredAttendance" :key="item.id">
+                                            <tr class="hover:bg-slate-900/50 transition">
+                                                <td class="p-4 font-semibold text-slate-300" x-text="item.timestamp"></td>
+                                                <td class="p-4 font-mono text-amber-400" x-text="item.empId"></td>
+                                                <td class="p-4 font-bold text-white" x-text="item.name"></td>
+                                                <td class="p-4 text-slate-400" x-text="item.role"></td>
+                                                <td class="p-4"><span class="px-2.5 py-1 bg-slate-800 rounded-lg text-amber-300 border border-slate-700 font-semibold" x-text="item.basecamp"></span></td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
+                                                        :class="getLatenessMinutes(item.timestamp, item.role) > 0 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'" 
+                                                        x-text="formatLateness(item.timestamp, item.role)"></span>
+                                                </td>
+                                                <td class="p-4 text-emerald-400"><i class="fa-solid fa-circle-check mr-1"></i> Verified (<span x-text="item.accuracy"></span>m)</td>
+                                            </tr>
+                                        </template>
+                                        <template x-if="filteredAttendance.length === 0">
+                                            <tr>
+                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada data absensi untuk akun/rentang tanggal ini.</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: PERSETUJUAN IZIN -->
+                        <div x-show="adminTab === 'izin' && canAccessIzin" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Persetujuan Izin, Sakit, & Cuti</h2>
+                                    <p class="text-xs text-slate-400">
+                                        <span x-show="isAdminOnly" class="text-amber-400 italic">Mode Admin: Menampilkan seluruh pengajuan izin karyawan (Read Only).</span>
+                                        <span x-show="isOperationalRole" class="text-amber-400 italic">Menampilkan pengajuan izin berdasarkan ID Anda yang sedang login (Read Only).</span>
+                                        <span x-show="isMasterOrPM">Menampilkan daftar pengajuan izin dari seluruh karyawan untuk disetujui/ditolak.</span>
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
+                                            <th class="p-4">Tanggal Pengajuan</th>
+                                            <th class="p-4">ID / Nama</th>
+                                            <th class="p-4">Jenis</th>
+                                            <th class="p-4">Durasi</th>
+                                            <th class="p-4">Alasan</th>
+                                            <th class="p-4">Status</th>
+                                            <th class="p-4 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        <template x-for="(leave, index) in displayedLeaves" :key="leave.id">
+                                            <tr class="hover:bg-slate-900/50 transition">
+                                                <td class="p-4 font-semibold text-slate-300" x-text="leave.timestamp"></td>
+                                                <td class="p-4">
+                                                    <div class="font-bold text-white" x-text="leave.name"></div>
+                                                    <div class="font-mono text-amber-400 text-[10px]" x-text="leave.empId"></div>
+                                                </td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
+                                                        :class="leave.type === 'Sakit' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : (leave.type === 'Cuti' ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20')" 
+                                                        x-text="leave.type"></span>
+                                                </td>
+                                                <td class="p-4 text-slate-300"><span x-text="leave.startDate"></span> s/d <span x-text="leave.endDate"></span></td>
+                                                <td class="p-4 text-slate-400 max-w-xs truncate" x-text="leave.reason"></td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" 
+                                                        :class="leave.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : (leave.status === 'Ditolak' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20')" 
+                                                        x-text="leave.status"></span>
+                                                </td>
+                                                <td class="p-4 text-center">
+                                                    <template x-if="canModifyIzin">
+                                                        <div>
+                                                            <template x-if="leave.status === 'Pending'">
+                                                                <div class="flex justify-center space-x-1">
+                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Disetujui')" class="px-2.5 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg transition font-bold"><i class="fa-solid fa-check mr-1"></i> Setujui</button>
+                                                                    <button type="button" @click.prevent.stop="updateLeaveStatus(leave.id, 'Ditolak')" class="px-2.5 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition font-bold"><i class="fa-solid fa-xmark mr-1"></i> Tolak</button>
+                                                                </div>
+                                                            </template>
+                                                            <template x-if="leave.status !== 'Pending'">
+                                                                <span class="text-slate-500 italic text-[10px]">Selesai</span>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="!canModifyIzin">
+                                                        <span class="text-amber-400/80 italic text-[11px] font-semibold">Read Only</span>
+                                                    </template>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                        <template x-if="displayedLeaves.length === 0">
+                                            <tr>
+                                                <td colspan="7" class="p-8 text-center text-slate-500 italic">Belum ada pengajuan izin atau sakit.</td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAB: KIRIM PESAN PROJECT MANAGER -->
+                        <div x-show="adminTab === 'messages' && canAccessMessages" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Kirim Pesan ke Karyawan</h2>
+                                    <p class="text-xs text-slate-400">Project Manager dapat mengirim pengumuman broadcast atau pesan personal yang akan otomatis muncul saat karyawan menekan tombol Check-in.</p>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <!-- Form Kirim Pesan -->
+                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+                                    <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-paper-plane mr-2 text-amber-500"></i>Buat Pesan Baru</h3>
+                                    <form @submit.prevent="sendMessage" class="space-y-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Penerima</label>
+                                            <select x-model="messageForm.recipientId" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none font-bold">
+                                                <option value="ALL">🌐 Semua Karyawan (Broadcast)</option>
+                                                <template x-for="emp in employees" :key="emp.id">
+                                                    <option :value="emp.id" x-text="emp.name + ' (' + emp.id + ')'"></option>
+                                                </template>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Isi Pesan</label>
+                                            <textarea x-model="messageForm.message" rows="4" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none" placeholder="Tuliskan pesan instruksi atau pengumuman untuk karyawan..."></textarea>
+                                        </div>
+                                        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/30 hover:opacity-95 transition">
+                                            <i class="fa-solid fa-paper-plane mr-1"></i> KIRIM PESAN
+                                        </button>
+                                    </form>
+                                </div>
+
+                                <!-- Riwayat Pesan Terkirim -->
+                                <div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+                                    <h3 class="font-bold text-sm text-white"><i class="fa-solid fa-history mr-2 text-amber-500"></i>Riwayat Pesan Terkirim</h3>
+                                    <div class="space-y-3 max-h-72 overflow-y-auto">
+                                        <template x-for="msg in messages" :key="msg.id">
+                                            <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                                                <div class="flex justify-between items-center font-bold">
+                                                    <span class="text-amber-400" x-text="msg.recipientId === 'ALL' ? '🌐 Semua Karyawan' : '👤 ' + getEmployeeName(msg.recipientId)"></span>
+                                                    <span class="text-[10px] text-slate-500" x-text="msg.timestamp"></span>
+                                                </div>
+                                                <p class="text-slate-300 text-[11px]" x-text="msg.message"></p>
+                                                <div class="flex justify-end pt-1">
+                                                    <button @click="deleteMessage(msg.id)" class="text-red-400 hover:text-red-300 text-[10px] font-semibold"><i class="fa-solid fa-trash mr-1"></i>Hapus</button>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="messages.length === 0">
+                                            <p class="text-slate-500 text-xs italic text-center py-6">Belum ada pesan yang dikirim.</p>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: MANAJEMEN BASECAMP -->
+                        <div x-show="adminTab === 'basecamp' && canAccessBasecamp" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Lokasi Basecamp</h2>
+                                    <p class="text-xs text-slate-400">
+                                        <span x-show="canModifyBasecamp">Lihat koordinat GPS, radius geofencing, serta tambah/edit basecamp.</span>
+                                        <span x-show="!canModifyBasecamp" class="text-amber-400 italic">Anda dapat melihat peta dan mengeklik detail/peta basecamp (Read Only, tanpa hak edit atau hapus).</span>
+                                    </p>
+                                </div>
+                                <button x-show="canModifyBasecamp" @click="openBasecampModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
+                                    <i class="fa-solid fa-plus mr-1"></i> Tambah Basecamp
+                                </button>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <template x-for="(bc, index) in basecamps" :key="bc.id">
+                                    <div class="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between space-y-4">
+                                        <div>
+                                            <div class="flex justify-between items-start mb-2">
+                                                <h3 class="font-extrabold text-base text-white" x-text="bc.name"></h3>
+                                                <span class="text-[10px] bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded border border-amber-500/20" x-text="bc.radius + ' meter'"></span>
+                                            </div>
+                                            <p class="text-xs text-slate-400 font-mono"><i class="fa-solid fa-location-crosshairs mr-1 text-amber-500"></i> Lat: <span x-text="bc.lat"></span>, Lng: <span x-text="bc.lng"></span></p>
+                                        </div>
+                                        <div class="flex space-x-2 pt-2 border-t border-slate-800">
+                                            <button @click="editBasecamp(index)" class="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition"><span x-text="canModifyBasecamp ? 'Edit' : 'Lihat Peta / Detail'"></span></button>
+                                            <button x-show="canModifyBasecamp" @click="deleteBasecamp(index)" class="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-bold rounded-xl transition"><i class="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- TAB 4: MANAJEMEN KARYAWAN -->
+                        <div x-show="adminTab === 'karyawan' && canAccessKaryawan" class="glass-card p-6 rounded-3xl space-y-6">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h2 class="text-xl font-bold text-white">Kelola Data Karyawan</h2>
+                                    <p class="text-xs text-slate-400">Tambah, edit akun, password, dan reset perangkat terikat karyawan.</p>
+                                </div>
+                                <button @click="openEmployeeModal()" class="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold rounded-xl transition shadow-lg shadow-amber-500/20">
+                                    <i class="fa-solid fa-user-plus mr-1"></i> Tambah Karyawan
+                                </button>
+                            </div>
+
+                            <div class="overflow-x-auto rounded-2xl border border-slate-800">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-slate-900 text-slate-400 uppercase font-bold border-b border-slate-800">
+                                            <th class="p-4">ID Karyawan</th>
+                                            <th class="p-4">Nama Lengkap</th>
+                                            <th class="p-4">Role / Posisi</th>
+                                            <th class="p-4">Password</th>
+                                            <th class="p-4">Status Device HP</th>
+                                            <th class="p-4 text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-800">
+                                        <template x-for="(emp, index) in employees" :key="emp.id">
+                                            <tr class="hover:bg-slate-900/50 transition">
+                                                <td class="p-4 font-mono font-bold text-amber-400" x-text="emp.id"></td>
+                                                <td class="p-4 font-bold text-white" x-text="emp.name"></td>
+                                                <td class="p-4 text-slate-300" x-text="emp.role"></td>
+                                                <td class="p-4 font-mono text-slate-400" x-text="emp.password"></td>
+                                                <td class="p-4">
+                                                    <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold" :class="emp.deviceId ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-slate-800 text-slate-400'" x-text="emp.deviceId ? 'Terikat 1 Device' : 'Belum Terikat'"></span>
+                                                </td>
+                                                <td class="p-4 text-center space-x-2">
+                                                    <button @click="resetDevice(index)" title="Reset Device" class="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-lg transition" x-show="emp.deviceId"><i class="fa-solid fa-mobile-screen mr-1"></i> Reset HP</button>
+                                                    <button @click="editEmployee(index)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg transition"><i class="fa-solid fa-pen"></i></button>
+                                                    <button @click="deleteEmployee(index)" class="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition"><i class="fa-solid fa-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                        </template>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </div>
+        </template>
+    </main>
+
+    <!-- MODAL BASECAMP -->
+    <div x-show="showBasecampModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div class="glass-card max-w-lg w-full p-6 rounded-3xl space-y-4 border border-slate-700 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-white" x-text="editBasecampIndex !== null ? 'Detail / Peta Basecamp' : 'Tambah Basecamp Baru'"></h3>
+            <div x-show="!canModifyBasecamp" class="bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs p-3 rounded-xl">
+                <i class="fa-solid fa-info-circle mr-1"></i> <strong>Mode Read Only:</strong> Anda dapat melihat peta dan koordinat basecamp, namun tombol simpan dinonaktifkan.
+            </div>
+            <form @submit.prevent="saveBasecamp" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Basecamp</label>
+                    <input type="text" x-model="basecampForm.name" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
                 </div>
                 <div>
-                  <h4 class="font-bold text-slate-800">Aksi Cepat Presensi</h4>
-                  <p class="text-xs text-slate-500">Pencatatan kehadiran tim wilayah</p>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Peta Lokasi Basecamp</label>
+                    <div id="basecampMap"></div>
                 </div>
-              </div>
-              <p class="text-xs text-slate-600 mb-4 leading-relaxed">
-                Kelola pencatatan kehadiran harian tim lapangan di wilayah Palembang, Padang, Aceh, Pekanbaru, Dumai, dan Sidoarjo secara praktis.
-              </p>
-            </div>
-
-            <div class="space-y-2 pt-2">
-              <button onclick="switchTab('input-absensi')" class="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2 shadow-sm">
-                <i class="fa-solid fa-plus-circle"></i>
-                <span>Buka Form Absensi Full</span>
-              </button>
-              <button onclick="switchTab('rekap-absensi')" class="w-full py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-sm transition flex items-center justify-center space-x-2">
-                <i class="fa-solid fa-file-export"></i>
-                <span>Lihat Laporan Rekapitulasi</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- RIGHT: Rekapitulasi Absensi Ringkasan (Dashboard Table Widget) -->
-          <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-            <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div class="flex items-center space-x-2">
-                <i class="fa-solid fa-chart-column text-blue-600"></i>
-                <h4 class="font-bold text-slate-800">Rekapitulasi Absensi Ringkasan</h4>
-              </div>
-              <span class="text-xs text-slate-500 font-medium">Bulan Ini</span>
-            </div>
-
-            <div class="p-4 overflow-x-auto">
-              <table class="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr class="bg-slate-100/70 text-slate-600 uppercase font-semibold border-b border-slate-200">
-                    <th class="py-2.5 px-3">Karyawan</th>
-                    <th class="py-2.5 px-3">Region Worksite</th>
-                    <th class="py-2.5 px-3 text-center text-emerald-600">Hadir</th>
-                    <th class="py-2.5 px-3 text-center text-amber-600">Izin</th>
-                    <th class="py-2.5 px-3 text-center text-blue-600">Sakit</th>
-                    <th class="py-2.5 px-3 text-center text-rose-600">Alpha</th>
-                    <th class="py-2.5 px-3 text-center">% Kehadiran</th>
-                  </tr>
-                </thead>
-                <tbody id="dashboard-rekap-tbody" class="divide-y divide-slate-100">
-                  <!-- Populated by JS -->
-                </tbody>
-              </table>
-            </div>
-          </div>
-
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Latitude</label>
+                        <input type="number" step="any" x-model="basecampForm.lat" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Longitude</label>
+                        <input type="number" step="any" x-model="basecampForm.lng" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Radius (Meter)</label>
+                    <input type="number" x-model="basecampForm.radius" @input="updateMapFromInputs" :disabled="!canModifyBasecamp" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none disabled:opacity-60">
+                </div>
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" @click="showBasecampModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Tutup</button>
+                    <button type="submit" x-show="canModifyBasecamp" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
+                </div>
+            </form>
         </div>
-
-        <!-- RECENT ACTIVITY LOGS -->
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h4 class="font-bold text-slate-800 text-sm flex items-center">
-              <i class="fa-solid fa-clock-rotate-left text-slate-400 mr-2"></i> Log Activity Absensi Terbaru
-            </h4>
-            <button onclick="switchTab('rekap-absensi')" class="text-xs font-semibold text-blue-600 hover:text-blue-700">Lihat Semua Laporan &rarr;</button>
-          </div>
-          <div class="overflow-x-auto">
-            <table class="w-full text-xs text-left">
-              <thead>
-                <tr class="text-slate-400 border-b border-slate-100 pb-2">
-                  <th class="py-2 px-3">Tanggal & Waktu</th>
-                  <th class="py-2 px-3">Nama Karyawan</th>
-                  <th class="py-2 px-3">Region</th>
-                  <th class="py-2 px-3">Status</th>
-                  <th class="py-2 px-3">Keterangan</th>
-                </tr>
-              </thead>
-              <tbody id="dashboard-activity-tbody" class="divide-y divide-slate-100">
-                <!-- Populated by JS -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 2: INPUT ABSENSI FULL -->
-      <!-- ========================================== -->
-      <section id="tab-input-absensi" class="tab-content hidden space-y-6">
-        <div class="max-w-3xl mx-auto bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div class="bg-slate-900 text-white p-6">
-            <h3 class="text-lg font-bold flex items-center">
-              <i class="fa-solid fa-clipboard-user text-blue-400 mr-3"></i>
-              Form Input Absensi Karyawan
-            </h3>
-            <p class="text-xs text-slate-400 mt-1">Lengkapi data absensi di bawah ini untuk mencatat presensi tim.</p>
-          </div>
-
-          <form id="form-absensi" onsubmit="handleAbsensiSubmit(event)" class="p-6 space-y-5">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Select Karyawan -->
-              <div class="space-y-1 md:col-span-2">
-                <label class="block text-xs font-semibold text-slate-700">Pilih Karyawan / Anggota Tim <span class="text-rose-500">*</span></label>
-                <select id="absen-karyawan-id" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">-- Pilih Nama Karyawan --</option>
-                </select>
-              </div>
-
-              <!-- Tanggal Absen -->
-              <div class="space-y-1">
-                <label class="block text-xs font-semibold text-slate-700">Tanggal Absensi <span class="text-rose-500">*</span></label>
-                <input type="date" id="absen-tanggal" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              </div>
-
-              <!-- Jam Absen -->
-              <div class="space-y-1">
-                <label class="block text-xs font-semibold text-slate-700">Waktu / Jam Absen <span class="text-rose-500">*</span></label>
-                <input type="time" id="absen-jam" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-              </div>
-
-              <!-- Status Kehadiran -->
-              <div class="space-y-1">
-                <label class="block text-xs font-semibold text-slate-700">Status Kehadiran <span class="text-rose-500">*</span></label>
-                <select id="absen-status" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="Hadir">Hadir (Present)</option>
-                  <option value="Izin">Izin (Leave)</option>
-                  <option value="Sakit">Sakit (Sick)</option>
-                  <option value="Alpha">Alpha (Absent)</option>
-                </select>
-              </div>
-
-              <!-- Region Worksite -->
-              <div class="space-y-1">
-                <label class="block text-xs font-semibold text-slate-700">Lokasi / Region Worksite</label>
-                <select id="absen-region" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="Palembang">Palembang (Sumsel)</option>
-                  <option value="Padang">Padang (Sumbar)</option>
-                  <option value="Aceh">Aceh</option>
-                  <option value="Pekanbaru">Pekanbaru (Riau)</option>
-                  <option value="Dumai">Dumai</option>
-                  <option value="Sidoarjo">Sidoarjo (Jawa Timur)</option>
-                </select>
-              </div>
-
-              <!-- Keterangan -->
-              <div class="space-y-1 md:col-span-2">
-                <label class="block text-xs font-semibold text-slate-700">Catatan / Keterangan Pekerjaan</label>
-                <textarea id="absen-keterangan" rows="3" placeholder="Contoh: Pekerjaan penarikan kabel FTTH di Sektor D06, kondisi lapangan aman." class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
-              </div>
-            </div>
-
-            <div class="pt-4 border-t border-slate-100 flex items-center justify-end space-x-3">
-              <button type="button" onclick="setFormNow()" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg text-xs transition">
-                <i class="fa-solid fa-clock mr-1"></i> Waktu Sekarang
-              </button>
-              <button type="submit" class="py-2.5 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-sm transition shadow-md flex items-center space-x-2">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span>Simpan Absensi</span>
-              </button>
-            </div>
-          </form>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 3: DATA KARYAWAN -->
-      <!-- ========================================== -->
-      <section id="tab-data-karyawan" class="tab-content hidden space-y-6">
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h3 class="text-lg font-bold text-slate-800">Daftar Tim & Karyawan YOFC</h3>
-              <p class="text-xs text-slate-500">Kelola master data personil teknis dan administrasi</p>
-            </div>
-            <button onclick="openModalKaryawan()" class="py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-xs transition flex items-center justify-center space-x-2 shadow-sm">
-              <i class="fa-solid fa-user-plus"></i>
-              <span>Tambah Karyawan Baru</span>
-            </button>
-          </div>
-
-          <!-- Search & Filter Bar -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-            <div class="relative">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
-              <input type="text" id="search-karyawan" oninput="renderKaryawanTable()" placeholder="Cari Nama / NIK / Jabatan..." class="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none">
-            </div>
-            <div>
-              <select id="filter-karyawan-region" onchange="renderKaryawanTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                <option value="">Semua Region Worksite</option>
-                <option value="Palembang">Palembang</option>
-                <option value="Padang">Padang</option>
-                <option value="Aceh">Aceh</option>
-                <option value="Pekanbaru">Pekanbaru</option>
-                <option value="Dumai">Dumai</option>
-                <option value="Sidoarjo">Sidoarjo</option>
-              </select>
-            </div>
-            <div>
-              <select id="filter-karyawan-status" onchange="renderKaryawanTable()" class="w-full py-2 px-3 border border-slate-200 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                <option value="">Semua Status Aktif</option>
-                <option value="Aktif">Aktif</option>
-                <option value="Non-Aktif">Non-Aktif</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Karyawan Table -->
-          <div class="overflow-x-auto border border-slate-100 rounded-lg">
-            <table class="w-full text-left text-xs">
-              <thead>
-                <tr class="bg-slate-100 text-slate-600 uppercase font-semibold border-b border-slate-200">
-                  <th class="py-3 px-4">NIK</th>
-                  <th class="py-3 px-4">Nama Lengkap</th>
-                  <th class="py-3 px-4">Jabatan / Role</th>
-                  <th class="py-3 px-4">Region Worksite</th>
-                  <th class="py-3 px-4">Kontak / No HP</th>
-                  <th class="py-3 px-4 text-center">Status</th>
-                  <th class="py-3 px-4 text-center">Aksi</th>
-                </tr>
-              </thead>
-              <tbody id="table-karyawan-tbody" class="divide-y divide-slate-100">
-                <!-- Dynamic Content -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 4: REKAPITULASI ABSENSI FULL -->
-      <!-- ========================================== -->
-      <section id="tab-rekap-absensi" class="tab-content hidden space-y-6">
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-4">
-            <div>
-              <h3 class="text-lg font-bold text-slate-800">Rekapitulasi Presensi & Kehadiran Tim</h3>
-              <p class="text-xs text-slate-500">Monitoring kumulatif kehadiran bulanan dan statistik personil</p>
-            </div>
-
-            <!-- Export Buttons -->
-            <div class="flex items-center space-x-2">
-              <button onclick="exportRekapToCSV()" class="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-medium rounded-lg text-xs transition flex items-center space-x-1.5 shadow-sm">
-                <i class="fa-solid fa-file-excel"></i>
-                <span>Export CSV / Excel</span>
-              </button>
-              <button onclick="window.print()" class="py-2 px-3 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg text-xs transition flex items-center space-x-1.5 shadow-sm">
-                <i class="fa-solid fa-print"></i>
-                <span>Cetak Laporan</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Filters Bar -->
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter Bulan & Tahun</label>
-              <input type="month" id="rekap-filter-month" onchange="renderRekapitulasiTable()" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Filter Region Worksite</label>
-              <select id="rekap-filter-region" onchange="renderRekapitulasiTable()" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-                <option value="">Semua Region</option>
-                <option value="Palembang">Palembang</option>
-                <option value="Padang">Padang</option>
-                <option value="Aceh">Aceh</option>
-                <option value="Pekanbaru">Pekanbaru</option>
-                <option value="Dumai">Dumai</option>
-                <option value="Sidoarjo">Sidoarjo</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pencarian Nama</label>
-              <input type="text" id="rekap-filter-search" oninput="renderRekapitulasiTable()" placeholder="Cari nama karyawan..." class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-            </div>
-
-            <div class="flex items-end">
-              <button onclick="resetRekapFilters()" class="w-full py-2 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-lg text-xs transition flex items-center justify-center space-x-1">
-                <i class="fa-solid fa-rotate-left"></i>
-                <span>Reset Filter</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- MAIN REKAPITULASI TABLE -->
-          <div class="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
-            <table class="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr class="bg-slate-900 text-white uppercase font-semibold text-[11px] tracking-wider">
-                  <th class="py-3 px-4">No</th>
-                  <th class="py-3 px-4">Nama Karyawan</th>
-                  <th class="py-3 px-4">Jabatan</th>
-                  <th class="py-3 px-4">Region Worksite</th>
-                  <th class="py-3 px-4 text-center text-emerald-400 bg-slate-800/80">Hadir (H)</th>
-                  <th class="py-3 px-4 text-center text-amber-400 bg-slate-800/80">Izin (I)</th>
-                  <th class="py-3 px-4 text-center text-blue-400 bg-slate-800/80">Sakit (S)</th>
-                  <th class="py-3 px-4 text-center text-rose-400 bg-slate-800/80">Alpha (A)</th>
-                  <th class="py-3 px-4 text-center">Total Entri</th>
-                  <th class="py-3 px-4 text-center">% Kehadiran</th>
-                  <th class="py-3 px-4 text-center">Aksi Detail</th>
-                </tr>
-              </thead>
-              <tbody id="rekap-full-tbody" class="divide-y divide-slate-200">
-                <!-- JS dynamically populates full recapitulation -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 5: PENGATURAN SYSTEM -->
-      <!-- ========================================== -->
-      <section id="tab-pengaturan" class="tab-content hidden space-y-6">
-        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 max-w-3xl">
-          <h3 class="text-lg font-bold text-slate-800 mb-1">Pengaturan & Manajemen Database Local</h3>
-          <p class="text-xs text-slate-500 mb-6">Kelola konfigurasi sistem absensi dan pemeliharaan data aplikasi.</p>
-
-          <div class="space-y-6 divide-y divide-slate-100">
-            <!-- Reset Demo Data -->
-            <div class="pt-4 flex items-center justify-between">
-              <div>
-                <h4 class="text-sm font-semibold text-slate-800">Muat Ulang Sample Data Demo</h4>
-                <p class="text-xs text-slate-500">Restorasi data tim default & catatan absensi awal untuk simulasi.</p>
-              </div>
-              <button onclick="resetToDemoData()" class="py-2 px-4 bg-amber-500 hover:bg-amber-600 text-white font-medium rounded-lg text-xs transition shadow-sm">
-                <i class="fa-solid fa-arrows-rotate mr-1"></i> Reset Demo Data
-              </button>
-            </div>
-
-            <!-- Clear All Data -->
-            <div class="pt-4 flex items-center justify-between">
-              <div>
-                <h4 class="text-sm font-semibold text-rose-600">Hapus Semua Data LocalStorage</h4>
-                <p class="text-xs text-slate-500">Peringatan: Tindakan ini akan mengosongkan seluruh database absensi dan tim.</p>
-              </div>
-              <button onclick="clearAllData()" class="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-medium rounded-lg text-xs transition shadow-sm">
-                <i class="fa-solid fa-trash-can mr-1"></i> Kosongkan Data
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-    </main>
-  </div>
-
-  <!-- ========================================== -->
-  <!-- MODAL: KARYAWAN (TAMBAH / EDIT) -->
-  <!-- ========================================== -->
-  <div id="modal-karyawan" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200">
-      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
-        <h4 id="modal-karyawan-title" class="font-bold text-sm">Tambah Karyawan Baru</h4>
-        <button onclick="closeModalKaryawan()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <form id="form-karyawan" onsubmit="handleKaryawanSubmit(event)" class="p-5 space-y-4">
-        <input type="hidden" id="karyawan-id-hidden">
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">NIK / ID Karyawan <span class="text-rose-500">*</span></label>
-          <input type="text" id="karyawan-nik" required placeholder="Contoh: YFC-001" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">Nama Lengkap <span class="text-rose-500">*</span></label>
-          <input type="text" id="karyawan-nama" required placeholder="Nama lengkap personil" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">Jabatan / Peran <span class="text-rose-500">*</span></label>
-          <input type="text" id="karyawan-jabatan" required placeholder="Contoh: Field Engineer / Splicer / Safety Inspector" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">Region Worksite <span class="text-rose-500">*</span></label>
-          <select id="karyawan-region" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-            <option value="Palembang">Palembang</option>
-            <option value="Padang">Padang</option>
-            <option value="Aceh">Aceh</option>
-            <option value="Pekanbaru">Pekanbaru</option>
-            <option value="Dumai">Dumai</option>
-            <option value="Sidoarjo">Sidoarjo</option>
-          </select>
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">No HP / WhatsApp</label>
-          <input type="text" id="karyawan-kontak" placeholder="0812xxxxxxxx" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-        </div>
-
-        <div class="space-y-1">
-          <label class="block text-xs font-semibold text-slate-700">Status Keaktifan</label>
-          <select id="karyawan-status" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white">
-            <option value="Aktif">Aktif</option>
-            <option value="Non-Aktif">Non-Aktif</option>
-          </select>
-        </div>
-
-        <div class="pt-3 border-t border-slate-100 flex justify-end space-x-2">
-          <button type="button" onclick="closeModalKaryawan()" class="py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg">Batal</button>
-          <button type="submit" class="py-2 px-5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm">Simpan Data</button>
-        </div>
-      </form>
     </div>
-  </div>
 
-  <!-- ========================================== -->
-  <!-- MODAL: DETAIL ABSENSI INDIVIDUAL -->
-  <!-- ========================================== -->
-  <div id="modal-detail-absen" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden border border-slate-200">
-      <div class="bg-slate-900 text-white p-4 flex justify-between items-center">
-        <div>
-          <h4 id="detail-employee-name" class="font-bold text-sm">Detail Presensi</h4>
-          <p id="detail-employee-sub" class="text-xs text-slate-400">Riwayat log presensi harian</p>
+    <!-- MODAL KARYAWAN -->
+    <div x-show="showEmployeeModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+        <div class="glass-card max-w-md w-full p-6 rounded-3xl space-y-4 border border-slate-700">
+            <h3 class="text-lg font-bold text-white" x-text="editEmployeeIndex !== null ? 'Edit Karyawan' : 'Tambah Karyawan Baru'"></h3>
+            <form @submit.prevent="saveEmployee" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">ID Karyawan</label>
+                    <input type="text" x-model="employeeForm.id" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Nama Lengkap</label>
+                    <input type="text" x-model="employeeForm.name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Role / Posisi</label>
+                    <input type="text" x-model="employeeForm.role" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Password</label>
+                    <input type="text" x-model="employeeForm.password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" @click="showEmployeeModal = false" class="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl">Batal</button>
+                    <button type="submit" class="px-4 py-2 bg-amber-500 text-slate-950 text-xs font-bold rounded-xl">Simpan</button>
+                </div>
+            </form>
         </div>
-        <button onclick="closeModalDetail()" class="text-slate-400 hover:text-white">
-          <i class="fa-solid fa-xmark text-lg"></i>
-        </button>
-      </div>
-
-      <div class="p-5 max-h-[60vh] overflow-y-auto custom-scrollbar">
-        <table class="w-full text-left text-xs border-collapse">
-          <thead>
-            <tr class="bg-slate-100 text-slate-600 font-semibold border-b border-slate-200">
-              <th class="py-2 px-3">Tanggal & Jam</th>
-              <th class="py-2 px-3">Status</th>
-              <th class="py-2 px-3">Region</th>
-              <th class="py-2 px-3">Keterangan</th>
-            </tr>
-          </thead>
-          <tbody id="detail-absen-tbody" class="divide-y divide-slate-100">
-            <!-- Dynamic Content -->
-          </tbody>
-        </table>
-      </div>
-
-      <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
-        <button onclick="closeModalDetail()" class="py-2 px-4 bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium rounded-lg">Tutup</button>
-      </div>
     </div>
-  </div>
 
-  <!-- ========================================== -->
-  <!-- JAVASCRIPT LOGIC -->
-  <!-- ========================================== -->
-  <script>
-    // INITIAL SAMPLE DATA DEMO
-    const DEFAULT_KARYAWAN = [
-      { id: '1', nik: 'YFC-001', nama: 'Ahmad Rivai', jabatan: 'Site Manager', region: 'Palembang', kontak: '081271002233', status: 'Aktif' },
-      { id: '2', nik: 'YFC-002', nama: 'Budi Santoso', jabatan: 'Fiber Optic Splicer', region: 'Palembang', kontak: '081368991122', status: 'Aktif' },
-      { id: '3', nik: 'YFC-003', nama: 'Candra Wijaya', jabatan: 'Civil Worker', region: 'Padang', kontak: '085263110044', status: 'Aktif' },
-      { id: '4', nik: 'YFC-004', nama: 'Dedi Kurniawan', jabatan: 'Safety Inspector', region: 'Aceh', kontak: '081165443322', status: 'Aktif' },
-      { id: '5', nik: 'YFC-005', nama: 'Eko Prasetyo', jabatan: 'Project Engineer', region: 'Pekanbaru', kontak: '082170809000', status: 'Aktif' },
-      { id: '6', nik: 'YFC-006', nama: 'Fajar Hidayat', jabatan: 'Logistics Supervisor', region: 'Dumai', kontak: '081277665544', status: 'Aktif' },
-      { id: '7', nik: 'YFC-007', nama: 'Gilang Ramadhan', jabatan: 'FTTH Technician', region: 'Sidoarjo', kontak: '085730112233', status: 'Aktif' }
-    ];
+    <!-- FOOTER -->
+    <footer class="text-center py-6 text-xs text-slate-500 border-t border-slate-900">
+        &copy; 2026 ACM - YOFC Team. All Rights Reserved.
+    </footer>
 
-    function generateSampleAbsensi() {
-      const todayStr = new Date().toISOString().split('T')[0];
-      return [
-        { id: 'a1', karyawanId: '1', tanggal: todayStr, jam: '07:45', status: 'Hadir', region: 'Palembang', keterangan: 'Pengawasan site FTTH Palembang' },
-        { id: 'a2', karyawanId: '2', tanggal: todayStr, jam: '08:00', status: 'Hadir', region: 'Palembang', keterangan: 'Jointing closure segment 1' },
-        { id: 'a3', karyawanId: '3', tanggal: todayStr, jam: '08:15', status: 'Izin', region: 'Padang', keterangan: 'Izin urusan keluarga' },
-        { id: 'a4', karyawanId: '4', tanggal: todayStr, jam: '07:30', status: 'Hadir', region: 'Aceh', keterangan: 'Inspeksi K3 Banda Aceh' },
-        { id: 'a5', karyawanId: '5', tanggal: todayStr, jam: '08:05', status: 'Sakit', region: 'Pekanbaru', keterangan: 'Demam & istirahat dokter' },
-        { id: 'a6', karyawanId: '6', tanggal: todayStr, jam: '09:00', status: 'Alpha', region: 'Dumai', keterangan: 'Tidak ada konfirmasi' },
-        { id: 'a7', karyawanId: '7', tanggal: todayStr, jam: '07:50', status: 'Hadir', region: 'Sidoarjo', keterangan: 'Pekerjaan penarikan kabel Sidoarjo' }
-      ];
-    }
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // STATE STORE
-    let karyawanList = [];
-    let absensiList = [];
-
-    // ON PAGE LOAD
-    document.addEventListener('DOMContentLoaded', () => {
-      initDatabase();
-      initUI();
-      switchTab('dashboard');
-    });
-
-    function initDatabase() {
-      const storedKaryawan = localStorage.getItem('yofc_karyawan');
-      const storedAbsensi = localStorage.getItem('yofc_absensi');
-
-      if (!storedKaryawan) {
-        karyawanList = [...DEFAULT_KARYAWAN];
-        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
-      } else {
-        karyawanList = JSON.parse(storedKaryawan);
-      }
-
-      if (!storedAbsensi) {
-        absensiList = generateSampleAbsensi();
-        localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
-      } else {
-        absensiList = JSON.parse(storedAbsensi);
-      }
-    }
-
-    function initUI() {
-      // Date Display
-      const now = new Date();
-      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-      document.getElementById('current-date-display').innerText = now.toLocaleDateString('id-ID', options);
-
-      // Default month filter
-      const monthStr = now.toISOString().slice(0, 7);
-      document.getElementById('rekap-filter-month').value = monthStr;
-
-      // Populate Select Karyawan in Absen Form
-      populateSelectKaryawan();
-      setFormNow();
-    }
-
-    // TAB SWITCHING LOGIC
-    function switchTab(tabName) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-      document.querySelectorAll('.nav-item').forEach(el => {
-        el.classList.remove('bg-blue-600', 'text-white');
-        el.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
-      });
-
-      const targetTab = document.getElementById(`tab-${tabName}`);
-      const targetNav = document.getElementById(`nav-${tabName}`);
-      if (targetTab) targetTab.classList.remove('hidden');
-      if (targetNav) {
-        targetNav.classList.add('bg-blue-600', 'text-white');
-        targetNav.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800');
-      }
-
-      const titles = {
-        'dashboard': 'Dashboard Overview',
-        'input-absensi': 'Form Presensi Karyawan',
-        'data-karyawan': 'Kelola Data Tim & Karyawan',
-        'rekap-absensi': 'Rekapitulasi Presensi & Laporan',
-        'pengaturan': 'Pengaturan System'
-      };
-      document.getElementById('page-title').innerText = titles[tabName] || 'YOFC App';
-
-      if (tabName === 'dashboard') renderDashboard();
-      if (tabName === 'data-karyawan') renderKaryawanTable();
-      if (tabName === 'rekap-absensi') renderRekapitulasiTable();
-      if (tabName === 'input-absensi') populateSelectKaryawan();
-    }
-
-    // RENDER DASHBOARD
-    function renderDashboard() {
-      // 1. Stats KPI
-      const totalKaryawan = karyawanList.filter(k => k.status === 'Aktif').length;
-      const todayStr = new Date().toISOString().split('T')[0];
-      const todayAbsens = absensiList.filter(a => a.tanggal === todayStr);
-
-      const hadirToday = todayAbsens.filter(a => a.status === 'Hadir').length;
-      const izinToday = todayAbsens.filter(a => a.status === 'Izin' || a.status === 'Sakit').length;
-      const alphaToday = todayAbsens.filter(a => a.status === 'Alpha').length;
-
-      document.getElementById('stat-total-karyawan').innerText = totalKaryawan;
-      document.getElementById('stat-hadir-today').innerText = hadirToday;
-      document.getElementById('stat-izin-today').innerText = izinToday;
-      document.getElementById('stat-alpha-today').innerText = alphaToday;
-
-      const percent = totalKaryawan > 0 ? Math.round((hadirToday / totalKaryawan) * 100) : 0;
-      document.getElementById('stat-hadir-percent').innerText = `${percent}% Kehadiran`;
-
-      // 2. Dashboard Rekap Summary
-      renderDashboardRekapSummary();
-
-      // 3. Activity Log Table
-      const activityTbody = document.getElementById('dashboard-activity-tbody');
-      activityTbody.innerHTML = '';
-
-      const recentAbsensi = [...absensiList].sort((a, b) => new Date(b.tanggal + 'T' + b.jam) - new Date(a.tanggal + 'T' + a.jam)).slice(0, 5);
-
-      if (recentAbsensi.length === 0) {
-        activityTbody.innerHTML = `<tr><td colspan="5" class="py-4 text-center text-slate-400">Belum ada riwayat absensi.</td></tr>`;
-      } else {
-        recentAbsensi.forEach(item => {
-          const kar = karyawanList.find(k => k.id === item.karyawanId) || { nama: 'Unknown Karyawan' };
-          const badgeColor = {
-            'Hadir': 'bg-emerald-100 text-emerald-700',
-            'Izin': 'bg-amber-100 text-amber-700',
-            'Sakit': 'bg-blue-100 text-blue-700',
-            'Alpha': 'bg-rose-100 text-rose-700'
-          }[item.status] || 'bg-slate-100 text-slate-700';
-
-          activityTbody.innerHTML += `
-            <tr class="hover:bg-slate-50">
-              <td class="py-2.5 px-3 font-medium text-slate-700">${item.tanggal} <span class="text-slate-400 text-[10px]">(${item.jam})</span></td>
-              <td class="py-2.5 px-3 font-semibold text-slate-800">${kar.nama}</td>
-              <td class="py-2.5 px-3 text-slate-600">${item.region || '-'}</td>
-              <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badgeColor}">${item.status}</span></td>
-              <td class="py-2.5 px-3 text-slate-500 truncate max-w-[200px]">${item.keterangan || '-'}</td>
-            </tr>
-          `;
-        });
-      }
-    }
-
-    // DASHBOARD REKAP SUMMARY
-    function renderDashboardRekapSummary() {
-      const tbody = document.getElementById('dashboard-rekap-tbody');
-      tbody.innerHTML = '';
-
-      if (karyawanList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Belum ada data karyawan.</td></tr>`;
-        return;
-      }
-
-      karyawanList.slice(0, 6).forEach(kar => {
-        const karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
-        const hadirCount = karAbsens.filter(a => a.status === 'Hadir').length;
-        const izinCount = karAbsens.filter(a => a.status === 'Izin').length;
-        const sakitCount = karAbsens.filter(a => a.status === 'Sakit').length;
-        const alphaCount = karAbsens.filter(a => a.status === 'Alpha').length;
-        const total = karAbsens.length;
-
-        const rate = total > 0 ? Math.round((hadirCount / total) * 100) : 0;
-
-        tbody.innerHTML += `
-          <tr class="hover:bg-slate-50 transition">
-            <td class="py-2.5 px-3 font-semibold text-slate-800">${kar.nama}</td>
-            <td class="py-2.5 px-3 text-slate-500">${kar.region}</td>
-            <td class="py-2.5 px-3 text-center font-bold text-emerald-600">${hadirCount}</td>
-            <td class="py-2.5 px-3 text-center text-amber-600">${izinCount}</td>
-            <td class="py-2.5 px-3 text-center text-blue-600">${sakitCount}</td>
-            <td class="py-2.5 px-3 text-center text-rose-600">${alphaCount}</td>
-            <td class="py-2.5 px-3 text-center">
-              <span class="font-bold text-slate-700">${rate}%</span>
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    // FORM ABSENSI LOGIC
-    function populateSelectKaryawan() {
-      const select = document.getElementById('absen-karyawan-id');
-      select.innerHTML = '<option value="">-- Pilih Nama Karyawan --</option>';
-      karyawanList.filter(k => k.status === 'Aktif').forEach(k => {
-        select.innerHTML += `<option value="${k.id}">${k.nama} (${k.nik} - ${k.region})</option>`;
-      });
-    }
-
-    function setFormNow() {
-      const now = new Date();
-      document.getElementById('absen-tanggal').value = now.toISOString().split('T')[0];
-      const hours = String(now.getHours()).padStart(2, '0');
-      const mins = String(now.getMinutes()).padStart(2, '0');
-      document.getElementById('absen-jam').value = `${hours}:${mins}`;
-    }
-
-    function handleAbsensiSubmit(e) {
-      e.preventDefault();
-      const karId = document.getElementById('absen-karyawan-id').value;
-      const tanggal = document.getElementById('absen-tanggal').value;
-      const jam = document.getElementById('absen-jam').value;
-      const status = document.getElementById('absen-status').value;
-      const region = document.getElementById('absen-region').value;
-      const keterangan = document.getElementById('absen-keterangan').value;
-
-      const newRecord = {
-        id: 'absen_' + Date.now(),
-        karyawanId: karId,
-        tanggal,
-        jam,
-        status,
-        region,
-        keterangan
-      };
-
-      absensiList.unshift(newRecord);
-      localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
-
-      showToast('Presensi Berhasil', 'Data absensi karyawan berhasil tersimpan.', 'success');
-      document.getElementById('form-absensi').reset();
-      setFormNow();
-    }
-
-    // REKAPITULASI FULL LOGIC
-    function renderRekapitulasiTable() {
-      const monthVal = document.getElementById('rekap-filter-month').value;
-      const regionVal = document.getElementById('rekap-filter-region').value;
-      const searchVal = document.getElementById('rekap-filter-search').value.toLowerCase();
-
-      const tbody = document.getElementById('rekap-full-tbody');
-      tbody.innerHTML = '';
-
-      let filteredKaryawan = karyawanList.filter(k => {
-        const matchesSearch = k.nama.toLowerCase().includes(searchVal) || k.nik.toLowerCase().includes(searchVal);
-        const matchesRegion = !regionVal || k.region === regionVal;
-        return matchesSearch && matchesRegion;
-      });
-
-      if (filteredKaryawan.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-slate-400 font-medium">Tidak ada data karyawan yang sesuai filter.</td></tr>`;
-        return;
-      }
-
-      filteredKaryawan.forEach((kar, idx) => {
-        let karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
-
-        if (monthVal) {
-          karAbsens = karAbsens.filter(a => a.tanggal && a.tanggal.startsWith(monthVal));
+        function getLocalDate(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
-        const hadir = karAbsens.filter(a => a.status === 'Hadir').length;
-        const izin = karAbsens.filter(a => a.status === 'Izin').length;
-        const sakit = karAbsens.filter(a => a.status === 'Sakit').length;
-        const alpha = karAbsens.filter(a => a.status === 'Alpha').length;
-        const total = karAbsens.length;
-        const rate = total > 0 ? Math.round((hadir / total) * 100) : 0;
+        async function getOrCreateStableDeviceIdentifier() {
+            let deviceId = localStorage.getItem('bc_device_uuid');
+            if (deviceId) return deviceId;
 
-        tbody.innerHTML += `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-            <td class="py-3 px-4 font-semibold text-slate-400">${idx + 1}</td>
-            <td class="py-3 px-4">
-              <div class="font-bold text-slate-800">${kar.nama}</div>
-              <div class="text-[10px] text-slate-400">NIK: ${kar.nik}</div>
-            </td>
-            <td class="py-3 px-4 text-slate-600">${kar.jabatan}</td>
-            <td class="py-3 px-4">
-              <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">${kar.region}</span>
-            </td>
-            <td class="py-3 px-4 text-center font-bold text-emerald-600 bg-emerald-50/30">${hadir}</td>
-            <td class="py-3 px-4 text-center font-bold text-amber-600 bg-amber-50/30">${izin}</td>
-            <td class="py-3 px-4 text-center font-bold text-blue-600 bg-blue-50/30">${sakit}</td>
-            <td class="py-3 px-4 text-center font-bold text-rose-600 bg-rose-50/30">${alpha}</td>
-            <td class="py-3 px-4 text-center font-semibold text-slate-700">${total} Hari</td>
-            <td class="py-3 px-4 text-center">
-              <span class="px-2 py-1 rounded-full text-xs font-bold ${rate >= 80 ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}">${rate}%</span>
-            </td>
-            <td class="py-3 px-4 text-center">
-              <button onclick="viewDetailAbsensi('${kar.id}')" class="py-1 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-600 font-semibold rounded text-[11px] transition">
-                <i class="fa-solid fa-eye mr-1"></i> Log Detail
-              </button>
-            </td>
-          </tr>
-        `;
-      });
-    }
+            const fingerprintComponents = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset()
+            ].join('|||');
 
-    function resetRekapFilters() {
-      const now = new Date();
-      document.getElementById('rekap-filter-month').value = now.toISOString().slice(0, 7);
-      document.getElementById('rekap-filter-region').value = '';
-      document.getElementById('rekap-filter-search').value = '';
-      renderRekapitulasiTable();
-    }
+            let hash = 0;
+            for (let i = 0; i < fingerprintComponents.length; i++) {
+                const char = fingerprintComponents.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
+            }
 
-    function viewDetailAbsensi(karId) {
-      const kar = karyawanList.find(k => k.id === karId);
-      if (!kar) return;
-
-      document.getElementById('detail-employee-name').innerText = `Log Detail: ${kar.nama}`;
-      document.getElementById('detail-employee-sub').innerText = `Jabatan: ${kar.jabatan} | Region: ${kar.region}`;
-
-      const tbody = document.getElementById('detail-absen-tbody');
-      tbody.innerHTML = '';
-
-      const logs = absensiList.filter(a => a.karyawanId === karId);
-
-      if (logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-center text-slate-400">Belum ada catatan presensi.</td></tr>`;
-      } else {
-        logs.forEach(l => {
-          tbody.innerHTML += `
-            <tr>
-              <td class="py-2 px-3 font-medium text-slate-700">${l.tanggal} ${l.jam}</td>
-              <td class="py-2 px-3"><span class="font-bold">${l.status}</span></td>
-              <td class="py-2 px-3 text-slate-600">${l.region}</td>
-              <td class="py-2 px-3 text-slate-500">${l.keterangan || '-'}</td>
-            </tr>
-          `;
-        });
-      }
-
-      document.getElementById('modal-detail-absen').classList.remove('hidden');
-    }
-
-    function closeModalDetail() {
-      document.getElementById('modal-detail-absen').classList.add('hidden');
-    }
-
-    // EXPORT REKAP TO CSV
-    function exportRekapToCSV() {
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "No,Nama,NIK,Jabatan,Region,Hadir,Izin,Sakit,Alpha,Total_Hari,Persentase_Kehadiran\n";
-
-      karyawanList.forEach((kar, idx) => {
-        const karAbsens = absensiList.filter(a => a.karyawanId === kar.id);
-        const hadir = karAbsens.filter(a => a.status === 'Hadir').length;
-        const izin = karAbsens.filter(a => a.status === 'Izin').length;
-        const sakit = karAbsens.filter(a => a.status === 'Sakit').length;
-        const alpha = karAbsens.filter(a => a.status === 'Alpha').length;
-        const total = karAbsens.length;
-        const rate = total > 0 ? Math.round((hadir / total) * 100) : 0;
-
-        csvContent += `${idx + 1},"${kar.nama}","${kar.nik}","${kar.jabatan}","${kar.region}",${hadir},${izin},${sakit},${alpha},${total},"${rate}%"\n`;
-      });
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `Rekap_Absensi_YOFC_${new Date().toISOString().slice(0,10)}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      showToast('Export Berhasil', 'File CSV Rekapitulasi berhasil diunduh.', 'success');
-    }
-
-    // DATA KARYAWAN LOGIC
-    function renderKaryawanTable() {
-      const searchVal = document.getElementById('search-karyawan').value.toLowerCase();
-      const regionVal = document.getElementById('filter-karyawan-region').value;
-      const statusVal = document.getElementById('filter-karyawan-status').value;
-
-      const tbody = document.getElementById('table-karyawan-tbody');
-      tbody.innerHTML = '';
-
-      let list = karyawanList.filter(k => {
-        const matchesSearch = k.nama.toLowerCase().includes(searchVal) || k.nik.toLowerCase().includes(searchVal) || k.jabatan.toLowerCase().includes(searchVal);
-        const matchesRegion = !regionVal || k.region === regionVal;
-        const matchesStatus = !statusVal || k.status === statusVal;
-        return matchesSearch && matchesRegion && matchesStatus;
-      });
-
-      if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400 font-medium">Tidak ada data karyawan ditemukan.</td></tr>`;
-        return;
-      }
-
-      list.forEach(k => {
-        const statusBadge = k.status === 'Aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500';
-        tbody.innerHTML += `
-          <tr class="hover:bg-slate-50 border-b border-slate-100">
-            <td class="py-3 px-4 font-mono font-bold text-slate-600">${k.nik}</td>
-            <td class="py-3 px-4 font-bold text-slate-800">${k.nama}</td>
-            <td class="py-3 px-4 text-slate-600">${k.jabatan}</td>
-            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">${k.region}</span></td>
-            <td class="py-3 px-4 text-slate-600">${k.kontak || '-'}</td>
-            <td class="py-3 px-4 text-center"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge}">${k.status}</span></td>
-            <td class="py-3 px-4 text-center">
-              <div class="flex items-center justify-center space-x-1">
-                <button onclick="editKaryawan('${k.id}')" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition"><i class="fa-solid fa-pen-to-square"></i></button>
-                <button onclick="deleteKaryawan('${k.id}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded transition"><i class="fa-solid fa-trash-can"></i></button>
-              </div>
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    function openModalKaryawan() {
-      document.getElementById('modal-karyawan-title').innerText = 'Tambah Karyawan Baru';
-      document.getElementById('form-karyawan').reset();
-      document.getElementById('karyawan-id-hidden').value = '';
-      document.getElementById('modal-karyawan').classList.remove('hidden');
-    }
-
-    function closeModalKaryawan() {
-      document.getElementById('modal-karyawan').classList.add('hidden');
-    }
-
-    function editKaryawan(id) {
-      const k = karyawanList.find(item => item.id === id);
-      if (!k) return;
-
-      document.getElementById('modal-karyawan-title').innerText = 'Edit Data Karyawan';
-      document.getElementById('karyawan-id-hidden').value = k.id;
-      document.getElementById('karyawan-nik').value = k.nik;
-      document.getElementById('karyawan-nama').value = k.nama;
-      document.getElementById('karyawan-jabatan').value = k.jabatan;
-      document.getElementById('karyawan-region').value = k.region;
-      document.getElementById('karyawan-kontak').value = k.kontak || '';
-      document.getElementById('karyawan-status').value = k.status;
-
-      document.getElementById('modal-karyawan').classList.remove('hidden');
-    }
-
-    function handleKaryawanSubmit(e) {
-      e.preventDefault();
-      const hiddenId = document.getElementById('karyawan-id-hidden').value;
-      const nik = document.getElementById('karyawan-nik').value;
-      const nama = document.getElementById('karyawan-nama').value;
-      const jabatan = document.getElementById('karyawan-jabatan').value;
-      const region = document.getElementById('karyawan-region').value;
-      const kontak = document.getElementById('karyawan-kontak').value;
-      const status = document.getElementById('karyawan-status').value;
-
-      if (hiddenId) {
-        const index = karyawanList.findIndex(k => k.id === hiddenId);
-        if (index !== -1) {
-          karyawanList[index] = { id: hiddenId, nik, nama, jabatan, region, kontak, status };
+            deviceId = 'FP-' + Math.abs(hash).toString(36).toUpperCase() + '-' + Math.abs(screen.width * screen.height).toString(36).toUpperCase();
+            localStorage.setItem('bc_device_uuid', deviceId);
+            return deviceId;
         }
-        showToast('Update Berhasil', 'Data karyawan telah diperbarui.', 'success');
-      } else {
-        const newKar = {
-          id: 'k_' + Date.now(),
-          nik,
-          nama,
-          jabatan,
-          region,
-          kontak,
-          status
-        };
-        karyawanList.push(newKar);
-        showToast('Karyawan Ditambahkan', 'Personil baru berhasil didaftarkan.', 'success');
-      }
 
-      localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
-      closeModalKaryawan();
-      renderKaryawanTable();
-      populateSelectKaryawan();
-    }
+        async function checkIsMockLocation(coords) {
+            if (coords && coords.isMocked === true) return true;
+            return false;
+        }
 
-    function deleteKaryawan(id) {
-      if (confirm('Apakah Anda yakin ingin menghapus data karyawan ini?')) {
-        karyawanList = karyawanList.filter(k => k.id !== id);
-        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
-        renderKaryawanTable();
-        populateSelectKaryawan();
-        showToast('Karyawan Dihapus', 'Data personil telah dihapus.', 'info');
-      }
-    }
+        async function simulateServerSideValidation(payload) {
+            const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
+            
+            const lat = currentCoords ? currentCoords.lat : 0;
+            const lng = currentCoords ? currentCoords.lng : 0;
 
-    // SYSTEM RESET & UTILS
-    function resetToDemoData() {
-      if (confirm('Atur ulang seluruh data ke versi demo standar?')) {
-        karyawanList = [...DEFAULT_KARYAWAN];
-        absensiList = generateSampleAbsensi();
-        localStorage.setItem('yofc_karyawan', JSON.stringify(karyawanList));
-        localStorage.setItem('yofc_absensi', JSON.stringify(absensiList));
-        showToast('Demo Data Restored', 'Sistem berhasil disetel ulang.', 'success');
-        renderDashboard();
-        renderKaryawanTable();
-        renderRekapitulasiTable();
-      }
-    }
+            const { data, error } = await _supabase.rpc('validate_and_checkin', {
+                p_login_id: loginId,
+                p_login_pass: loginPass,
+                p_lat: lat,
+                p_lng: lng,
+                p_accuracy: gpsAccuracy || 5,
+                p_simulation_mode: simulationMode,
+                p_device_id: deviceId
+            });
 
-    function clearAllData() {
-      if (confirm('HAPUS SEMUA DATA: Apakah Anda sangat yakin?')) {
-        karyawanList = [];
-        absensiList = [];
-        localStorage.clear();
-        showToast('Database Bersih', 'Seluruh data telah dihapus.', 'info');
-        renderDashboard();
-        renderKaryawanTable();
-        renderRekapitulasiTable();
-      }
-    }
+            if (error) {
+                return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
+            }
 
-    function showToast(title, message, type = 'success') {
-      const container = document.getElementById('toast-container');
-      const toast = document.createElement('div');
-      
-      const bgColor = {
-        'success': 'bg-emerald-600 text-white',
-        'info': 'bg-blue-600 text-white',
-        'error': 'bg-rose-600 text-white'
-      }[type] || 'bg-slate-800 text-white';
+            return data;
+        }
 
-      toast.className = `${bgColor} p-3.5 rounded-lg shadow-lg flex items-start space-x-3 text-xs font-medium min-w-[280px] pointer-events-auto transition duration-300 transform translate-y-2 opacity-0`;
-      toast.innerHTML = `
-        <div class="flex-1">
-          <p class="font-bold text-sm">${title}</p>
-          <p class="text-xs opacity-90">${message}</p>
-        </div>
-        <button onclick="this.parentElement.remove()" class="text-white/80 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
-      `;
+        function absensiApp() {
+            return {
+                isAdminView: false,
+                isAdminLoggedIn: false,
+                adminLoginUser: '',
+                adminLoginPass: '',
+                adminTab: 'rekap',
+                simulationMode: false,
+                isDesktopDevice: window.innerWidth >= 1024,
+                
+                currentUserRole: '',
+                currentEmpId: null,
+                isMasterAdmin: false,
 
-      container.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.remove('translate-y-2', 'opacity-0');
-      }, 10);
+                get timeGreeting() {
+                    const hour = new Date().getHours();
+                    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
+                    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+                    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+                    return 'Selamat Malam';
+                },
 
-      setTimeout(() => {
-        toast.classList.add('opacity-0');
-        setTimeout(() => toast.remove(), 300);
-      }, 4000);
-    }
+                get currentUserName() {
+                    if (this.isMasterAdmin) return 'Master Admin';
+                    const emp = this.employees.find(e => e.id === this.currentEmpId);
+                    return emp ? emp.name : 'User';
+                },
 
-    function openNotificationModal() {
-      showToast('Notifikasi System', 'Sistem absensi berjalan normal dan terhubung dengan LocalStorage.', 'info');
-    }
-  </script>
+                get normalizedRole() {
+                    return (this.currentUserRole || '').trim().toLowerCase();
+                },
+                get isMasterOrPM() {
+                    if (this.isMasterAdmin) return true;
+                    const r = this.normalizedRole;
+                    return r === 'project manager' || r === 'pusat' || r === 'superadmin' || r.includes('project manager');
+                },
+                get isAdminOnly() {
+                    const r = this.normalizedRole;
+                    return r === 'admin' || (r.includes('admin') && !this.isMasterOrPM);
+                },
+                get isOperationalRole() {
+                    const r = this.normalizedRole;
+                    const operationalRoles = ['regional pm', 'project supervisor', 'fiber installer', 'snd engineer'];
+                    return operationalRoles.includes(r) || (!this.isMasterOrPM && !this.isAdminOnly && this.currentEmpId);
+                },
+
+                get canAccessRekap() {
+                    return true;
+                },
+                get canAccessIzin() {
+                    return true;
+                },
+                get canAccessMessages() {
+                    return this.isMasterOrPM;
+                },
+                get canAccessBasecamp() {
+                    return true;
+                },
+                get canAccessKaryawan() {
+                    return this.isMasterOrPM;
+                },
+
+                get canModifyBasecamp() {
+                    return this.isMasterOrPM;
+                },
+                get canModifyIzin() {
+                    return this.isMasterOrPM;
+                },
+                get canResetRekap() {
+                    return this.isMasterOrPM;
+                },
+
+                employeeTab: 'checkin',
+
+                loginId: '',
+                loginPass: '',
+                gpsStatus: 'Mendeteksi GPS...',
+                gpsAccuracy: null,
+                currentCoords: null,
+                detectedBasecamp: null,
+
+                leaveForm: {
+                    empId: '',
+                    type: 'Sakit',
+                    startDate: getLocalDate(),
+                    endDate: getLocalDate(),
+                    reason: ''
+                },
+
+                messageForm: {
+                    recipientId: 'ALL',
+                    message: ''
+                },
+
+                filterStartDate: (() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 30);
+                    return getLocalDate(d);
+                })(),
+                filterEndDate: getLocalDate(),
+
+                map: null,
+                marker: null,
+                circle: null,
+
+                showBasecampModal: false,
+                editBasecampIndex: null,
+                basecampForm: { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 },
+
+                showEmployeeModal: false,
+                editEmployeeIndex: null,
+                employeeForm: { id: '', name: '', role: '', password: '', deviceId: null },
+
+                basecamps: [],
+                employees: [],
+                attendanceLogs: [],
+                leaves: [],
+                messages: [],
+
+                async init() {
+                    this.initGPS();
+                    await getOrCreateStableDeviceIdentifier();
+                    await this.loadAttendanceData();
+                    await this.loadMessagesData();
+                },
+
+                get employeeDeadlineText() {
+                    if (!this.loginId) return '09.45 WIB / 09.10 WIB';
+                    const emp = this.employees.find(e => e.id.toLowerCase() === this.loginId.trim().toLowerCase());
+                    if (!emp) return '09.45 WIB';
+                    const r = (emp.role || '').trim().toLowerCase();
+                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
+                        return '09.10 WIB';
+                    }
+                    return '09.45 WIB';
+                },
+
+                getLatenessMinutes(timestamp, role = '') {
+                    if (!timestamp) return 0;
+                    let match = timestamp.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
+                    let h = 0, m = 0;
+                    if (match) {
+                        h = parseInt(match[1], 10);
+                        m = parseInt(match[2], 10);
+                    } else {
+                        let d = new Date(timestamp);
+                        if (!isNaN(d.getTime())) {
+                            h = d.getHours();
+                            m = d.getMinutes();
+                        } else {
+                            return 0;
+                        }
+                    }
+                    const totalMinutes = h * 60 + m;
+                    
+                    const r = (role || '').trim().toLowerCase();
+                    let maxAllowedMinutes = 9 * 60 + 45;
+                    
+                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
+                        maxAllowedMinutes = 9 * 60 + 10;
+                    } else if (r === 'regional pm' || r === 'project supervisor' || r === 'fiber installer') {
+                        maxAllowedMinutes = 9 * 60 + 45;
+                    }
+
+                    return Math.max(0, totalMinutes - maxAllowedMinutes);
+                },
+
+                formatLateness(timestamp, role = '') {
+                    const mins = this.getLatenessMinutes(timestamp, role);
+                    if (mins === 0) {
+                        return 'Tepat Waktu';
+                    }
+                    return `${mins} menit`;
+                },
+
+                async loadAttendanceData() {
+                    let { data: attData } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                    if (attData) {
+                        this.attendanceLogs = attData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            role: item.role,
+                            basecamp: item.basecamp,
+                            timestamp: item.timestamp,
+                            date: item.date || getLocalDate(),
+                            accuracy: item.accuracy
+                        }));
+                    }
+
+                    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
+                    if (leaveData) {
+                        this.leaves = leaveData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            type: item.type,
+                            startDate: item.start_date,
+                            endDate: item.end_date,
+                            reason: item.reason,
+                            status: item.status,
+                            timestamp: item.timestamp
+                        }));
+                    }
+
+                    let { data: bcData } = await _supabase.from('basecamps').select('*');
+                    if (bcData && bcData.length > 0) {
+                        this.basecamps = bcData;
+                    }
+
+                    let { data: empData } = await _supabase.from('employees').select('*');
+                    if (empData && empData.length > 0) {
+                        this.employees = empData.map(e => ({
+                            id: e.id,
+                            name: e.name,
+                            role: e.role,
+                            password: e.password,
+                            deviceId: e.device_id
+                        }));
+                    }
+                },
+
+                async loadMessagesData() {
+                    let { data, error } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                    if (data) {
+                        this.messages = data.map(m => ({
+                            id: m.id,
+                            senderId: m.sender_id,
+                            recipientId: m.recipient_id,
+                            message: m.message,
+                            timestamp: m.timestamp
+                        }));
+                    }
+                },
+
+                getEmployeeName(empId) {
+                    const emp = this.employees.find(e => e.id === empId);
+                    return emp ? emp.name : empId;
+                },
+
+                async sendMessage() {
+                    const newMsg = {
+                        sender_id: this.currentEmpId || 'PM',
+                        recipient_id: this.messageForm.recipientId,
+                        message: this.messageForm.message,
+                        timestamp: new Date().toLocaleString('id-ID')
+                    };
+
+                    const { error } = await _supabase.from('messages').insert([newMsg]);
+                    if (error) {
+                        alert('Gagal mengirim pesan: ' + error.message);
+                        return;
+                    }
+
+                    alert('Pesan berhasil dikirim!');
+                    this.messageForm.message = '';
+                    await this.loadMessagesData();
+                },
+
+                async deleteMessage(id) {
+                    if (confirm('Hapus pesan ini?')) {
+                        const { error } = await _supabase.from('messages').delete().eq('id', id);
+                        if (!error) {
+                            await this.loadMessagesData();
+                        } else {
+                            alert('Gagal menghapus pesan: ' + error.message);
+                        }
+                    }
+                },
+
+                async clearAllAttendance() {
+                    if (!this.canResetRekap) {
+                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk mereset data absensi.');
+                        return;
+                    }
+                    if (confirm('Apakah Anda yakin ingin menghapus seluruh data absensi?')) {
+                        const { error } = await _supabase.from('attendance').delete().neq('id', 0);
+                        if (!error) {
+                            this.attendanceLogs = [];
+                        } else {
+                            alert('Gagal menghapus data: ' + error.message);
+                        }
+                    }
+                },
+
+                initGPS() {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.watchPosition(
+                            async (position) => {
+                                const isMocked = position.coords.isMocked || await checkIsMockLocation(position.coords);
+                                this.currentCoords = { 
+                                    lat: position.coords.latitude, 
+                                    lng: position.coords.longitude,
+                                    isMocked: isMocked 
+                                };
+                                this.gpsAccuracy = Math.round(position.coords.accuracy);
+                                this.gpsStatus = isMocked ? 'Peringatan: Mock GPS!' : 'GPS Aktif & Terhubung';
+                                this.checkNearestBasecamp(this.currentCoords.lat, this.currentCoords.lng);
+                            },
+                            (error) => {
+                                this.gpsStatus = 'Gagal mendeteksi GPS.';
+                            },
+                            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                        );
+                    } else {
+                        this.gpsStatus = 'Browser tidak mendukung GPS.';
+                    }
+                },
+
+                calculateDistance(lat1, lon1, lat2, lon2) {
+                    const R = 6371e3;
+                    const φ1 = lat1 * Math.PI/180;
+                    const φ2 = lat2 * Math.PI/180;
+                    const Δφ = (lat2-lat1) * Math.PI/180;
+                    const Δλ = (lon2-lon1) * Math.PI/180;
+                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                              Math.cos(φ1) * Math.cos(φ2) *
+                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                },
+
+                checkNearestBasecamp(lat, lng) {
+                    let found = null;
+                    for (let bc of this.basecamps) {
+                        const dist = this.calculateDistance(lat, lng, bc.lat, bc.lng);
+                        if (dist <= bc.radius) {
+                            found = bc;
+                            break;
+                        }
+                    }
+                    this.detectedBasecamp = found;
+                },
+
+                get nearestDistanceText() {
+                    if (!this.currentCoords) return 'Menghitung...';
+                    let minDist = Infinity;
+                    let nearestName = '';
+                    let maxRadius = 500;
+                    for (let bc of this.basecamps) {
+                        const dist = this.calculateDistance(this.currentCoords.lat, this.currentCoords.lng, bc.lat, bc.lng);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestName = bc.name;
+                            maxRadius = bc.radius;
+                        }
+                    }
+                    return `${nearestName}: ${Math.round(minDist)} meter (Max ${maxRadius}m)`;
+                },
+
+                switchRole() {
+                    this.isAdminView = !this.isAdminView;
+                    if (this.isAdminView) {
+                        this.loadAttendanceData();
+                        this.loadMessagesData();
+                    } else {
+                        this.isAdminLoggedIn = false;
+                        this.currentUserRole = '';
+                        this.currentEmpId = null;
+                        this.isMasterAdmin = false;
+                    }
+                },
+
+                handleAdminLogin() {
+                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
+                        this.isAdminLoggedIn = true;
+                        this.isMasterAdmin = true;
+                        this.currentUserRole = 'Master Admin';
+                        this.currentEmpId = null;
+                        this.adminLoginUser = '';
+                        this.adminLoginPass = '';
+                        this.adminTab = 'rekap';
+                        this.loadAttendanceData();
+                        this.loadMessagesData();
+                    } else {
+                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
+                        if (emp) {
+                            this.isAdminLoggedIn = true;
+                            this.isMasterAdmin = false;
+                            this.currentUserRole = emp.role || 'Admin';
+                            this.currentEmpId = emp.id;
+                            this.adminLoginUser = '';
+                            this.adminLoginPass = '';
+                            
+                            if (this.canAccessRekap) {
+                                this.adminTab = 'rekap';
+                            } else if (this.canAccessIzin) {
+                                this.adminTab = 'izin';
+                            } else {
+                                this.adminTab = 'basecamp';
+                            }
+
+                            this.loadAttendanceData();
+                            this.loadMessagesData();
+                        } else {
+                            alert('ID/Username atau Password salah!');
+                        }
+                    }
+                },
+
+                adminLogout() {
+                    this.isAdminLoggedIn = false;
+                    this.currentUserRole = '';
+                    this.currentEmpId = null;
+                    this.isMasterAdmin = false;
+                },
+
+                async handleCheckIn() {
+                    if (!this.loginId || !this.loginPass) {
+                        alert('Masukkan ID Karyawan dan Password!');
+                        return;
+                    }
+
+                    const currentDeviceId = await getOrCreateStableDeviceIdentifier();
+                    const payload = {
+                        loginId: this.loginId,
+                        loginPass: this.loginPass,
+                        currentCoords: this.currentCoords,
+                        gpsAccuracy: this.gpsAccuracy,
+                        simulationMode: this.simulationMode,
+                        deviceId: currentDeviceId
+                    };
+
+                    this.gpsStatus = 'Memproses Validasi Server...';
+                    const result = await simulateServerSideValidation(payload);
+
+                    if (!result.success) {
+                        alert(result.message);
+                        this.gpsStatus = 'GPS Aktif & Terhubung';
+                        return;
+                    }
+
+                    let pmMessageText = "";
+                    let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                    if (msgData && msgData.length > 0) {
+                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === this.loginId);
+                        if (targetMsg) {
+                            pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
+                        }
+                    }
+
+                    alert(result.message + pmMessageText);
+                    this.loginId = '';
+                    this.loginPass = '';
+                    await this.loadAttendanceData();
+                },
+
+                async submitLeaveRequest() {
+                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    if (!emp) {
+                        alert('ID Karyawan tidak ditemukan!');
+                        return;
+                    }
+
+                    const newLeave = {
+                        emp_id: emp.id,
+                        name: emp.name,
+                        type: this.leaveForm.type,
+                        start_date: this.leaveForm.startDate,
+                        end_date: this.leaveForm.endDate,
+                        reason: this.leaveForm.reason,
+                        status: 'Pending',
+                        timestamp: new Date().toLocaleString('id-ID')
+                    };
+
+                    const { error } = await _supabase.from('leaves').insert([newLeave]);
+                    if (error) {
+                        alert('Gagal mengirim pengajuan: ' + error.message);
+                        return;
+                    }
+
+                    alert('Pengajuan berhasil dikirim.');
+                    this.leaveForm.reason = '';
+                    await this.loadAttendanceData();
+                },
+
+                async updateLeaveStatus(id, status) {
+                    if (!this.canModifyIzin) {
+                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
+                        return;
+                    }
+                    
+                    const leaveIndex = this.leaves.findIndex(l => l.id == id);
+                    if (leaveIndex === -1) {
+                        alert('Data tidak ditemukan!');
+                        return;
+                    }
+
+                    let previousStatus = this.leaves[leaveIndex].status;
+                    
+                    // Optimistic UI Update
+                    this.leaves[leaveIndex].status = status;
+                    this.leaves = [...this.leaves]; 
+                    
+                    try {
+                        const { data, error } = await _supabase
+                            .from('leaves')
+                            .update({ status: status })
+                            .eq('id', id)
+                            .select();
+                        
+                        if (error) {
+                            throw error;
+                        }
+
+                        if (!data || data.length === 0) {
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
+                        }
+                        
+                        alert(`Pengajuan berhasil ${status}!`);
+                        
+                    } catch (err) {
+                        // Rollback jika terjadi kegagalan server
+                        if (leaveIndex !== -1) {
+                            this.leaves[leaveIndex].status = previousStatus;
+                            this.leaves = [...this.leaves];
+                        }
+                        alert('Terjadi kesalahan pada sistem: ' + err.message);
+                    }
+                },
+
+                get employeeLeaves() {
+                    if (!this.leaveForm.empId) return [];
+                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
+                },
+
+                get displayedLeaves() {
+                    let items = this.leaves;
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        items = items.filter(l => l.empId === this.currentEmpId);
+                    }
+                    return items;
+                },
+
+                initMap() {
+                    const lat = parseFloat(this.basecampForm.lat) || 0.50653;
+                    const lng = parseFloat(this.basecampForm.lng) || 101.42304;
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+
+                    if (!this.map) {
+                        this.map = L.map('basecampMap').setView([lat, lng], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.map);
+                        this.marker = L.marker([lat, lng], { draggable: this.canModifyBasecamp }).addTo(this.map);
+                        this.circle = L.circle([lat, lng], { radius: radius, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(this.map);
+
+                        if (this.canModifyBasecamp) {
+                            this.marker.on('dragend', (e) => {
+                                const pos = e.target.getLatLng();
+                                this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
+                                this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
+                                this.updateMapVisuals();
+                            });
+                        }
+                    } else {
+                        this.map.invalidateSize();
+                        this.map.setView([lat, lng], 15);
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                    }
+                },
+
+                updateMapVisuals() {
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                    }
+                },
+
+                updateMapFromInputs() {
+                    if (!this.canModifyBasecamp) return;
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+                    if (!isNaN(lat) && !isNaN(lng) && this.map) {
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                        this.map.setView([lat, lng], this.map.getZoom());
+                    }
+                },
+
+                openBasecampModal() {
+                    if (!this.canModifyBasecamp) return;
+                    this.editBasecampIndex = null;
+                    this.basecampForm = { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 };
+                    this.showBasecampModal = true;
+                    this.$nextTick(() => { this.initMap(); });
+                },
+                editBasecamp(index) {
+                    this.editBasecampIndex = index;
+                    this.basecampForm = { ...this.basecamps[index] };
+                    this.showBasecampModal = true;
+                    this.$nextTick(() => { this.initMap(); });
+                },
+                async saveBasecamp() {
+                    if (!this.canModifyBasecamp) {
+                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp.');
+                        this.showBasecampModal = false;
+                        return;
+                    }
+                    if (this.editBasecampIndex !== null) {
+                        const targetId = this.basecamps[this.editBasecampIndex].id;
+                        const { error } = await _supabase.from('basecamps').update({
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        }).eq('id', targetId);
+                        if (error) {
+                            alert('Gagal mengupdate basecamp: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        const newBc = {
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        };
+                        const { error } = await _supabase.from('basecamps').insert([newBc]);
+                        if (error) {
+                            alert('Gagal menambah basecamp: ' + error.message);
+                            return;
+                        }
+                    }
+                    this.showBasecampModal = false;
+                    await this.loadAttendanceData();
+                },
+                async deleteBasecamp(index) {
+                    if (!this.canModifyBasecamp) {
+                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk menghapus basecamp.');
+                        return;
+                    }
+                    if (confirm('Hapus basecamp ini?')) {
+                        const targetId = this.basecamps[index].id;
+                        const { error } = await _supabase.from('basecamps').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus basecamp: ' + error.message);
+                        }
+                    }
+                },
+
+                openEmployeeModal() {
+                    this.editEmployeeIndex = null;
+                    this.employeeForm = { id: '', name: '', role: '', password: '', deviceId: null };
+                    this.showEmployeeModal = true;
+                },
+                editEmployee(index) {
+                    this.editEmployeeIndex = index;
+                    this.employeeForm = { ...this.employees[index] };
+                    this.showEmployeeModal = true;
+                },
+                async saveEmployee() {
+                    if (this.editEmployeeIndex !== null) {
+                        const targetEmpId = this.employees[this.editEmployeeIndex].id;
+                        const { error } = await _supabase.from('employees').update({
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password
+                        }).eq('id', targetEmpId);
+                        if (error) {
+                            alert('Gagal mengupdate karyawan: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        const newEmp = {
+                            id: this.employeeForm.id,
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password,
+                            device_id: null
+                        };
+                        const { error } = await _supabase.from('employees').insert([newEmp]);
+                        if (error) {
+                            alert('Gagal menambah karyawan: ' + error.message);
+                            return;
+                        }
+                    }
+                    this.showEmployeeModal = false;
+                    await this.loadAttendanceData();
+                },
+                async deleteEmployee(index) {
+                    if (confirm('Hapus karyawan ini?')) {
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus karyawan: ' + error.message);
+                        }
+                    }
+                },
+                async resetDevice(index) {
+                    if (confirm('Reset perangkat terikat?')) {
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').update({ device_id: null }).eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                            alert('Device berhasil direset.');
+                        } else {
+                            alert('Gagal mereset device: ' + error.message);
+                        }
+                    }
+                },
+
+                get filteredAttendance() {
+                    let logs = this.attendanceLogs;
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                    }
+                    return logs.filter(item => {
+                        const itemDate = item.date || getLocalDate();
+                        if (this.filterStartDate && this.filterEndDate) {
+                            return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
+                        }
+                        return true;
+                    });
+                },
+
+                exportCSV() {
+                    let csvContent = "data:text/csv;charset=utf-8,ID,Nama,Role,Basecamp,Tanggal Waktu,Terlambat,Akurasi GPS\n";
+                    this.filteredAttendance.forEach(row => {
+                        let latenessText = this.formatLateness(row.timestamp, row.role);
+                        csvContent += `"${row.empId}","${row.name}","${row.role}","${row.basecamp}","${row.timestamp}","${latenessText}","${row.accuracy}m"\r\n`;
+                    });
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `rekap_absensi_${this.filterStartDate}_sampai_${this.filterEndDate}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            }
+        }
+    </script>
 </body>
 </html>
