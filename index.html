@@ -242,7 +242,7 @@
                                 <div class="flex flex-wrap gap-2">
                                     <!-- Rekap Absensi -->
                                     <button x-show="canAccessRekap" @click="adminTab = 'rekap'; loadAttendanceData()" :class="adminTab === 'rekap' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
-                                        <i class="fa-solid fa-clipboard-user mr-1"></i> Rekap Absensi
+                                        <i class="fa-solid fa-clipboard-user mr-1"></i> Rekapitulasi Absensi
                                     </button>
                                     <!-- Persetujuan Izin -->
                                     <button x-show="canAccessIzin" @click="adminTab = 'izin'" :class="adminTab === 'izin' ? 'bg-amber-500 text-slate-950 font-bold' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'" class="px-4 py-2 rounded-xl text-xs transition">
@@ -1197,7 +1197,7 @@
                         return;
                     }
 
-                    // Sinkronisasi Langsung: Tambahkan data yang baru di-check-in ke state lokal agar langsung tampil
+                    // Tambahkan data yang baru di-checkin langsung ke state lokal agar langsung tampil di rekap
                     if (result.record || result.data) {
                         let item = result.record || result.data;
                         let rawDate = item.date || item.created_at || item.timestamp || new Date();
@@ -1220,6 +1220,18 @@
                         }
                     }
 
+                    // Sinkronisasi penuh dengan server untuk memastikan data terupdate dari DB
+                    await this.loadAttendanceData();
+
+                    // Otomatis atur rentang tanggal filter agar mencakup tanggal hari ini secara pasti
+                    const todayStr = getLocalDate();
+                    if (this.filterEndDate < todayStr) {
+                        this.filterEndDate = todayStr;
+                    }
+                    if (this.filterStartDate > todayStr) {
+                        this.filterStartDate = todayStr;
+                    }
+
                     let pmMessageText = "";
                     try {
                         let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
@@ -1236,7 +1248,6 @@
                     alert(result.message + pmMessageText);
                     this.loginId = '';
                     this.loginPass = '';
-                    await this.loadAttendanceData();
                 },
 
                 async submitLeaveRequest() {
