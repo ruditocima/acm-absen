@@ -645,6 +645,39 @@
             return `${year}-${month}-${day}`;
         }
 
+        function normalizeToYYYYMMDD(raw) {
+            if (!raw) return getLocalDate();
+            if (raw instanceof Date) return isNaN(raw.getTime()) ? getLocalDate() : getLocalDate(raw);
+            
+            let str = String(raw).trim();
+            if (!str) return getLocalDate();
+
+            // Format YYYY-MM-DD
+            let isoMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (isoMatch) {
+                let y = isoMatch[1];
+                let m = isoMatch[2].padStart(2, '0');
+                let d = isoMatch[3].padStart(2, '0');
+                return `${y}-${m}-${d}`;
+            }
+
+            // Format DD/MM/YYYY
+            let ddmmyyyyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+            if (ddmmyyyyMatch) {
+                let d = ddmmyyyyMatch[1].padStart(2, '0');
+                let m = ddmmyyyyMatch[2].padStart(2, '0');
+                let y = ddmmyyyyMatch[3];
+                return `${y}-${m}-${d}`;
+            }
+
+            let parsed = new Date(str);
+            if (!isNaN(parsed.getTime())) {
+                return getLocalDate(parsed);
+            }
+
+            return getLocalDate();
+        }
+
         async function getOrCreateStableDeviceIdentifier() {
             let deviceId = localStorage.getItem('bc_device_uuid');
             if (deviceId) return deviceId;
@@ -872,74 +905,75 @@
                 },
 
                 async loadAttendanceData() {
-                    let { data: attData } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
-                    if (attData) {
-                        this.attendanceLogs = attData.map(item => {
-                            let cleanDate = '';
-                            let rawDate = item.date || item.created_at || item.timestamp;
-                            
-                            if (rawDate) {
-                                if (typeof rawDate === 'string') {
-                                    if (rawDate.includes('T')) cleanDate = rawDate.split('T')[0];
-                                    else if (rawDate.includes(' ')) cleanDate = rawDate.split(' ')[0];
-                                    else if (rawDate.length === 10) cleanDate = rawDate;
-                                } else {
-                                    cleanDate = getLocalDate(new Date(rawDate));
-                                }
-                            }
-                            
-                            if (!cleanDate || cleanDate.length !== 10) {
-                                const d = new Date(item.timestamp || item.created_at);
-                                cleanDate = !isNaN(d.getTime()) ? getLocalDate(d) : getLocalDate();
-                            }
+                    try {
+                        let { data: attData, error } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                        if (attData) {
+                            this.attendanceLogs = attData.map(item => {
+                                let rawDate = item.date || item.created_at || item.timestamp;
+                                let cleanDate = normalizeToYYYYMMDD(rawDate);
 
-                            return {
+                                return {
+                                    id: item.id,
+                                    empId: item.emp_id || item.empId || item.employee_id || '',
+                                    name: item.name || item.employee_name || '',
+                                    role: item.role || item.employee_role || '',
+                                    basecamp: item.basecamp || item.basecamp_name || item.location || '-',
+                                    timestamp: item.timestamp || (item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : new Date().toLocaleString('id-ID')),
+                                    date: cleanDate,
+                                    accuracy: item.accuracy || item.gps_accuracy || 0
+                                };
+                            });
+                        }
+                    } catch(err) {
+                        console.error('Error fetching attendance logs:', err);
+                    }
+
+                    try {
+                        let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
+                        if (leaveData) {
+                            this.leaves = leaveData.map(item => ({
                                 id: item.id,
                                 empId: item.emp_id || item.empId || '',
-                                name: item.name || '',
-                                role: item.role || '',
-                                basecamp: item.basecamp || '',
-                                timestamp: item.timestamp || item.created_at || new Date().toLocaleString('id-ID'),
-                                date: cleanDate,
-                                accuracy: item.accuracy || 0
-                            };
-                        });
+                                name: item.name,
+                                type: item.type,
+                                startDate: item.start_date || item.startDate,
+                                endDate: item.end_date || item.endDate,
+                                reason: item.reason,
+                                status: item.status,
+                                timestamp: item.timestamp
+                            }));
+                        }
+                    } catch(err) {
+                        console.error('Error fetching leaves:', err);
                     }
 
-                    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
-                    if (leaveData) {
-                        this.leaves = leaveData.map(item => ({
-                            id: item.id,
-                            empId: item.emp_id || item.empId || '',
-                            name: item.name,
-                            type: item.type,
-                            startDate: item.start_date || item.startDate,
-                            endDate: item.end_date || item.endDate,
-                            reason: item.reason,
-                            status: item.status,
-                            timestamp: item.timestamp
-                        }));
+                    try {
+                        let { data: bcData } = await _supabase.from('basecamps').select('*');
+                        if (bcData && bcData.length > 0) {
+                            this.basecamps = bcData;
+                        }
+                    } catch(err) {
+                        console.error('Error fetching basecamps:', err);
                     }
 
-                    let { data: bcData } = await _supabase.from('basecamps').select('*');
-                    if (bcData && bcData.length > 0) {
-                        this.basecamps = bcData;
-                    }
-
-                    let { data: empData } = await _supabase.from('employees').select('*');
-                    if (empData && empData.length > 0) {
-                        this.employees = empData.map(e => ({
-                            id: e.id,
-                            name: e.name,
-                            role: e.role,
-                            password: e.password,
-                            deviceId: e.device_id || e.deviceId
-                        }));
+                    try {
+                        let { data: empData } = await _supabase.from('employees').select('*');
+                        if (empData && empData.length > 0) {
+                            this.employees = empData.map(e => ({
+                                id: e.id,
+                                name: e.name,
+                                role: e.role,
+                                password: e.password,
+                                deviceId: e.device_id || e.deviceId
+                            }));
+                        }
+                    } catch(err) {
+                        console.error('Error fetching employees:', err);
                     }
                 },
 
                 async loadMessagesData() {
-                    let { data, error } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                    let { data } = await _supabase.from('messages').select('*').order('id', { ascending: false });
                     if (data) {
                         this.messages = data.map(m => ({
                             id: m.id,
@@ -1206,7 +1240,6 @@
 
                     let previousStatus = this.leaves[leaveIndex].status;
                     
-                    // Optimistic UI Update
                     this.leaves[leaveIndex].status = status;
                     this.leaves = [...this.leaves]; 
                     
@@ -1217,9 +1250,7 @@
                             .eq('id', id)
                             .select();
                         
-                        if (error) {
-                            throw error;
-                        }
+                        if (error) throw error;
 
                         if (!data || data.length === 0) {
                             throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
@@ -1228,7 +1259,6 @@
                         alert(`Pengajuan berhasil ${status}!`);
                         
                     } catch (err) {
-                        // Rollback jika terjadi kegagalan server
                         if (leaveIndex !== -1) {
                             this.leaves[leaveIndex].status = previousStatus;
                             this.leaves = [...this.leaves];
@@ -1239,13 +1269,13 @@
 
                 get employeeLeaves() {
                     if (!this.leaveForm.empId) return [];
-                    return this.leaves.filter(l => l.empId.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
+                    return this.leaves.filter(l => (l.empId || '').toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
                 },
 
                 get displayedLeaves() {
                     let items = this.leaves;
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        items = items.filter(l => l.empId.toLowerCase() === (this.currentEmpId || '').toLowerCase());
+                        items = items.filter(l => (l.empId || '').toLowerCase() === (this.currentEmpId || '').toLowerCase());
                     }
                     return items;
                 },
@@ -1428,16 +1458,18 @@
                 },
 
                 get filteredAttendance() {
-                    let logs = this.attendanceLogs;
+                    let logs = this.attendanceLogs || [];
+                    
                     if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
-                        logs = logs.filter(item => (item.empId || '').toLowerCase().trim() === (this.currentEmpId || '').toLowerCase().trim());
+                        const currEmpId = (this.currentEmpId || '').toLowerCase().trim();
+                        if (currEmpId) {
+                            logs = logs.filter(item => (item.empId || '').toLowerCase().trim() === currEmpId);
+                        }
                     }
+
                     return logs.filter(item => {
                         let itemDate = item.date;
-                        if (typeof itemDate === 'string' && itemDate.length > 10) {
-                            itemDate = itemDate.substring(0, 10);
-                        }
-                        if (!itemDate) itemDate = getLocalDate();
+                        if (!itemDate) return true;
 
                         if (this.filterStartDate && this.filterEndDate) {
                             return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
