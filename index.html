@@ -78,7 +78,7 @@
                         </div>
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Anti-Fake GPS:</span>
-                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aman (Akurasi 3m)</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (GPS Real-time)</span>
                         </div>
                     </div>
 
@@ -257,7 +257,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB REKAP ABSENSI (Sesuai Permintaan Kolom Status & Keterlambatan) -->
+                    <!-- TAB REKAP ABSENSI -->
                     <div id="d-tab-rekap" class="space-y-4 hidden">
                         <div class="flex justify-between items-center">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran & Keterlambatan</h4>
@@ -442,15 +442,98 @@
             document.getElementById('desktop-title').innerText = titles[tab];
         }
 
-        // Simulation Absen Handler with Anti-Fake GPS Notice
+        // Haversine Formula for Distance Calculation in meters
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius bumi dalam meter
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        // Real Geolocation & Anti-Fake GPS Handler
         function handleAbsen() {
-            // Simulasi pemeriksaan GPS & Anti-Fake GPS Tingkat Tinggi
-            const isFakeGPS = false; // Mock boolean for fake detection algorithm
-            if(isFakeGPS) {
-                alert('Peringatan: Sistem mendeteksi penggunaan Fake GPS / Mock Location! Absensi ditolak.');
-            } else {
-                alert('Absensi Berhasil! Lokasi dalam radius basecamp dan perangkat terverifikasi.');
+            if (!navigator.geolocation) {
+                alert('Geolocation tidak didukung oleh browser perangkat Anda.');
+                return;
             }
+
+            const btn = event.currentTarget || document.querySelector('button[onclick="handleAbsen()"]');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-lg"></i> MEMVERIFIKASI GPS...`;
+            btn.disabled = true;
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy; // Akurasi dalam meter
+
+                    // Validasi Mock Location / Akurasi tidak wajar (misal akurasi di atas 100 meter)
+                    if (accuracy > 100) {
+                        alert(`Absensi Ditolak: Akurasi GPS terlalu rendah (${Math.round(accuracy)}m). Pastikan GPS Anda aktif dengan sinyal optimal di area terbuka.`);
+                        return;
+                    }
+
+                    // Koordinat Basecamp Pekanbaru Pusat
+                    const basecampLat = 0.5071;
+                    const basecampLng = 101.4478;
+                    const maxRadius = 50; // Radius maksimal 50 meter
+
+                    const distance = calculateDistance(userLat, userLng, basecampLat, basecampLng);
+
+                    // Update label koordinat secara real-time pada UI
+                    const coordEl = document.querySelector('#m-tab-absen p.text-gold-400');
+                    if (coordEl) {
+                        coordEl.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E (Akurasi: ${Math.round(accuracy)}m)`;
+                    }
+
+                    if (distance <= maxRadius) {
+                        alert(`Absensi Berhasil! Jarak Anda ${Math.round(distance)} meter dari basecamp (Dalam radius ${maxRadius}m). Perangkat terverifikasi.`);
+                        
+                        // Update status jam masuk pada tampilan
+                        const jamMasukEl = document.querySelector('#m-tab-absen .grid-cols-2 div:first-child span.text-emerald-400');
+                        if (jamMasukEl) {
+                            const now = new Date();
+                            jamMasukEl.innerText = now.toTimeString().split(' ')[0].substring(0, 5) + ' WIB';
+                        }
+                    } else {
+                        alert(`Absensi Ditolak: Anda berada di luar radius basecamp! Jarak Anda saat ini ${Math.round(distance)} meter dari titik basecamp (Maksimal ${maxRadius} meter).`);
+                    }
+                },
+                (error) => {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                    let errorMsg = 'Gagal mendeteksi lokasi.';
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            errorMsg = 'Izin akses lokasi ditolak. Mohon aktifkan izin GPS pada pengaturan browser Anda.';
+                            break;
+                        case error.POSITION_UNAVAILABLE:
+                            errorMsg = 'Informasi lokasi perangkat tidak tersedia.';
+                            break;
+                        case error.TIMEOUT:
+                            errorMsg = 'Waktu permintaan lokasi habis (Timeout).';
+                            break;
+                    }
+                    alert(errorMsg);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                }
+            );
         }
     </script>
 </body>
