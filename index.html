@@ -909,7 +909,7 @@
 
                 async loadAttendanceData() {
                     try {
-                        let { data: attData, error } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                        let { data: attData, error } = await _supabase.from('attendance').select('*');
                         if (error) {
                             console.error('Error fetching attendance logs:', error.message || error);
                         }
@@ -929,7 +929,7 @@
                                 }
 
                                 return {
-                                    id: item.id,
+                                    id: item.id || Math.random(),
                                     empId: item.emp_id || item.empId || item.employee_id || item.user_id || '',
                                     name: item.name || item.employee_name || item.user_name || '',
                                     role: item.role || item.employee_role || '',
@@ -939,14 +939,15 @@
                                     accuracy: item.accuracy || item.gps_accuracy || item.accuracy_m || 0
                                 };
                             });
+                            this.attendanceLogs.sort((a, b) => (b.id > a.id ? 1 : -1));
                         }
                     } catch(err) {
                         console.error('Error fetching attendance logs:', err);
                     }
 
                     try {
-                        let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
-                        if (leaveData) {
+                        let { data: leaveData } = await _supabase.from('leaves').select('*');
+                        if (leaveData && Array.isArray(leaveData)) {
                             this.leaves = leaveData.map(item => ({
                                 id: item.id,
                                 empId: item.emp_id || item.empId || '',
@@ -989,8 +990,8 @@
                 },
 
                 async loadMessagesData() {
-                    let { data } = await _supabase.from('messages').select('*').order('id', { ascending: false });
-                    if (data) {
+                    let { data } = await _supabase.from('messages').select('*');
+                    if (data && Array.isArray(data)) {
                         this.messages = data.map(m => ({
                             id: m.id,
                             senderId: m.sender_id || m.senderId,
@@ -1232,7 +1233,7 @@
 
                     let pmMessageText = "";
                     try {
-                        let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                        let { data: msgData } = await _supabase.from('messages').select('*');
                         if (msgData && msgData.length > 0) {
                             const targetMsg = msgData.find(m => (m.recipient_id || m.recipientId) === 'ALL' || (m.recipient_id || m.recipientId).toLowerCase() === this.loginId.trim().toLowerCase());
                             if (targetMsg) {
