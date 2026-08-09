@@ -92,14 +92,11 @@
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
                         <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.434291° N, 101.466385° E</p>
 
-                        <div class="mt-6 grid grid-cols-2 gap-3">
-                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800">
-                                <span class="text-[10px] text-slate-400 block">Jam Masuk</span>
-                                <span class="text-sm font-bold text-emerald-400">--:--</span>
-                            </div>
-                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800">
-                                <span class="text-[10px] text-slate-400 block">Jam Pulang</span>
-                                <span class="text-sm font-bold text-slate-400">--:--</span>
+                        <!-- TAMPILAN KHUSUS JAM MASUK SAJA -->
+                        <div class="mt-6">
+                            <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
+                                <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
                             </div>
                         </div>
 
@@ -155,7 +152,6 @@
                         </div>
                         <div class="flex justify-between text-slate-400">
                             <span>Masuk: 07:45 WIB</span>
-                            <span>Pulang: 17:00 WIB</span>
                         </div>
                     </div>
                     <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-amber-500">
@@ -165,7 +161,6 @@
                         </div>
                         <div class="flex justify-between text-slate-400">
                             <span>Masuk: 08:15 WIB</span>
-                            <span>Pulang: 17:00 WIB</span>
                         </div>
                     </div>
                 </div>
@@ -262,17 +257,36 @@
 
                     <!-- TAB REKAP ABSENSI -->
                     <div id="d-tab-rekap" class="space-y-4 hidden">
-                        <div class="flex justify-between items-center">
+                        <div class="flex flex-wrap gap-2 justify-between items-center">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran & Keterlambatan</h4>
-                            <div class="flex gap-2">
-                                <input type="date" class="bg-slate-900 border border-slate-800 text-xs px-3 py-1.5 rounded-lg text-white">
-                                <button class="px-3 py-1.5 bg-gold-500 text-slate-950 font-bold text-xs rounded-lg">Export Excel</button>
+                            
+                            <!-- FILTER RENTANG WAKTU, RESET DATA, & EXPORT EXCEL -->
+                            <div class="flex flex-wrap items-center gap-2">
+                                <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] text-slate-400">Dari:</span>
+                                    <input type="date" id="rekap-start-date" class="bg-transparent text-xs text-white focus:outline-none">
+                                </div>
+                                <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] text-slate-400">Sampai:</span>
+                                    <input type="date" id="rekap-end-date" class="bg-transparent text-xs text-white focus:outline-none">
+                                </div>
+                                <button onclick="filterRekap()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
+                                    <i class="fa-solid fa-filter"></i> Filter
+                                </button>
+                                <button onclick="resetRekapData()" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset Data
+                                </button>
+                                <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-file-excel"></i> Export Excel
+                                </button>
                             </div>
                         </div>
+
                         <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
                                     <tr>
+                                        <th class="p-3">Tanggal</th>
                                         <th class="p-3">Nama Karyawan</th>
                                         <th class="p-3">Basecamp</th>
                                         <th class="p-3">Jam Masuk</th>
@@ -302,6 +316,7 @@
                                         <th class="p-3">ID User</th>
                                         <th class="p-3">Nama</th>
                                         <th class="p-3">Role</th>
+                                        <th class="p-3">Atasan</th>
                                         <th class="p-3">Password</th>
                                         <th class="p-3">Device ID</th>
                                         <th class="p-3">Aksi</th>
@@ -318,14 +333,12 @@
                     <div id="d-tab-basecamp" class="space-y-4 hidden">
                         <div class="flex justify-between items-center">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
-                            <button class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg">Tambah Basecamp</button>
+                            <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Tambah Basecamp
+                            </button>
                         </div>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
-                                <h5 class="font-bold text-white">Basecamp Pekanbaru Pusat</h5>
-                                <p class="text-xs text-slate-400">Koordinat: 0.434291, 101.466385</p>
-                                <span class="inline-block text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: 15.000 Meter</span>
-                            </div>
+                        <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Dynamic Basecamps Rendered via JS -->
                         </div>
                     </div>
 
@@ -370,6 +383,12 @@
                 <input type="text" id="inp-role" placeholder="Contoh: Karyawan / Field" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
+                <label class="block text-xs text-slate-400 mb-1">Atasan (Dropdown)</label>
+                <select id="inp-atasan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                    <!-- Dynamic Options via JS -->
+                </select>
+            </div>
+            <div>
                 <label class="block text-xs text-slate-400 mb-1">Password</label>
                 <input type="text" id="inp-password" placeholder="Password akun..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
@@ -380,6 +399,36 @@
             <div class="flex gap-2 pt-2">
                 <button onclick="saveEmployee()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
                 <button onclick="closeEmployeeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL FORM TAMBAH / EDIT BASECAMP -->
+    <div id="basecamp-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
+            <h3 id="bc-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Basecamp</h3>
+            <input type="hidden" id="bc-edit-index" value="-1">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Nama Basecamp</label>
+                <input type="text" id="bc-inp-name" placeholder="Contoh: Basecamp Pekanbaru Pusat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Latitude</label>
+                    <input type="text" id="bc-inp-lat" placeholder="0.434291" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Longitude</label>
+                    <input type="text" id="bc-inp-lng" placeholder="101.466385" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label>
+                <input type="number" id="bc-inp-radius" placeholder="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveBasecamp()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Basecamp</button>
+                <button onclick="closeBasecampModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
             </div>
         </div>
     </div>
@@ -455,28 +504,52 @@
             closeConfirmModal();
         });
 
-        // Data Karyawan State & Management
+        // Data Karyawan State & Management (Dengan Atasan)
         let employees = [
-            { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', password: '••••••••', deviceId: 'DEV-9982 (Locked)' }
+            { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'USR-002', name: 'Budi Santoso', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
+            { id: 'USR-003', name: 'Siti Aminah', role: 'Field Staff', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
         ];
 
-        // Rekap Absensi State
+        // Basecamp State
+        let basecamps = [
+            { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
+            { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
+            { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
+        ];
+
+        // Rekap Absensi State (Termasuk Kolom Tanggal)
         let rekapList = [
-            { name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '--:--', status: '<span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-400 border border-slate-500/20 font-semibold">Belum Absen</span>', late: '-' },
-            { name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
-            { name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
+            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
+            { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
+            { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
         ];
 
+        // Populate Dropdown Atasan
+        function populateAtasanDropdown(currentEmployeeName = '') {
+            const select = document.getElementById('inp-atasan');
+            if (!select) return;
+            select.innerHTML = '<option value="-">-- Pilih Atasan (Opsional) --</option>';
+            employees.forEach(emp => {
+                if (emp.name !== currentEmployeeName) {
+                    const opt = document.createElement('option');
+                    opt.value = emp.name;
+                    opt.textContent = emp.name;
+                    select.appendChild(opt);
+                }
+            });
+        }
+
+        // Render Data Karyawan
         function renderEmployees() {
             const tbody = document.getElementById('karyawan-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            // Empty State Handling
             if (employees.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="p-8 text-center text-slate-500">
+                        <td colspan="7" class="p-8 text-center text-slate-500">
                             <div class="flex flex-col items-center justify-center space-y-2">
                                 <i class="fa-solid fa-users-slash text-2xl text-slate-600"></i>
                                 <p class="text-xs font-medium text-slate-400">Belum ada data karyawan terdaftar.</p>
@@ -493,6 +566,7 @@
                     <td class="p-3 font-mono text-slate-400">${emp.id}</td>
                     <td class="p-3 font-medium text-white">${emp.name}</td>
                     <td class="p-3 text-slate-300">${emp.role}</td>
+                    <td class="p-3 text-gold-400 font-medium">${emp.atasan || '-'}</td>
                     <td class="p-3 text-slate-500 font-mono">${emp.password}</td>
                     <td class="p-3 font-mono text-emerald-400" id="${index === 0 ? 'desktop-device-id' : 'dev-cell-' + index}">${emp.deviceId}</td>
                     <td class="p-3 space-x-2">
@@ -505,19 +579,21 @@
             });
         }
 
-        function renderRekap() {
+        // Render Rekap Absensi
+        function renderRekap(dataToRender = null) {
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
 
-            // Empty State Handling
-            if (rekapList.length === 0) {
+            const list = dataToRender || rekapList;
+
+            if (list.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="p-8 text-center text-slate-500">
+                        <td colspan="6" class="p-8 text-center text-slate-500">
                             <div class="flex flex-col items-center justify-center space-y-2">
                                 <i class="fa-solid fa-folder-open text-2xl text-slate-600"></i>
-                                <p class="text-xs font-medium text-slate-400">Belum ada rekapitulasi absensi hari ini.</p>
+                                <p class="text-xs font-medium text-slate-400">Belum ada rekapitulasi absensi.</p>
                             </div>
                         </td>
                     </tr>
@@ -525,12 +601,13 @@
                 return;
             }
 
-            rekapList.forEach((item) => {
+            list.forEach((item) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
+                    <td class="p-3 font-mono text-slate-300">${item.date}</td>
                     <td class="p-3 font-medium text-white">${item.name}</td>
                     <td class="p-3 text-slate-400">${item.basecamp}</td>
-                    <td class="p-3">${item.time}</td>
+                    <td class="p-3 font-mono">${item.time}</td>
                     <td class="p-3">${item.status}</td>
                     <td class="p-3 ${item.late !== '-' ? 'text-amber-400 font-bold' : 'text-slate-500'}">${item.late}</td>
                 `;
@@ -538,12 +615,157 @@
             });
         }
 
+        // Filter Rentang Waktu Absensi
+        function filterRekap() {
+            const startDate = document.getElementById('rekap-start-date').value;
+            const endDate = document.getElementById('rekap-end-date').value;
+
+            if (!startDate && !endDate) {
+                renderRekap(rekapList);
+                return;
+            }
+
+            const filtered = rekapList.filter(item => {
+                if (startDate && endDate) {
+                    return item.date >= startDate && item.date <= endDate;
+                } else if (startDate) {
+                    return item.date >= startDate;
+                } else if (endDate) {
+                    return item.date <= endDate;
+                }
+                return true;
+            });
+
+            renderRekap(filtered);
+            showToast(`Filter diterapkan: ${filtered.length} data ditemukan.`, 'success');
+        }
+
+        // Reset Data Rekap Absensi
+        function resetRekapData() {
+            showConfirm('Reset Data Absensi', 'Apakah Anda yakin ingin menghapus seluruh data rekap absensi?', () => {
+                rekapList = [];
+                document.getElementById('rekap-start-date').value = '';
+                document.getElementById('rekap-end-date').value = '';
+                renderRekap();
+                showToast('Seluruh data rekap absensi berhasil direset.', 'success');
+            }, true);
+        }
+
+        // Export Data Ke Excel / CSV
+        function exportToExcel() {
+            if (rekapList.length === 0) {
+                showToast('Tidak ada data rekap absensi untuk diexport!', 'warning');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Tanggal,Nama Karyawan,Basecamp,Jam Masuk,Status,Jumlah Keterlambatan\n";
+
+            rekapList.forEach(item => {
+                const cleanStatus = item.status.replace(/<[^>]*>?/gm, '');
+                csvContent += `"${item.date}","${item.name}","${item.basecamp}","${item.time}","${cleanStatus}","${item.late}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Rekap_Absensi_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showToast('Data Rekap Absensi berhasil di-export!', 'success');
+        }
+
+        // Render Basecamps
+        function renderBasecamps() {
+            const container = document.getElementById('basecamp-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (basecamps.length === 0) {
+                container.innerHTML = `<div class="col-span-3 text-center text-slate-500 py-8">Belum ada basecamp terdaftar.</div>`;
+                return;
+            }
+
+            basecamps.forEach((bc, index) => {
+                const card = document.createElement('div');
+                card.className = "glass-card p-4 rounded-2xl space-y-2 border border-slate-800 flex flex-col justify-between";
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start">
+                            <h5 class="font-bold text-white">${bc.name}</h5>
+                            <button onclick="openEditBasecampModal(${index})" class="text-gold-400 hover:text-gold-300 text-xs font-semibold">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">Koordinat: ${bc.lat}, ${bc.lng}</p>
+                        <span class="inline-block mt-2 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: ${Number(bc.radius).toLocaleString('id-ID')} Meter</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Modal Basecamp Management
+        function openAddBasecampModal() {
+            document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp Baru';
+            document.getElementById('bc-edit-index').value = '-1';
+            document.getElementById('bc-inp-name').value = '';
+            document.getElementById('bc-inp-lat').value = '';
+            document.getElementById('bc-inp-lng').value = '';
+            document.getElementById('bc-inp-radius').value = '15000';
+            document.getElementById('basecamp-modal').classList.remove('hidden');
+        }
+
+        function openEditBasecampModal(index) {
+            const bc = basecamps[index];
+            document.getElementById('bc-modal-title').innerText = 'Edit Data Basecamp';
+            document.getElementById('bc-edit-index').value = index;
+            document.getElementById('bc-inp-name').value = bc.name;
+            document.getElementById('bc-inp-lat').value = bc.lat;
+            document.getElementById('bc-inp-lng').value = bc.lng;
+            document.getElementById('bc-inp-radius').value = bc.radius;
+            document.getElementById('basecamp-modal').classList.remove('hidden');
+        }
+
+        function closeBasecampModal() {
+            document.getElementById('basecamp-modal').classList.add('hidden');
+        }
+
+        function saveBasecamp() {
+            const index = parseInt(document.getElementById('bc-edit-index').value);
+            const name = document.getElementById('bc-inp-name').value.trim();
+            const lat = parseFloat(document.getElementById('bc-inp-lat').value);
+            const lng = parseFloat(document.getElementById('bc-inp-lng').value);
+            const radius = parseInt(document.getElementById('bc-inp-radius').value);
+
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                showToast('Harap isi semua data basecamp dengan benar!', 'error');
+                return;
+            }
+
+            if (index === -1) {
+                basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                showToast('Basecamp baru berhasil ditambahkan!', 'success');
+            } else {
+                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                showToast('Data basecamp berhasil diperbarui!', 'success');
+            }
+
+            closeBasecampModal();
+            renderBasecamps();
+        }
+
+        // Modal Employee Management
         function openAddEmployeeModal() {
+            populateAtasanDropdown('');
             document.getElementById('modal-title').innerText = 'Tambah Karyawan Baru';
             document.getElementById('edit-index').value = '-1';
             document.getElementById('inp-id').value = 'USR-00' + (employees.length + 1);
             document.getElementById('inp-name').value = '';
             document.getElementById('inp-role').value = 'Karyawan / Field';
+            document.getElementById('inp-atasan').value = '-';
             document.getElementById('inp-password').value = '••••••••';
             document.getElementById('inp-device').value = 'DEV-' + Math.floor(1000 + Math.random() * 9000) + ' (Locked)';
             document.getElementById('employee-modal').classList.remove('hidden');
@@ -551,11 +773,13 @@
 
         function openEditEmployeeModal(index) {
             const emp = employees[index];
+            populateAtasanDropdown(emp.name);
             document.getElementById('modal-title').innerText = 'Edit Data Karyawan';
             document.getElementById('edit-index').value = index;
             document.getElementById('inp-id').value = emp.id;
             document.getElementById('inp-name').value = emp.name;
             document.getElementById('inp-role').value = emp.role;
+            document.getElementById('inp-atasan').value = emp.atasan || '-';
             document.getElementById('inp-password').value = emp.password;
             document.getElementById('inp-device').value = emp.deviceId;
             document.getElementById('employee-modal').classList.remove('hidden');
@@ -570,6 +794,7 @@
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
             const role = document.getElementById('inp-role').value.trim();
+            const atasan = document.getElementById('inp-atasan').value;
             const password = document.getElementById('inp-password').value.trim();
             const deviceId = document.getElementById('inp-device').value.trim();
 
@@ -579,10 +804,10 @@
             }
 
             if (index === -1) {
-                employees.push({ id, name, role, password, deviceId });
+                employees.push({ id, name, role, atasan, password, deviceId });
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                employees[index] = { id, name, role, password, deviceId };
+                employees[index] = { id, name, role, atasan, password, deviceId };
                 showToast('Data karyawan berhasil diperbarui!', 'success');
             }
 
@@ -619,12 +844,8 @@
         window.addEventListener('DOMContentLoaded', () => {
             renderEmployees();
             renderRekap();
+            renderBasecamps();
         });
-
-        // Koordinat Basecamp & Radius (15000 Meter)
-        const BASECAMP_LAT = 0.434291;
-        const BASECAMP_LNG = 101.466385;
-        const MAX_RADIUS = 15000; // Meter
 
         // Live Clock Generator
         setInterval(() => {
@@ -684,9 +905,9 @@
             document.getElementById('desktop-title').innerText = titles[tab];
         }
 
-        // Haversine Formula for Distance Calculation in meters
+        // Haversine Distance Calculation (Meter)
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius bumi dalam meter
+            const R = 6371e3;
             const phi1 = lat1 * Math.PI / 180;
             const phi2 = lat2 * Math.PI / 180;
             const deltaPhi = (lat2 - lat1) * Math.PI / 180;
@@ -702,14 +923,10 @@
 
         // Server Time Mock Sync
         async function getServerTime() {
-            try {
-                return new Date(); 
-            } catch (error) {
-                return new Date();
-            }
+            return new Date();
         }
 
-        // Geolocation & Security Handler
+        // Geolocation & Security Handler (Menghubungkan Hasil Absen ke Rekapitulasi)
         async function handleAbsen() {
             if (!navigator.geolocation) {
                 showToast('Geolocation tidak didukung oleh browser perangkat Anda.', 'error');
@@ -722,6 +939,7 @@
             btn.disabled = true;
 
             const serverTime = await getServerTime();
+            const activeBasecamp = basecamps[0] || { lat: 0.434291, lng: 101.466385, radius: 15000, name: 'Pekanbaru Pusat' };
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -732,33 +950,33 @@
                     const userLng = position.coords.longitude;
                     const accuracy = position.coords.accuracy || 0;
 
-                    // Validasi Keamanan: Akurasi GPS (< 20 meter)
                     if (accuracy > 20) {
-                        showToast(`Akurasi GPS terlalu rendah (${Math.round(accuracy)}m). Pastikan berada di area terbuka dan matikan aplikasi Fake GPS.`, 'warning');
+                        showToast(`Akurasi GPS rendah (${Math.round(accuracy)}m). Matikan Fake GPS dan gunakan di area terbuka.`, 'warning');
                         return;
                     }
 
-                    const distance = calculateDistance(userLat, userLng, BASECAMP_LAT, BASECAMP_LNG);
+                    const distance = calculateDistance(userLat, userLng, activeBasecamp.lat, activeBasecamp.lng);
 
-                    // Update label koordinat pada UI
+                    // Update label koordinat pada UI HP
                     const coordEl = document.querySelector('#m-tab-absen p.text-gold-400');
                     if (coordEl) {
                         coordEl.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E (Akurasi: ${Math.round(accuracy)}m)`;
                     }
 
-                    if (distance <= MAX_RADIUS) {
+                    if (distance <= activeBasecamp.radius) {
+                        const dateStr = serverTime.toISOString().split('T')[0];
                         const timeStringShort = serverTime.toTimeString().split(' ')[0].substring(0, 5) + ' WIB';
                         const timeStringFull = serverTime.toTimeString().split(' ')[0] + ' WIB';
 
                         showToast(`Absensi Berhasil! Jarak Anda ${Math.round(distance)} meter dari basecamp.`, 'success');
                         
-                        // Update status jam masuk pada tampilan mobile
-                        const jamMasukEl = document.querySelector('#m-tab-absen .grid-cols-2 div:first-child span.text-emerald-400');
+                        // Update jam masuk tampilan HP Karyawan
+                        const jamMasukEl = document.getElementById('mobile-jam-masuk');
                         if (jamMasukEl) {
                             jamMasukEl.innerText = timeStringShort;
                         }
 
-                        // Update instantly on Desktop Rekap Absensi Table
+                        // Perhitungan Keterlambatan (Batas pukul 08:00)
                         const hours = serverTime.getHours();
                         const minutes = serverTime.getMinutes();
                         let isLate = hours > 8 || (hours === 8 && minutes > 0);
@@ -767,16 +985,24 @@
                             : `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>`;
                         let lateCount = isLate ? `${(hours - 8) * 60 + minutes} Menit` : '-';
 
-                        if (rekapList.length > 0) {
-                            rekapList[0] = {
-                                name: 'Rudi Batubara',
-                                basecamp: 'Pekanbaru Pusat',
-                                time: timeStringFull,
-                                status: statusHtml,
-                                late: lateCount
-                            };
-                            renderRekap();
+                        // Masukkan Hasil Absen Secara Otomatis ke Rekap Absensi
+                        const existingRecordIndex = rekapList.findIndex(r => r.name === 'Rudi Batubara' && r.date === dateStr);
+                        const newAttendance = {
+                            date: dateStr,
+                            name: 'Rudi Batubara',
+                            basecamp: activeBasecamp.name.replace('Basecamp ', ''),
+                            time: timeStringFull,
+                            status: statusHtml,
+                            late: lateCount
+                        };
+
+                        if (existingRecordIndex !== -1) {
+                            rekapList[existingRecordIndex] = newAttendance;
+                        } else {
+                            rekapList.unshift(newAttendance);
                         }
+
+                        renderRekap();
                     } else {
                         showToast(`Absensi Ditolak: Anda berada di luar radius basecamp (${Math.round(distance)}m).`, 'error');
                     }
@@ -787,7 +1013,7 @@
                     let errorMsg = 'Gagal mendeteksi lokasi.';
                     switch (error.code) {
                         case error.PERMISSION_DENIED:
-                            errorMsg = 'Izin akses lokasi ditolak. Mohon aktifkan izin GPS pada pengaturan browser Anda.';
+                            errorMsg = 'Izin akses lokasi ditolak. Aktifkan GPS di browser Anda.';
                             break;
                         case error.POSITION_UNAVAILABLE:
                             errorMsg = 'Informasi lokasi perangkat tidak tersedia.';
@@ -798,11 +1024,7 @@
                     }
                     showToast(errorMsg, 'error');
                 },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
             );
         }
     </script>
