@@ -15,6 +15,9 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+    <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -605,6 +608,40 @@
             { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
         ];
 
+        // ----------------- FUNGSI EXPORT EXCEL MENGGUNAKAN SHEETJS ----------------- //
+        function exportToExcel() {
+            if (!rekapList || rekapList.length === 0) {
+                showToast('Tidak ada data rekap untuk diexport!', 'warning');
+                return;
+            }
+
+            // Ubah data rekapList menjadi format yang bersih dari tag HTML untuk file Excel
+            const excelData = rekapList.map((item, index) => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = item.status;
+                const statusText = tempDiv.textContent || tempDiv.innerText || 'N/A';
+
+                return {
+                    "No": index + 1,
+                    "Tanggal": item.date,
+                    "Nama Karyawan": item.name,
+                    "Basecamp": item.basecamp,
+                    "Jam Masuk": item.time,
+                    "Status": statusText,
+                    "Jumlah Keterlambatan": item.late
+                };
+            });
+
+            // Buat worksheet dan workbook menggunakan SheetJS
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
+
+            // Unduh file excel dengan nama tertentu
+            XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
+            showToast('Data rekap berhasil di-export ke Excel (.xlsx)!', 'success');
+        }
+
         // ----------------- ROLE MANAGEMENT ----------------- //
         function renderRoles() {
             const tbody = document.getElementById('role-tbody');
@@ -683,7 +720,6 @@
 
             closeRoleModal();
             renderRoles();
-            // Perbarui dropdown role jika sedang buka form karyawan
             populateRoleDropdown(); 
         }
 
@@ -703,10 +739,8 @@
         function initMap() {
             if (bcMap) return;
             
-            // Inisialisasi map dengan default center di Indonesia (Riau area)
             bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
             
-            // Menggunakan tile dari OpenStreetMap yang gratis
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
                 attribution: '&copy; OpenStreetMap contributors'
             }).addTo(bcMap);
@@ -721,11 +755,9 @@
             const bounds = [];
 
             basecamps.forEach(bc => {
-                // Menambahkan Marker
                 const marker = L.marker([bc.lat, bc.lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
                 bcLayerGroup.addLayer(marker);
                 
-                // Menambahkan Circle Radius dengan warna emas (gold theme)
                 const circle = L.circle([bc.lat, bc.lng], {
                     color: '#d4af37',
                     fillColor: '#d4af37',
@@ -745,7 +777,6 @@
 
         // ----------------- OTHER FUNCTIONS ----------------- //
         
-        // Populate Dropdown Atasan
         function populateAtasanDropdown(currentEmployeeName = '') {
             const select = document.getElementById('inp-atasan');
             if (!select) return;
@@ -760,7 +791,6 @@
             });
         }
 
-        // Render Data Karyawan
         function renderEmployees() {
             const tbody = document.getElementById('karyawan-tbody');
             if (!tbody) return;
@@ -799,7 +829,6 @@
             });
         }
 
-        // Render Rekap Absensi
         function renderRekap(dataToRender = null) {
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
@@ -835,7 +864,6 @@
             });
         }
 
-        // Render Basecamps
         function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if (!container) return;
@@ -863,11 +891,9 @@
                 });
             }
             
-            // Perbarui data Peta jika map sudah diload
             updateMapData();
         }
 
-        // Modal Basecamp Management
         function openAddBasecampModal() {
             document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp Baru';
             document.getElementById('bc-edit-index').value = '-1';
@@ -917,7 +943,6 @@
             renderBasecamps();
         }
 
-        // Modal Employee Management
         function openAddEmployeeModal() {
             populateRoleDropdown();
             populateAtasanDropdown('');
@@ -991,7 +1016,6 @@
             }, true);
         }
 
-        // Switcher Mode (Mobile vs Desktop)
         function switchMode(mode) {
             const viewMobile = document.getElementById('view-mobile');
             const viewDesktop = document.getElementById('view-desktop');
@@ -1009,14 +1033,12 @@
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
                 
-                // Triger map invalidate ketika beralih ke desktop jika tab basecamp sedang aktif
                 if (!document.getElementById('d-tab-basecamp').classList.contains('hidden') && bcMap) {
                     setTimeout(() => { bcMap.invalidateSize(); }, 200);
                 }
             }
         }
 
-        // Desktop Tabs Switcher
         function switchDesktopTab(tab) {
             const tabs = ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'];
             tabs.forEach(t => {
@@ -1036,7 +1058,6 @@
             };
             document.getElementById('desktop-title').innerText = titles[tab];
 
-            // Trik khusus jika pindah ke tab basecamp agar map merender penuh (Menghindari map abu-abu)
             if (tab === 'basecamp') {
                 setTimeout(() => {
                     if (!bcMap) {
@@ -1050,7 +1071,6 @@
             }
         }
 
-        // Initialize tables on load
         window.addEventListener('DOMContentLoaded', () => {
             renderRoles();
             renderEmployees();
@@ -1058,7 +1078,6 @@
             renderBasecamps();
         });
         
-        // ----------------- MOBILE TABS & GEO HANDLERS TETAP SAMA ----------------- //
         function switchMobileTab(tab) {
             ['absen', 'izin', 'riwayat'].forEach(t => {
                 document.getElementById(`m-tab-${t}`).classList.add('hidden');
