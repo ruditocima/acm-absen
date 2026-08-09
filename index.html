@@ -90,8 +90,8 @@
                             <span id="mobile-device-status" class="text-emerald-400 font-semibold"><i class="fa-solid fa-shield-check"></i> Terikat (ID: DEV-9982)</span>
                         </div>
                         <div class="flex justify-between items-center text-xs">
-                            <span class="text-slate-400">Anti-Fake GPS:</span>
-                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (GPS Real-time)</span>
+                            <span class="text-slate-400">Anti-Fake GPS & Anomali:</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (Secure Guard)</span>
                         </div>
                     </div>
 
@@ -580,42 +580,37 @@
 
         // ----------------- DATA STATE ----------------- //
 
-        // State Data Role Baru
         let roles = [
             { id: 'ROL-01', name: 'Master Admin', access: 'Semua Akses Modul' },
             { id: 'ROL-02', name: 'Supervisor Field', access: 'Dashboard, Rekap, Izin' },
             { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
         ];
 
-        // Data Karyawan State & Management (Dengan Atasan)
         let employees = [
             { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
             { id: 'USR-002', name: 'Budi Santoso', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
             { id: 'USR-003', name: 'Siti Aminah', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
         ];
 
-        // Basecamp State
         let basecamps = [
             { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
             { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
             { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
         ];
 
-        // Rekap Absensi State (Termasuk Kolom Tanggal)
         let rekapList = [
             { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
             { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
             { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
         ];
 
-        // ----------------- FUNGSI EXPORT EXCEL MENGGUNAKAN SHEETJS ----------------- //
+        // ----------------- FUNGSI EXPORT EXCEL ----------------- //
         function exportToExcel() {
             if (!rekapList || rekapList.length === 0) {
                 showToast('Tidak ada data rekap untuk diexport!', 'warning');
                 return;
             }
 
-            // Ubah data rekapList menjadi format yang bersih dari tag HTML untuk file Excel
             const excelData = rekapList.map((item, index) => {
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = item.status;
@@ -632,12 +627,10 @@
                 };
             });
 
-            // Buat worksheet dan workbook menggunakan SheetJS
             const worksheet = XLSX.utils.json_to_sheet(excelData);
             const workbook = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
 
-            // Unduh file excel dengan nama tertentu
             XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
             showToast('Data rekap berhasil di-export ke Excel (.xlsx)!', 'success');
         }
@@ -731,7 +724,6 @@
             }, true);
         }
 
-
         // ----------------- LEAFLET MAP MANAGEMENT ----------------- //
         let bcMap = null;
         let bcLayerGroup = null;
@@ -773,7 +765,6 @@
                 bcMap.fitBounds(bounds, { padding: [30, 30] });
             }
         }
-
 
         // ----------------- OTHER FUNCTIONS ----------------- //
         
@@ -1111,6 +1102,9 @@
 
         async function getServerTime() { return new Date(); }
 
+        // =========================================================================
+        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS (SERVER-SIDE MOCK VALIDATION)
+        // =========================================================================
         async function handleAbsen() {
             const btn = document.querySelector('button[onclick="handleAbsen()"]');
             const originalHtml = btn ? btn.innerHTML : '';
@@ -1119,7 +1113,37 @@
                 btn.disabled = true;
             }
 
+            // 1. Pencatatan Perangkat Mendalam (User-Agent & Simulated Mac Address / Fingerprint)
+            const userAgent = navigator.userAgent;
+            const clientTimezoneOffset = new Date().getTimezoneOffset(); // Deteksi anomali zona waktu
+            const simulatedMacAddress = "MAC-XX-88-91-FA-42"; // Simulasi penangkapan MAC / Network hardware ID
+            const boundDeviceFingerprint = employees[0].deviceId; // "DEV-9982 (Locked)"
+
+            // 2. Validasi Anomali Waktu (Simulasi pengecekan drift waktu antara client & server trust)
+            const localEpochTime = Date.now();
             const serverTime = await getServerTime();
+            const serverEpochTime = serverTime.getTime();
+            const timeDriftSeconds = Math.abs(localEpochTime - serverEpochTime) / 1000;
+
+            if (timeDriftSeconds > 60) {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+                showToast('Absensi Ditolak: Terdeteksi anomali waktu pada perangkat Anda. Sesuaikan jam otomatis.', 'error');
+                return;
+            }
+
+            // 3. Validasi Device Binding / Fingerprint
+            if (!boundDeviceFingerprint.includes('DEV-9982')) {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+                showToast('Absensi Ditolak: Perangkat tidak dikenali atau belum terikat (Device ID Mismatch).', 'error');
+                return;
+            }
+
             const activeBasecamp = basecamps[0] || { lat: 0.434291, lng: 101.466385, radius: 15000, name: 'Pekanbaru Pusat' };
 
             const processAttendance = (userLat, userLng, accuracyVal) => {
@@ -1127,6 +1151,13 @@
                     btn.innerHTML = originalHtml;
                     btn.disabled = false;
                 }
+
+                // Proteksi Tambahan: Deteksi akurasi GPS mencurigakan (Fake GPS indicator biasanya memberikan akurasi 0 atau nilai statis sempurna)
+                if (accuracyVal === 0 || accuracyVal > 5000) {
+                    showToast('Absensi Ditolak: Sinyal GPS tidak valid atau terindikasi Fake GPS.', 'error');
+                    return;
+                }
+
                 const distance = calculateDistance(userLat, userLng, activeBasecamp.lat, activeBasecamp.lng);
                 const coordEl = document.querySelector('#m-tab-absen p.text-gold-400');
                 if (coordEl) coordEl.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E (Akurasi: ${Math.round(accuracyVal)}m)`;
@@ -1144,7 +1175,16 @@
                     const timeStringShort = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} WIB`;
                     const timeStringFull = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} WIB`;
 
-                    showToast(`Absensi Berhasil! Jarak Anda ${Math.round(distance)} meter dari basecamp.`, 'success');
+                    // Log keamanan mendalam (Bisa dikirim ke server backend via payload JSON)
+                    console.log("[SECURE LOG] Absensi Sukses:", {
+                        user: "Rudi Batubara",
+                        device: simulatedMacAddress,
+                        ua: userAgent,
+                        tzOffset: clientTimezoneOffset,
+                        distance: Math.round(distance)
+                    });
+
+                    showToast(`Absensi Terverifikasi Aman! Jarak ${Math.round(distance)}m dari basecamp.`, 'success');
                     
                     const jamMasukEl = document.getElementById('mobile-jam-masuk');
                     if (jamMasukEl) jamMasukEl.innerText = timeStringShort;
