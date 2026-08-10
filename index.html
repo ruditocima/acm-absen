@@ -200,7 +200,7 @@
 
 
         <!-- ==================== DESKTOP VIEW (MASTER ADMIN) ==================== -->
-        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
+        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden overflow-hidden">
             <!-- Sidebar -->
             <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
                 <div class="p-5 border-b border-slate-800 flex items-center gap-3">
@@ -530,11 +530,11 @@
         // =========================================================================
         // SUPABASE CONFIGURATION
         // =========================================================================
-        const SUPABASE_URL = 'https://loqjtbhucbuszgpqwooh.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvcWp0Ymh1Y2J1c3pncHF3b29oIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNjAzMzcsImV4cCI6MjEwMTkzNjMzN30.FcB_kUoNr8W4ItpOqvM4zYt803AZscFiKi_zE3HX63c';
+        const SUPABASE_URL = 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR-SUPABASE-ANON-KEY';
         
         let supabase = null;
-        if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== ''https://loqjtbhucbuszgpqwooh.supabase.co') {
+        if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co') {
             supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         }
 
@@ -651,10 +651,13 @@
             confirmCallback = null;
         }
 
-        document.getElementById('confirm-btn-yes').addEventListener('click', () => {
-            if (confirmCallback) confirmCallback();
-            closeConfirmModal();
-        });
+        const confirmBtn = document.getElementById('confirm-btn-yes');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                if (confirmCallback) confirmCallback();
+                closeConfirmModal();
+            });
+        }
 
         // ----------------- FUNGSI EXPORT EXCEL ----------------- //
         function exportToExcel() {
@@ -1142,6 +1145,7 @@
             }, false);
         }
 
+        // PERBAIKAN UTAMA: SWITCH MODE HP / DESKTOP (MENGELOLA BENTROK CLASS TAILWIND FLEX/HIDDEN)
         function switchMode(mode) {
             const viewMobile = document.getElementById('view-mobile');
             const viewDesktop = document.getElementById('view-desktop');
@@ -1150,12 +1154,20 @@
 
             if (mode === 'mobile') {
                 viewMobile.classList.remove('hidden');
+                viewMobile.classList.add('flex');
+                
                 viewDesktop.classList.add('hidden');
+                viewDesktop.classList.remove('flex');
+
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             } else {
                 viewMobile.classList.add('hidden');
+                viewMobile.classList.remove('flex');
+                
                 viewDesktop.classList.remove('hidden');
+                viewDesktop.classList.add('flex');
+
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
                 
@@ -1168,11 +1180,16 @@
         function switchDesktopTab(tab) {
             const tabs = ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'];
             tabs.forEach(t => {
-                document.getElementById(`d-tab-${t}`).classList.add('hidden');
-                document.getElementById(`d-nav-${t}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+                const elTab = document.getElementById(`d-tab-${t}`);
+                const elNav = document.getElementById(`d-nav-${t}`);
+                if (elTab) elTab.classList.add('hidden');
+                if (elNav) elNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
             });
-            document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`d-nav-${tab}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            
+            const activeTab = document.getElementById(`d-tab-${tab}`);
+            const activeNav = document.getElementById(`d-nav-${tab}`);
+            if (activeTab) activeTab.classList.remove('hidden');
+            if (activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
             
             const titles = {
                 'dashboard': 'Dashboard & Statistik',
@@ -1182,7 +1199,8 @@
                 'basecamp': 'Pengaturan Basecamp & Radius GPS',
                 'izin': 'Persetujuan Pengajuan Izin'
             };
-            document.getElementById('desktop-title').innerText = titles[tab];
+            const titleEl = document.getElementById('desktop-title');
+            if (titleEl && titles[tab]) titleEl.innerText = titles[tab];
 
             if (tab === 'basecamp') {
                 setTimeout(() => {
@@ -1239,7 +1257,7 @@
         async function getServerTime() { return new Date(); }
 
         // =========================================================================
-        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS (SERVER-SIDE MOCK VALIDATION)
+        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS
         // =========================================================================
         async function handleAbsen() {
             const btn = document.querySelector('button[onclick="handleAbsen()"]');
@@ -1249,13 +1267,11 @@
                 btn.disabled = true;
             }
 
-            // 1. Pencatatan Perangkat Mendalam
             const userAgent = navigator.userAgent;
             const clientTimezoneOffset = new Date().getTimezoneOffset(); 
             const simulatedMacAddress = "MAC-XX-88-91-FA-42"; 
             const boundDeviceFingerprint = employees[0]?.deviceId || 'DEV-9982 (Locked)'; 
 
-            // 2. Validasi Anomali Waktu
             const localEpochTime = Date.now();
             const serverTime = await getServerTime();
             const serverEpochTime = serverTime.getTime();
@@ -1270,7 +1286,6 @@
                 return;
             }
 
-            // 3. Validasi Device Binding / Fingerprint
             if (!boundDeviceFingerprint.includes('DEV-9982')) {
                 if (btn) {
                     btn.innerHTML = originalHtml;
@@ -1321,7 +1336,6 @@
 
                     const cleanBasecampName = activeBasecamp.name.replace(/^Basecamp\s+/i, '');
                     
-                    // Simpan Ke Supabase
                     if (supabase) {
                         try {
                             const { data: existing } = await supabase.from('rekap_list').select('*').eq('name', 'Rudi Batubara').eq('date', dateStr);
