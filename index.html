@@ -256,19 +256,23 @@
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
                                 <span class="text-xs text-slate-400">Total Karyawan</span>
-                                <h4 class="text-2xl font-bold text-white mt-1">124 Orang</h4>
+                                <!-- ID ditambahkan di sini -->
+                                <h4 id="stat-total" class="text-2xl font-bold text-white mt-1">124 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
                                 <span class="text-xs text-slate-400">Hadir Tepat Waktu</span>
-                                <h4 class="text-2xl font-bold text-emerald-400 mt-1">108 Orang</h4>
+                                <!-- ID ditambahkan di sini -->
+                                <h4 id="stat-tepat" class="text-2xl font-bold text-emerald-400 mt-1">108 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500">
                                 <span class="text-xs text-slate-400">Terlambat</span>
-                                <h4 class="text-2xl font-bold text-amber-400 mt-1">12 Orang</h4>
+                                <!-- ID ditambahkan di sini -->
+                                <h4 id="stat-telat" class="text-2xl font-bold text-amber-400 mt-1">12 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
                                 <span class="text-xs text-slate-400">Izin / Alpha</span>
-                                <h4 class="text-2xl font-bold text-rose-400 mt-1">4 Orang</h4>
+                                <!-- ID ditambahkan di sini -->
+                                <h4 id="stat-izin" class="text-2xl font-bold text-rose-400 mt-1">4 Orang</h4>
                             </div>
                         </div>
                     </div>
@@ -597,6 +601,9 @@
             { id: 'USR-003', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
         ];
 
+        // Disimulasikan berdasarkan data default untuk menunjukkan hari ini
+        const initToday = new Date().toISOString().split('T')[0];
+
         let basecamps = [
             { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
             { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
@@ -604,12 +611,55 @@
         ];
 
         let rekapList = [
-            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
-            { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
-            { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
+            { date: initToday, name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
+            { date: initToday, name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' }
         ];
 
-        // ----------------- FUNGSI EXPORT EXCEL ----------------- //
+        // =========================================================================
+        // FUNGSI UPDATE STATISTIK DASHBOARD SECARA OTOMATIS
+        // =========================================================================
+        function updateDashboardStats() {
+            const totalKaryawan = employees.length;
+            
+            // Dapatkan tanggal hari ini (Format: YYYY-MM-DD)
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayStr = `${year}-${month}-${day}`;
+
+            // Filter data absensi khusus hari ini
+            const todaysRecords = rekapList.filter(r => r.date === todayStr);
+
+            let hadirTepatWaktu = 0;
+            let terlambat = 0;
+
+            todaysRecords.forEach(record => {
+                // Mengecek status dari HTML string yang di-render
+                if (record.status.includes('Tepat Waktu')) {
+                    hadirTepatWaktu++;
+                } else if (record.status.includes('Terlambat')) {
+                    terlambat++;
+                }
+            });
+
+            // Karyawan Izin / Alpha adalah sisa dari yang tidak absen hari ini
+            let izinAlpha = totalKaryawan - (hadirTepatWaktu + terlambat);
+            if(izinAlpha < 0) izinAlpha = 0;
+
+            // Memperbarui elemen DOM berdasarkan ID
+            const statTotal = document.getElementById('stat-total');
+            const statTepat = document.getElementById('stat-tepat');
+            const statTelat = document.getElementById('stat-telat');
+            const statIzin = document.getElementById('stat-izin');
+
+            if (statTotal) statTotal.innerText = `${totalKaryawan} Orang`;
+            if (statTepat) statTepat.innerText = `${hadirTepatWaktu} Orang`;
+            if (statTelat) statTelat.innerText = `${terlambat} Orang`;
+            if (statIzin) statIzin.innerText = `${izinAlpha} Orang`;
+        }
+
+        // ----------------- FUNGSI EXPORT & FILTER EXCEL ----------------- //
         function exportToExcel() {
             if (!rekapList || rekapList.length === 0) {
                 showToast('Tidak ada data rekap untuk diexport!', 'warning');
@@ -638,6 +688,29 @@
 
             XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
             showToast('Data rekap berhasil di-export ke Excel (.xlsx)!', 'success');
+        }
+
+        function filterRekap() {
+            const startDate = document.getElementById('rekap-start-date').value;
+            const endDate = document.getElementById('rekap-end-date').value;
+            
+            if(!startDate || !endDate) {
+                showToast('Harap pilih rentang tanggal (Dari & Sampai)!', 'warning');
+                return;
+            }
+            
+            const filtered = rekapList.filter(r => r.date >= startDate && r.date <= endDate);
+            renderRekap(filtered);
+            showToast(`Menampilkan ${filtered.length} data sesuai filter.`, 'success');
+        }
+
+        function resetRekapData() {
+            showConfirm('Reset Data Rekap', 'Apakah Anda yakin ingin menghapus seluruh data rekap absensi?', () => {
+                rekapList = [];
+                renderRekap();
+                updateDashboardStats(); // Update dashboard saat di-reset
+                showToast('Data rekap berhasil dikosongkan.', 'success');
+            }, true);
         }
 
         // ----------------- ROLE MANAGEMENT ----------------- //
@@ -998,6 +1071,9 @@
 
             closeEmployeeModal();
             renderEmployees();
+            
+            // Hitung ulang dashboard setelah ada perubahan data
+            updateDashboardStats();
         }
 
         function resetEmployeeDevice(index) {
@@ -1012,6 +1088,7 @@
             showConfirm('Hapus Karyawan', `Hapus data karyawan ${employees[index].name}?`, () => {
                 employees.splice(index, 1);
                 renderEmployees();
+                updateDashboardStats(); // Hitung ulang dashboard
                 showToast('Data karyawan berhasil dihapus.', 'success');
             }, true);
         }
@@ -1071,11 +1148,15 @@
             }
         }
 
+        // Panggil rendering awal dan update statistik
         window.addEventListener('DOMContentLoaded', () => {
             renderRoles();
             renderEmployees();
             renderRekap();
             renderBasecamps();
+            
+            // Eksekusi fungsi update statistik saat aplikasi dibuka pertama kali
+            updateDashboardStats();
         });
         
         function switchMobileTab(tab) {
@@ -1220,6 +1301,10 @@
                     else rekapList.unshift(newAttendance);
 
                     renderRekap();
+                    
+                    // Panggil update statistik saat ada yang baru saja absen!
+                    updateDashboardStats();
+
                 } else {
                     showToast(`Absensi Ditolak: Anda berada di luar radius basecamp (${Math.round(distance)}m).`, 'error');
                 }
