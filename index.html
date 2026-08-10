@@ -18,9 +18,6 @@
     <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-    <!-- SUPABASE CLIENT JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -200,7 +197,7 @@
 
 
         <!-- ==================== DESKTOP VIEW (MASTER ADMIN) ==================== -->
-        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden overflow-hidden">
+        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
             <!-- Sidebar -->
             <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
                 <div class="p-5 border-b border-slate-800 flex items-center gap-3">
@@ -525,83 +522,8 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC + INTEGRASI SUPABASE -->
+    <!-- JAVASCRIPT LOGIC SIMULATION -->
     <script>
-        // =========================================================================
-        // SUPABASE CONFIGURATION
-        // =========================================================================
-        const SUPABASE_URL = 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR-SUPABASE-ANON-KEY';
-        
-        let supabase = null;
-        if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co') {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        }
-
-        // ----------------- DATA STATE IN-MEMORY / INITIAL FALLBACK ----------------- //
-
-        let roles = [
-            { id: 'ROL-01', name: 'Master Admin', access: 'Semua Akses Modul' },
-            { id: 'ROL-02', name: 'Supervisor Field', access: 'Dashboard, Rekap, Izin' },
-            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
-        ];
-
-        let employees = [
-            { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
-            { id: 'USR-002', name: 'Budi Santoso', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
-            { id: 'USR-003', name: 'Siti Aminah', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
-        ];
-
-        let basecamps = [
-            { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
-            { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
-            { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
-        ];
-
-        let rekapList = [
-            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
-            { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
-            { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
-        ];
-
-        // Sync Data Realtime dari Supabase jika koneksi aktif
-        async function loadDataFromSupabase() {
-            if (!supabase) return;
-
-            try {
-                // Fetch Roles
-                const { data: rolesData, error: rolesErr } = await supabase.from('roles').select('*').order('id', { ascending: true });
-                if (!rolesErr && rolesData && rolesData.length > 0) {
-                    roles = rolesData.map(r => ({ id: r.role_id, name: r.name, access: r.access }));
-                }
-
-                // Fetch Employees
-                const { data: empData, error: empErr } = await supabase.from('employees').select('*').order('id', { ascending: true });
-                if (!empErr && empData && empData.length > 0) {
-                    employees = empData.map(e => ({ id: e.emp_id, name: e.name, role: e.role, atasan: e.atasan, password: e.password, deviceId: e.device_id }));
-                }
-
-                // Fetch Basecamps
-                const { data: bcData, error: bcErr } = await supabase.from('basecamps').select('*').order('id', { ascending: true });
-                if (!bcErr && bcData && bcData.length > 0) {
-                    basecamps = bcData.map(b => ({ id: b.id, name: b.name, lat: parseFloat(b.lat), lng: parseFloat(b.lng), radius: parseInt(b.radius) }));
-                }
-
-                // Fetch Rekap
-                const { data: rekapData, error: rekapErr } = await supabase.from('rekap_list').select('*').order('date', { ascending: false });
-                if (!rekapErr && rekapData && rekapData.length > 0) {
-                    rekapList = rekapData.map(r => ({ date: r.date, name: r.name, basecamp: r.basecamp, time: r.time, status: r.status, late: r.late }));
-                }
-
-                renderRoles();
-                renderEmployees();
-                renderRekap();
-                renderBasecamps();
-            } catch (err) {
-                console.error("Supabase connection warning:", err);
-            }
-        }
-
         // Toast Notification System
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -651,13 +573,36 @@
             confirmCallback = null;
         }
 
-        const confirmBtn = document.getElementById('confirm-btn-yes');
-        if (confirmBtn) {
-            confirmBtn.addEventListener('click', () => {
-                if (confirmCallback) confirmCallback();
-                closeConfirmModal();
-            });
-        }
+        document.getElementById('confirm-btn-yes').addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirmModal();
+        });
+
+        // ----------------- DATA STATE ----------------- //
+
+        let roles = [
+            { id: 'ROL-01', name: 'Master Admin', access: 'Semua Akses Modul' },
+            { id: 'ROL-02', name: 'Supervisor Field', access: 'Dashboard, Rekap, Izin' },
+            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
+        ];
+
+        let employees = [
+            { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'USR-002', name: 'Budi Santoso', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
+            { id: 'USR-003', name: 'Siti Aminah', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
+        ];
+
+        let basecamps = [
+            { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
+            { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
+            { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
+        ];
+
+        let rekapList = [
+            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
+            { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
+            { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
+        ];
 
         // ----------------- FUNGSI EXPORT EXCEL ----------------- //
         function exportToExcel() {
@@ -747,7 +692,7 @@
             document.getElementById('role-modal').classList.add('hidden');
         }
 
-        async function saveRole() {
+        function saveRole() {
             const index = parseInt(document.getElementById('role-edit-index').value);
             const id = document.getElementById('inp-role-id').value.trim();
             const name = document.getElementById('inp-role-name').value.trim();
@@ -756,17 +701,6 @@
             if (!id || !name) {
                 showToast('Kode Role dan Nama Role wajib diisi!', 'error');
                 return;
-            }
-
-            if (supabase) {
-                if (index === -1) {
-                    const { error } = await supabase.from('roles').insert([{ role_id: id, name, access }]);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                } else {
-                    const oldId = roles[index].id;
-                    const { error } = await supabase.from('roles').update({ role_id: id, name, access }).eq('role_id', oldId);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                }
             }
 
             if (index === -1) {
@@ -783,11 +717,7 @@
         }
 
         function deleteRole(index) {
-            showConfirm('Hapus Role', `Hapus data role ${roles[index].name}?`, async () => {
-                if (supabase) {
-                    const { error } = await supabase.from('roles').delete().eq('role_id', roles[index].id);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                }
+            showConfirm('Hapus Role', `Hapus data role ${roles[index].name}?`, () => {
                 roles.splice(index, 1);
                 renderRoles();
                 showToast('Data role berhasil dihapus.', 'success');
@@ -980,7 +910,7 @@
             document.getElementById('basecamp-modal').classList.add('hidden');
         }
 
-        async function saveBasecamp() {
+        function saveBasecamp() {
             const index = parseInt(document.getElementById('bc-edit-index').value);
             const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
@@ -992,30 +922,14 @@
                 return;
             }
 
-            if (supabase) {
-                if (index === -1) {
-                    const { data, error } = await supabase.from('basecamps').insert([{ name, lat, lng, radius }]).select();
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                    if (data && data[0]) {
-                        basecamps.push({ id: data[0].id, name, lat, lng, radius });
-                    } else {
-                        basecamps.push({ id: Date.now(), name, lat, lng, radius });
-                    }
-                } else {
-                    const bcId = basecamps[index].id;
-                    const { error } = await supabase.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                    basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
-                }
+            if (index === -1) {
+                basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
-                if (index === -1) {
-                    basecamps.push({ id: Date.now(), name, lat, lng, radius });
-                } else {
-                    basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
-                }
+                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                showToast('Data basecamp berhasil diperbarui!', 'success');
             }
 
-            showToast(index === -1 ? 'Basecamp baru berhasil ditambahkan!' : 'Data basecamp berhasil diperbarui!', 'success');
             closeBasecampModal();
             renderBasecamps();
         }
@@ -1051,7 +965,7 @@
             document.getElementById('employee-modal').classList.add('hidden');
         }
 
-        async function saveEmployee() {
+        function saveEmployee() {
             const index = parseInt(document.getElementById('edit-index').value);
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
@@ -1063,17 +977,6 @@
             if (!id || !name) {
                 showToast('ID User dan Nama Karyawan wajib diisi!', 'error');
                 return;
-            }
-
-            if (supabase) {
-                if (index === -1) {
-                    const { error } = await supabase.from('employees').insert([{ emp_id: id, name, role, atasan, password, device_id: deviceId }]);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                } else {
-                    const oldId = employees[index].id;
-                    const { error } = await supabase.from('employees').update({ emp_id: id, name, role, atasan, password, device_id: deviceId }).eq('emp_id', oldId);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                }
             }
 
             if (index === -1) {
@@ -1089,63 +992,21 @@
         }
 
         function resetEmployeeDevice(index) {
-            showConfirm('Reset Device ID', `Apakah Anda yakin ingin mereset Device ID untuk ${employees[index].name}?`, async () => {
-                const newDevice = 'Belum Terikat (Reset)';
-                if (supabase) {
-                    const { error } = await supabase.from('employees').update({ device_id: newDevice }).eq('emp_id', employees[index].id);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                }
-                employees[index].deviceId = newDevice;
+            showConfirm('Reset Device ID', `Apakah Anda yakin ingin mereset Device ID untuk ${employees[index].name}?`, () => {
+                employees[index].deviceId = 'Belum Terikat (Reset)';
                 renderEmployees();
                 showToast('Device ID berhasil direset.', 'success');
             }, false);
         }
 
         function deleteEmployee(index) {
-            showConfirm('Hapus Karyawan', `Hapus data karyawan ${employees[index].name}?`, async () => {
-                if (supabase) {
-                    const { error } = await supabase.from('employees').delete().eq('emp_id', employees[index].id);
-                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
-                }
+            showConfirm('Hapus Karyawan', `Hapus data karyawan ${employees[index].name}?`, () => {
                 employees.splice(index, 1);
                 renderEmployees();
                 showToast('Data karyawan berhasil dihapus.', 'success');
             }, true);
         }
 
-        function filterRekap() {
-            const startDate = document.getElementById('rekap-start-date').value;
-            const endDate = document.getElementById('rekap-end-date').value;
-
-            if (!startDate && !endDate) {
-                renderRekap();
-                return;
-            }
-
-            const filtered = rekapList.filter(item => {
-                if (startDate && item.date < startDate) return false;
-                if (endDate && item.date > endDate) return false;
-                return true;
-            });
-
-            renderRekap(filtered);
-            showToast(`Menampilkan ${filtered.length} data rekap terfilter.`, 'success');
-        }
-
-        function resetRekapData() {
-            showConfirm('Reset Data Rekap', 'Apakah Anda yakin ingin mereset filter dan memuat ulang data rekap?', async () => {
-                document.getElementById('rekap-start-date').value = '';
-                document.getElementById('rekap-end-date').value = '';
-                if (supabase) {
-                    await loadDataFromSupabase();
-                } else {
-                    renderRekap();
-                }
-                showToast('Data rekap berhasil direset.', 'success');
-            }, false);
-        }
-
-        // PERBAIKAN UTAMA: SWITCH MODE HP / DESKTOP (MENGELOLA BENTROK CLASS TAILWIND FLEX/HIDDEN)
         function switchMode(mode) {
             const viewMobile = document.getElementById('view-mobile');
             const viewDesktop = document.getElementById('view-desktop');
@@ -1154,20 +1015,12 @@
 
             if (mode === 'mobile') {
                 viewMobile.classList.remove('hidden');
-                viewMobile.classList.add('flex');
-                
                 viewDesktop.classList.add('hidden');
-                viewDesktop.classList.remove('flex');
-
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             } else {
                 viewMobile.classList.add('hidden');
-                viewMobile.classList.remove('flex');
-                
                 viewDesktop.classList.remove('hidden');
-                viewDesktop.classList.add('flex');
-
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
                 
@@ -1180,16 +1033,11 @@
         function switchDesktopTab(tab) {
             const tabs = ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'];
             tabs.forEach(t => {
-                const elTab = document.getElementById(`d-tab-${t}`);
-                const elNav = document.getElementById(`d-nav-${t}`);
-                if (elTab) elTab.classList.add('hidden');
-                if (elNav) elNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+                document.getElementById(`d-tab-${t}`).classList.add('hidden');
+                document.getElementById(`d-nav-${t}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
             });
-            
-            const activeTab = document.getElementById(`d-tab-${tab}`);
-            const activeNav = document.getElementById(`d-nav-${tab}`);
-            if (activeTab) activeTab.classList.remove('hidden');
-            if (activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`d-nav-${tab}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
             
             const titles = {
                 'dashboard': 'Dashboard & Statistik',
@@ -1199,8 +1047,7 @@
                 'basecamp': 'Pengaturan Basecamp & Radius GPS',
                 'izin': 'Persetujuan Pengajuan Izin'
             };
-            const titleEl = document.getElementById('desktop-title');
-            if (titleEl && titles[tab]) titleEl.innerText = titles[tab];
+            document.getElementById('desktop-title').innerText = titles[tab];
 
             if (tab === 'basecamp') {
                 setTimeout(() => {
@@ -1215,12 +1062,11 @@
             }
         }
 
-        window.addEventListener('DOMContentLoaded', async () => {
+        window.addEventListener('DOMContentLoaded', () => {
             renderRoles();
             renderEmployees();
             renderRekap();
             renderBasecamps();
-            await loadDataFromSupabase();
         });
         
         function switchMobileTab(tab) {
@@ -1257,7 +1103,7 @@
         async function getServerTime() { return new Date(); }
 
         // =========================================================================
-        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS
+        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS (SERVER-SIDE MOCK VALIDATION)
         // =========================================================================
         async function handleAbsen() {
             const btn = document.querySelector('button[onclick="handleAbsen()"]');
@@ -1267,11 +1113,13 @@
                 btn.disabled = true;
             }
 
+            // 1. Pencatatan Perangkat Mendalam (User-Agent & Simulated Mac Address / Fingerprint)
             const userAgent = navigator.userAgent;
-            const clientTimezoneOffset = new Date().getTimezoneOffset(); 
-            const simulatedMacAddress = "MAC-XX-88-91-FA-42"; 
-            const boundDeviceFingerprint = employees[0]?.deviceId || 'DEV-9982 (Locked)'; 
+            const clientTimezoneOffset = new Date().getTimezoneOffset(); // Deteksi anomali zona waktu
+            const simulatedMacAddress = "MAC-XX-88-91-FA-42"; // Simulasi penangkapan MAC / Network hardware ID
+            const boundDeviceFingerprint = employees[0].deviceId; // "DEV-9982 (Locked)"
 
+            // 2. Validasi Anomali Waktu (Simulasi pengecekan drift waktu antara client & server trust)
             const localEpochTime = Date.now();
             const serverTime = await getServerTime();
             const serverEpochTime = serverTime.getTime();
@@ -1286,6 +1134,7 @@
                 return;
             }
 
+            // 3. Validasi Device Binding / Fingerprint
             if (!boundDeviceFingerprint.includes('DEV-9982')) {
                 if (btn) {
                     btn.innerHTML = originalHtml;
@@ -1297,12 +1146,13 @@
 
             const activeBasecamp = basecamps[0] || { lat: 0.434291, lng: 101.466385, radius: 15000, name: 'Pekanbaru Pusat' };
 
-            const processAttendance = async (userLat, userLng, accuracyVal) => {
+            const processAttendance = (userLat, userLng, accuracyVal) => {
                 if (btn) {
                     btn.innerHTML = originalHtml;
                     btn.disabled = false;
                 }
 
+                // Proteksi Tambahan: Deteksi akurasi GPS mencurigakan (Fake GPS indicator biasanya memberikan akurasi 0 atau nilai statis sempurna)
                 if (accuracyVal === 0 || accuracyVal > 5000) {
                     showToast('Absensi Ditolak: Sinyal GPS tidak valid atau terindikasi Fake GPS.', 'error');
                     return;
@@ -1325,6 +1175,17 @@
                     const timeStringShort = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} WIB`;
                     const timeStringFull = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} WIB`;
 
+                    // Log keamanan mendalam (Bisa dikirim ke server backend via payload JSON)
+                    console.log("[SECURE LOG] Absensi Sukses:", {
+                        user: "Rudi Batubara",
+                        device: simulatedMacAddress,
+                        ua: userAgent,
+                        tzOffset: clientTimezoneOffset,
+                        distance: Math.round(distance)
+                    });
+
+                    showToast(`Absensi Terverifikasi Aman! Jarak ${Math.round(distance)}m dari basecamp.`, 'success');
+                    
                     const jamMasukEl = document.getElementById('mobile-jam-masuk');
                     if (jamMasukEl) jamMasukEl.innerText = timeStringShort;
 
@@ -1335,33 +1196,8 @@
                     const lateCount = isLate ? `${(hours - 8) * 60 + minutes} Menit` : '-';
 
                     const cleanBasecampName = activeBasecamp.name.replace(/^Basecamp\s+/i, '');
-                    
-                    if (supabase) {
-                        try {
-                            const { data: existing } = await supabase.from('rekap_list').select('*').eq('name', 'Rudi Batubara').eq('date', dateStr);
-                            if (existing && existing.length > 0) {
-                                await supabase.from('rekap_list').update({
-                                    basecamp: cleanBasecampName,
-                                    time: timeStringFull,
-                                    status: statusHtml,
-                                    late: lateCount
-                                }).eq('id', existing[0].id);
-                            } else {
-                                await supabase.from('rekap_list').insert([{
-                                    date: dateStr,
-                                    name: 'Rudi Batubara',
-                                    basecamp: cleanBasecampName,
-                                    time: timeStringFull,
-                                    status: statusHtml,
-                                    late: lateCount
-                                }]);
-                            }
-                        } catch (e) {
-                            console.error("Gagal simpan absensi ke Supabase:", e);
-                        }
-                    }
-
                     const existingRecordIndex = rekapList.findIndex(r => r.name === 'Rudi Batubara' && r.date === dateStr);
+                    
                     const newAttendance = {
                         date: dateStr,
                         name: 'Rudi Batubara',
@@ -1375,7 +1211,6 @@
                     else rekapList.unshift(newAttendance);
 
                     renderRekap();
-                    showToast(`Absensi Terverifikasi Aman! Jarak ${Math.round(distance)}m dari basecamp.`, 'success');
                 } else {
                     showToast(`Absensi Ditolak: Anda berada di luar radius basecamp (${Math.round(distance)}m).`, 'error');
                 }
