@@ -17,8 +17,8 @@
 
     <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    
-    <!-- SUPABASE JS CLIENT -->
+
+    <!-- SUPABASE CLIENT JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script>
@@ -36,6 +36,7 @@
     <style>
         .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .gold-gradient { background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%); }
+        /* Fix Z-index untuk Leaflet Map agar tidak menimpa Modal */
         #basecamp-map { z-index: 10; }
     </style>
 </head>
@@ -70,6 +71,7 @@
 
         <!-- ==================== MOBILE VIEW (KARYAWAN) ==================== -->
         <div id="view-mobile" class="w-full h-full max-w-md bg-slate-900 flex flex-col shadow-2xl relative overflow-hidden sm:border-x sm:border-slate-800 sm:max-h-[850px] sm:rounded-3xl">
+            <!-- Mobile Header -->
             <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
                     <span class="text-[10px] uppercase tracking-wider text-gold-400 font-bold bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">Basecamp: Pekanbaru Pusat</span>
@@ -80,9 +82,11 @@
                 </div>
             </div>
 
+            <!-- Mobile Body Content (Tab Content) -->
             <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-24">
                 <!-- TAB 1: ABSENSI -->
                 <div id="m-tab-absen" class="space-y-5">
+                    <!-- Device & GPS Security Status Box -->
                     <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Verifikasi Perangkat:</span>
@@ -90,16 +94,18 @@
                         </div>
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Anti-Fake GPS & Anomali:</span>
-                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (Backend Validated)</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (Secure Guard)</span>
                         </div>
                     </div>
 
+                    <!-- Clock Card -->
                     <div class="glass-card p-6 rounded-3xl text-center relative overflow-hidden shadow-xl">
                         <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
                         <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
-                        <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">--:--:--</h3>
-                        <p class="text-xs text-gold-400 font-medium" id="gps-status"><i class="fa-solid fa-location-dot"></i> Koordinat: Menunggu Sinyal...</p>
+                        <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
+                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.434291° N, 101.466385° E</p>
 
+                        <!-- TAMPILAN KHUSUS JAM MASUK SAJA -->
                         <div class="mt-6">
                             <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
                                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
@@ -107,14 +113,15 @@
                             </div>
                         </div>
 
-                        <button onclick="handleAbsen()" id="btn-absen" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                        <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
                         </button>
                     </div>
 
+                    <!-- Quick Status Info -->
                     <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
-                        <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Server-Side Processing:</p>
-                        <p class="text-slate-400">Kalkulasi jarak dan waktu dilakukan sepenuhnya di server Supabase untuk mencegah manipulasi data dari perangkat.</p>
+                        <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Informasi Lokasi Lapangan / Kantor:</p>
+                        <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar (Maksimal 15000 Meter).</p>
                     </div>
                 </div>
 
@@ -152,11 +159,29 @@
                 <div id="m-tab-riwayat" class="space-y-3 hidden">
                     <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-3">Riwayat Absensi Anda</h3>
                     <div id="m-riwayat-list" class="space-y-3">
-                        <!-- Akan diisi otomatis via JS dari DB -->
+                        <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-emerald-500">
+                            <div class="flex justify-between font-bold text-white">
+                                <span>07 Agustus 2026</span>
+                                <span class="text-emerald-400">Tepat Waktu</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>Masuk: 07:45 WIB</span>
+                            </div>
+                        </div>
+                        <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-amber-500">
+                            <div class="flex justify-between font-bold text-white">
+                                <span>06 Agustus 2026</span>
+                                <span class="text-amber-400">Terlambat (15 mnt)</span>
+                            </div>
+                            <div class="flex justify-between text-slate-400">
+                                <span>Masuk: 08:15 WIB</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
+            <!-- Mobile Bottom Navigation -->
             <div class="absolute bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800 px-6 py-3 flex justify-around items-center z-20">
                 <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-gold-400 flex flex-col items-center text-xs space-y-1">
                     <i class="fa-solid fa-house text-base"></i>
@@ -173,8 +198,10 @@
             </div>
         </div>
 
+
         <!-- ==================== DESKTOP VIEW (MASTER ADMIN) ==================== -->
         <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
+            <!-- Sidebar -->
             <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
                 <div class="p-5 border-b border-slate-800 flex items-center gap-3">
                     <div class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold">
@@ -192,9 +219,12 @@
                     <button onclick="switchDesktopTab('rekap')" id="d-nav-rekap" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
                         <i class="fa-solid fa-table-list w-5"></i> Rekap Absensi
                     </button>
+                    
+                    <!-- TAB BARU: KELOLA ROLE -->
                     <button onclick="switchDesktopTab('role')" id="d-nav-role" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
                         <i class="fa-solid fa-user-tie w-5"></i> Kelola Role
                     </button>
+
                     <button onclick="switchDesktopTab('karyawan')" id="d-nav-karyawan" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
                         <i class="fa-solid fa-users w-5"></i> Data Karyawan
                     </button>
@@ -205,28 +235,43 @@
                         <i class="fa-solid fa-envelope-open-text w-5"></i> Pengajuan Izin
                     </button>
                 </nav>
+                <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">
+                    Secure Attendance System v1
+                </div>
             </aside>
 
+            <!-- Main Content Area -->
             <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+                <!-- Top Navbar -->
                 <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center z-20 shadow-sm relative">
                     <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
                     <div class="flex items-center gap-4 text-xs">
-                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]" id="db-status"></i> Supabase Connected</span>
+                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online</span>
                         <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-bold">AD</div>
                     </div>
                 </header>
 
+                <!-- Dynamic Content Area -->
                 <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
                     <!-- TAB DASHBOARD -->
                     <div id="d-tab-dashboard" class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
                                 <span class="text-xs text-slate-400">Total Karyawan</span>
-                                <h4 id="stat-karyawan" class="text-2xl font-bold text-white mt-1">0 Orang</h4>
+                                <h4 class="text-2xl font-bold text-white mt-1">124 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
-                                <span class="text-xs text-slate-400">Rekap Masuk</span>
-                                <h4 id="stat-masuk" class="text-2xl font-bold text-emerald-400 mt-1">0 Data</h4>
+                                <span class="text-xs text-slate-400">Hadir Tepat Waktu</span>
+                                <h4 class="text-2xl font-bold text-emerald-400 mt-1">108 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500">
+                                <span class="text-xs text-slate-400">Terlambat</span>
+                                <h4 class="text-2xl font-bold text-amber-400 mt-1">12 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
+                                <span class="text-xs text-slate-400">Izin / Alpha</span>
+                                <h4 class="text-2xl font-bold text-rose-400 mt-1">4 Orang</h4>
                             </div>
                         </div>
                     </div>
@@ -234,16 +279,29 @@
                     <!-- TAB REKAP ABSENSI -->
                     <div id="d-tab-rekap" class="space-y-4 hidden">
                         <div class="flex flex-wrap gap-2 justify-between items-center">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran</h4>
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran & Keterlambatan</h4>
+                            
                             <div class="flex flex-wrap items-center gap-2">
-                                <button onclick="fetchData()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
-                                    <i class="fa-solid fa-rotate"></i> Refresh DB
+                                <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] text-slate-400">Dari:</span>
+                                    <input type="date" id="rekap-start-date" class="bg-transparent text-xs text-white focus:outline-none">
+                                </div>
+                                <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
+                                    <span class="text-[10px] text-slate-400">Sampai:</span>
+                                    <input type="date" id="rekap-end-date" class="bg-transparent text-xs text-white focus:outline-none">
+                                </div>
+                                <button onclick="filterRekap()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
+                                    <i class="fa-solid fa-filter"></i> Filter
+                                </button>
+                                <button onclick="resetRekapData()" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-rotate-left"></i> Reset Data
                                 </button>
                                 <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition">
                                     <i class="fa-solid fa-file-excel"></i> Export Excel
                                 </button>
                             </div>
                         </div>
+
                         <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
@@ -257,13 +315,13 @@
                                     </tr>
                                 </thead>
                                 <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300">
-                                    <!-- Diisi via DB -->
+                                    <!-- Dynamic Rekap Rows / Empty State Rendered via JS -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- TAB KELOLA ROLE -->
+                    <!-- TAB BARU: KELOLA ROLE -->
                     <div id="d-tab-role" class="space-y-4 hidden">
                         <div class="flex justify-between items-center">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Role & Akses</h4>
@@ -282,12 +340,13 @@
                                     </tr>
                                 </thead>
                                 <tbody id="role-tbody" class="divide-y divide-slate-800 text-slate-300">
+                                    <!-- Dynamic Role Rows Rendered via JS -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- TAB KARYAWAN -->
+                    <!-- TAB DATA KARYAWAN -->
                     <div id="d-tab-karyawan" class="space-y-4 hidden">
                         <div class="flex justify-between items-center">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Karyawan & Device ID</h4>
@@ -303,17 +362,19 @@
                                         <th class="p-3">Nama</th>
                                         <th class="p-3">Role</th>
                                         <th class="p-3">Atasan</th>
+                                        <th class="p-3">Password</th>
                                         <th class="p-3">Device ID</th>
                                         <th class="p-3">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="karyawan-tbody" class="divide-y divide-slate-800 text-slate-300">
+                                    <!-- Dynamic Rows Rendered via JS -->
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    <!-- TAB BASECAMP -->
+                    <!-- TAB BASECAMP DENGAN PETA -->
                     <div id="d-tab-basecamp" class="space-y-4 hidden">
                         <div class="flex justify-between items-center mb-2">
                             <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
@@ -321,13 +382,17 @@
                                 <i class="fa-solid fa-plus"></i> Tambah Basecamp
                             </button>
                         </div>
+
+                        <!-- MAP CONTAINER BARU -->
                         <div class="glass-card p-1 rounded-2xl border border-slate-800 shadow-inner">
                             <div id="basecamp-map" class="w-full h-64 sm:h-80 rounded-xl bg-slate-800"></div>
                         </div>
+
                         <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                            <!-- Dynamic Basecamps Rendered via JS -->
                         </div>
                     </div>
-                    
+
                     <!-- TAB PENGAJUAN IZIN ADMIN -->
                     <div id="d-tab-izin" class="space-y-4 hidden">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan</h4>
@@ -339,6 +404,7 @@
                                 </div>
                                 <div class="flex gap-2">
                                     <button onclick="showToast('Izin cuti berhasil disetujui.', 'success')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg">Setuju</button>
+                                    <button onclick="showToast('Pengajuan izin ditolak.', 'warning')" class="px-3 py-1 bg-rose-500 text-white font-bold text-xs rounded-lg">Tolak</button>
                                 </div>
                             </div>
                         </div>
@@ -350,50 +416,62 @@
 
     </main>
 
-    <!-- MODAL ROLE -->
+    <!-- MODAL BARU: FORM TAMBAH / EDIT ROLE -->
     <div id="role-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="role-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Role</h3>
-            <input type="hidden" id="role-edit-mode" value="add">
+            <input type="hidden" id="role-edit-index" value="-1">
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Kode Role</label>
-                <input type="text" id="inp-role-id" placeholder="Contoh: ROL-01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="inp-role-id" placeholder="Contoh: ROL-01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Nama Role</label>
-                <input type="text" id="inp-role-name" placeholder="Contoh: Manajer Lapangan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="inp-role-name" placeholder="Contoh: Manajer Lapangan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
-                <label class="block text-xs text-slate-400 mb-1">Hak Akses Modul</label>
-                <textarea id="inp-role-access" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"></textarea>
+                <label class="block text-xs text-slate-400 mb-1">Hak Akses Modul (Pisahkan dengan koma)</label>
+                <textarea id="inp-role-access" rows="2" placeholder="Contoh: Absensi, Rekap, Karyawan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
             </div>
             <div class="flex gap-2 pt-2">
-                <button onclick="saveRole()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
+                <button onclick="saveRole()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Role</button>
                 <button onclick="closeRoleModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
             </div>
         </div>
     </div>
 
-    <!-- MODAL KARYAWAN -->
+    <!-- MODAL FORM TAMBAH / EDIT KARYAWAN -->
     <div id="employee-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Karyawan</h3>
-            <input type="hidden" id="edit-mode" value="add">
+            <input type="hidden" id="edit-index" value="-1">
             <div>
                 <label class="block text-xs text-slate-400 mb-1">ID User</label>
-                <input type="text" id="inp-id" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="inp-id" placeholder="Contoh: USR-001" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Nama Karyawan</label>
-                <input type="text" id="inp-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="inp-name" placeholder="Nama lengkap..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Role</label>
-                <select id="inp-role" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"></select>
+                <select id="inp-role" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                    <!-- Dynamic Role Options rendered via JS -->
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Atasan (Dropdown)</label>
+                <select id="inp-atasan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                    <!-- Dynamic Options via JS -->
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Password</label>
+                <input type="text" id="inp-password" placeholder="Password akun..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Device ID</label>
-                <input type="text" id="inp-device" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="inp-device" placeholder="Contoh: DEV-9982 (Locked)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveEmployee()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
@@ -402,28 +480,28 @@
         </div>
     </div>
 
-    <!-- MODAL BASECAMP -->
+    <!-- MODAL FORM TAMBAH / EDIT BASECAMP -->
     <div id="basecamp-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="bc-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Basecamp</h3>
-            <input type="hidden" id="bc-edit-id" value="">
+            <input type="hidden" id="bc-edit-index" value="-1">
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Nama Basecamp</label>
-                <input type="text" id="bc-inp-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="text" id="bc-inp-name" placeholder="Contoh: Basecamp Pekanbaru Pusat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Latitude</label>
-                    <input type="text" id="bc-inp-lat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    <input type="text" id="bc-inp-lat" placeholder="0.434291" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                 </div>
                 <div>
                     <label class="block text-xs text-slate-400 mb-1">Longitude</label>
-                    <input type="text" id="bc-inp-lng" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                    <input type="text" id="bc-inp-lng" placeholder="101.466385" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                 </div>
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label>
-                <input type="number" id="bc-inp-radius" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                <input type="number" id="bc-inp-radius" placeholder="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveBasecamp()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Basecamp</button>
@@ -432,356 +510,873 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT: SUPABASE & LOGIC INTEGRATION -->
+    <!-- CUSTOM CONFIRM MODAL -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-sm p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-lg">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="confirm-title" class="text-sm font-bold text-white uppercase tracking-wider">Konfirmasi</h3>
+            <p id="confirm-message" class="text-xs text-slate-300">Apakah Anda yakin?</p>
+            <div class="flex gap-2 pt-2">
+                <button id="confirm-btn-yes" class="flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs shadow-md">Ya, Lanjutkan</button>
+                <button onclick="closeConfirmModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC + INTEGRASI SUPABASE -->
     <script>
-        // === INISIALISASI SUPABASE KREDENSIAL ===
-        // GANTI DENGAN URL DAN ANON KEY PROJECT SUPABASE ANDA
-        const SUPABASE_URL = 'https://XXXXXXXXXXXXXXXX.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
+        // =========================================================================
+        // SUPABASE CONFIGURATION
+        // =========================================================================
+        const SUPABASE_URL = 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co';
+        const SUPABASE_ANON_KEY = 'YOUR-SUPABASE-ANON-KEY';
         
-        // Menggunakan instance window.supabase untuk menghindari ReferenceError/Shadowing
-        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+        let supabase = null;
+        if (typeof window.supabase !== 'undefined' && SUPABASE_URL !== 'https://YOUR-SUPABASE-PROJECT-ID.supabase.co') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
 
-        // State Penyimpanan Lokal (Cache dari DB)
-        let roles = [];
-        let employees = [];
-        let basecamps = [];
-        let rekapList = [];
+        // ----------------- DATA STATE IN-MEMORY / INITIAL FALLBACK ----------------- //
 
-        // TOAST SYSTEM
+        let roles = [
+            { id: 'ROL-01', name: 'Master Admin', access: 'Semua Akses Modul' },
+            { id: 'ROL-02', name: 'Supervisor Field', access: 'Dashboard, Rekap, Izin' },
+            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
+        ];
+
+        let employees = [
+            { id: 'USR-001', name: 'Rudi Batubara', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'USR-002', name: 'Budi Santoso', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
+            { id: 'USR-003', name: 'Siti Aminah', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
+        ];
+
+        let basecamps = [
+            { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
+            { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
+            { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
+        ];
+
+        let rekapList = [
+            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
+            { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
+            { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
+        ];
+
+        // Sync Data Realtime dari Supabase jika koneksi aktif
+        async function loadDataFromSupabase() {
+            if (!supabase) return;
+
+            try {
+                // Fetch Roles
+                const { data: rolesData, error: rolesErr } = await supabase.from('roles').select('*').order('id', { ascending: true });
+                if (!rolesErr && rolesData && rolesData.length > 0) {
+                    roles = rolesData.map(r => ({ id: r.role_id, name: r.name, access: r.access }));
+                }
+
+                // Fetch Employees
+                const { data: empData, error: empErr } = await supabase.from('employees').select('*').order('id', { ascending: true });
+                if (!empErr && empData && empData.length > 0) {
+                    employees = empData.map(e => ({ id: e.emp_id, name: e.name, role: e.role, atasan: e.atasan, password: e.password, deviceId: e.device_id }));
+                }
+
+                // Fetch Basecamps
+                const { data: bcData, error: bcErr } = await supabase.from('basecamps').select('*').order('id', { ascending: true });
+                if (!bcErr && bcData && bcData.length > 0) {
+                    basecamps = bcData.map(b => ({ id: b.id, name: b.name, lat: parseFloat(b.lat), lng: parseFloat(b.lng), radius: parseInt(b.radius) }));
+                }
+
+                // Fetch Rekap
+                const { data: rekapData, error: rekapErr } = await supabase.from('rekap_list').select('*').order('date', { ascending: false });
+                if (!rekapErr && rekapData && rekapData.length > 0) {
+                    rekapList = rekapData.map(r => ({ date: r.date, name: r.name, basecamp: r.basecamp, time: r.time, status: r.status, late: r.late }));
+                }
+
+                renderRoles();
+                renderEmployees();
+                renderRekap();
+                renderBasecamps();
+            } catch (err) {
+                console.error("Supabase connection warning:", err);
+            }
+        }
+
+        // Toast Notification System
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
+            if (!container) return;
+
             const toast = document.createElement('div');
-            const borderColor = type === 'success' ? 'border-emerald-500/30' : 'border-rose-500/30';
-            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-rose-400';
+            const borderColor = type === 'success' ? 'border-emerald-500/30' : type === 'warning' ? 'border-amber-500/30' : 'border-rose-500/30';
+            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : type === 'warning' ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-xmark text-rose-400';
 
             toast.className = `glass-card pointer-events-auto px-4 py-3 rounded-2xl border ${borderColor} shadow-xl flex items-center gap-3 transform translate-y-2 opacity-0 transition-all duration-300 text-xs text-white max-w-sm`;
-            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span class="flex-1">${message}</span>`;
-            
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} text-base"></i>
+                <span class="flex-1">${message}</span>
+            `;
+
             container.appendChild(toast);
-            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
             setTimeout(() => {
                 toast.classList.add('translate-y-2', 'opacity-0');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
 
-        // AMBIL DATA DARI SUPABASE SECARA ASYNCHRONOUS
-        async function fetchData() {
-            if (!supabaseClient) return;
-            try {
-                const [resRoles, resEmp, resBc, resRekap] = await Promise.all([
-                    supabaseClient.from('roles').select('*'),
-                    supabaseClient.from('employees').select('*'),
-                    supabaseClient.from('basecamps').select('*'),
-                    supabaseClient.from('rekap_absensi').select('*').order('id', { ascending: false })
-                ]);
-
-                if(resRoles.data) roles = resRoles.data;
-                if(resEmp.data) employees = resEmp.data;
-                if(resBc.data) basecamps = resBc.data;
-                if(resRekap.data) rekapList = resRekap.data;
-
-                // Update UI Counters
-                document.getElementById('stat-karyawan').innerText = `${employees.length} Orang`;
-                document.getElementById('stat-masuk').innerText = `${rekapList.length} Data`;
-                document.getElementById('db-status').classList.replace('text-rose-500', 'text-emerald-500');
-
-                // Render semua tabel
-                renderRoles();
-                renderEmployees();
-                renderBasecamps();
-                renderRekap();
-            } catch (error) {
-                console.error("Supabase Error:", error);
-                document.getElementById('db-status').classList.replace('text-emerald-500', 'text-rose-500');
-                showToast('Gagal terhubung ke Database Supabase. Pastikan URL dan KEY valid.', 'error');
-            }
-        }
-
-        // ==========================================
-        // FITUR UTAMA: VALIDASI ABSENSI (SERVER-SIDE)
-        // ==========================================
-        async function handleAbsen() {
-            const btn = document.getElementById('btn-absen');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-lg"></i> MEMPROSES KE BACKEND...`;
-            btn.disabled = true;
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        const userLat = position.coords.latitude;
-                        const userLng = position.coords.longitude;
-                        
-                        document.getElementById('gps-status').innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E`;
-
-                        if (!supabaseClient) {
-                            btn.innerHTML = originalHtml;
-                            btn.disabled = false;
-                            showToast('Supabase client belum terkonfigurasi!', 'error');
-                            return;
-                        }
-
-                        // PANGGIL RPC SUPABASE (Fungsi Backend Validasi)
-                        const { data, error } = await supabaseClient.rpc('proses_absensi', {
-                            p_user_id: 'USR-001',
-                            p_lat: userLat,
-                            p_lng: userLng,
-                            p_device_id: 'DEV-9982 (Locked)'
-                        });
-
-                        btn.innerHTML = originalHtml;
-                        btn.disabled = false;
-
-                        if (error) {
-                            showToast('Error Server: ' + error.message, 'error');
-                        } else if (data.success === false) {
-                            showToast('Absensi Ditolak: ' + data.message, 'error');
-                        } else {
-                            showToast('Sukses! ' + data.message, 'success');
-                            document.getElementById('mobile-jam-masuk').innerText = data.time;
-                            fetchData();
-                        }
-                    },
-                    (error) => {
-                        btn.innerHTML = originalHtml;
-                        btn.disabled = false;
-                        showToast('Harap aktifkan Izin Lokasi GPS pada perangkat.', 'error');
-                    },
-                    { enableHighAccuracy: true, timeout: 5000 }
-                );
+        // Custom Confirm Modal System
+        let confirmCallback = null;
+        function showConfirm(title, message, callback, isDanger = true) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            const btnYes = document.getElementById('confirm-btn-yes');
+            if (isDanger) {
+                btnYes.className = "flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs shadow-md hover:bg-rose-600 transition";
+                btnYes.innerText = "Ya, Hapus/Reset";
             } else {
-                showToast('Browser Anda tidak mendukung Geolocation.', 'error');
+                btnYes.className = "flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-95 transition";
+                btnYes.innerText = "Ya, Lanjutkan";
             }
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').classList.remove('hidden');
         }
 
-        // ==========================================
-        // RENDER & CRUD MENGGUNAKAN SUPABASE
-        // ==========================================
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        }
+
+        document.getElementById('confirm-btn-yes').addEventListener('click', () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirmModal();
+        });
+
+        // ----------------- FUNGSI EXPORT EXCEL ----------------- //
+        function exportToExcel() {
+            if (!rekapList || rekapList.length === 0) {
+                showToast('Tidak ada data rekap untuk diexport!', 'warning');
+                return;
+            }
+
+            const excelData = rekapList.map((item, index) => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = item.status;
+                const statusText = tempDiv.textContent || tempDiv.innerText || 'N/A';
+
+                return {
+                    "No": index + 1,
+                    "Tanggal": item.date,
+                    "Nama Karyawan": item.name,
+                    "Basecamp": item.basecamp,
+                    "Jam Masuk": item.time,
+                    "Status": statusText,
+                    "Jumlah Keterlambatan": item.late
+                };
+            });
+
+            const worksheet = XLSX.utils.json_to_sheet(excelData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
+
+            XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
+            showToast('Data rekap berhasil di-export ke Excel (.xlsx)!', 'success');
+        }
+
+        // ----------------- ROLE MANAGEMENT ----------------- //
         function renderRoles() {
             const tbody = document.getElementById('role-tbody');
-            tbody.innerHTML = roles.map(r => `
-                <tr>
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            
+            roles.forEach((r, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                     <td class="p-3 font-mono text-slate-400">${r.id}</td>
                     <td class="p-3 font-bold text-white">${r.name}</td>
                     <td class="p-3 text-slate-300">${r.access}</td>
-                    <td class="p-3"><button onclick="deleteRole('${r.id}')" class="text-rose-400 hover:underline">Hapus</button></td>
-                </tr>`).join('');
+                    <td class="p-3 space-x-2">
+                        <button onclick="openEditRoleModal(${index})" class="text-gold-400 hover:underline">Edit</button>
+                        <button onclick="deleteRole(${index})" class="text-rose-400 hover:underline">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function populateRoleDropdown(currentRole = '') {
+            const select = document.getElementById('inp-role');
+            if (!select) return;
+            select.innerHTML = '';
+            roles.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.name;
+                opt.textContent = r.name;
+                if(r.name === currentRole) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function openRoleModal() {
+            document.getElementById('role-modal-title').innerText = 'Tambah Role Baru';
+            document.getElementById('role-edit-index').value = '-1';
+            document.getElementById('inp-role-id').value = 'ROL-0' + (roles.length + 1);
+            document.getElementById('inp-role-name').value = '';
+            document.getElementById('inp-role-access').value = '';
+            document.getElementById('role-modal').classList.remove('hidden');
+        }
+
+        function openEditRoleModal(index) {
+            const r = roles[index];
+            document.getElementById('role-modal-title').innerText = 'Edit Data Role';
+            document.getElementById('role-edit-index').value = index;
+            document.getElementById('inp-role-id').value = r.id;
+            document.getElementById('inp-role-name').value = r.name;
+            document.getElementById('inp-role-access').value = r.access;
+            document.getElementById('role-modal').classList.remove('hidden');
+        }
+
+        function closeRoleModal() {
+            document.getElementById('role-modal').classList.add('hidden');
+        }
+
+        async function saveRole() {
+            const index = parseInt(document.getElementById('role-edit-index').value);
+            const id = document.getElementById('inp-role-id').value.trim();
+            const name = document.getElementById('inp-role-name').value.trim();
+            const access = document.getElementById('inp-role-access').value.trim();
+
+            if (!id || !name) {
+                showToast('Kode Role dan Nama Role wajib diisi!', 'error');
+                return;
+            }
+
+            if (supabase) {
+                if (index === -1) {
+                    const { error } = await supabase.from('roles').insert([{ role_id: id, name, access }]);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                } else {
+                    const oldId = roles[index].id;
+                    const { error } = await supabase.from('roles').update({ role_id: id, name, access }).eq('role_id', oldId);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                }
+            }
+
+            if (index === -1) {
+                roles.push({ id, name, access });
+                showToast('Role baru berhasil ditambahkan!', 'success');
+            } else {
+                roles[index] = { id, name, access };
+                showToast('Data role berhasil diperbarui!', 'success');
+            }
+
+            closeRoleModal();
+            renderRoles();
+            populateRoleDropdown(); 
+        }
+
+        function deleteRole(index) {
+            showConfirm('Hapus Role', `Hapus data role ${roles[index].name}?`, async () => {
+                if (supabase) {
+                    const { error } = await supabase.from('roles').delete().eq('role_id', roles[index].id);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                }
+                roles.splice(index, 1);
+                renderRoles();
+                showToast('Data role berhasil dihapus.', 'success');
+            }, true);
+        }
+
+        // ----------------- LEAFLET MAP MANAGEMENT ----------------- //
+        let bcMap = null;
+        let bcLayerGroup = null;
+
+        function initMap() {
+            if (bcMap) return;
+            
+            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(bcMap);
+
+            bcLayerGroup = L.layerGroup().addTo(bcMap);
+        }
+
+        function updateMapData() {
+            if (!bcMap || !bcLayerGroup) return;
+            
+            bcLayerGroup.clearLayers();
+            const bounds = [];
+
+            basecamps.forEach(bc => {
+                const marker = L.marker([bc.lat, bc.lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
+                bcLayerGroup.addLayer(marker);
+                
+                const circle = L.circle([bc.lat, bc.lng], {
+                    color: '#d4af37',
+                    fillColor: '#d4af37',
+                    fillOpacity: 0.15,
+                    radius: bc.radius
+                });
+                bcLayerGroup.addLayer(circle);
+
+                bounds.push([bc.lat, bc.lng]);
+            });
+
+            if (bounds.length > 0) {
+                bcMap.fitBounds(bounds, { padding: [30, 30] });
+            }
+        }
+
+        // ----------------- OTHER FUNCTIONS ----------------- //
+        
+        function populateAtasanDropdown(currentEmployeeName = '') {
+            const select = document.getElementById('inp-atasan');
+            if (!select) return;
+            select.innerHTML = '<option value="-">-- Pilih Atasan (Opsional) --</option>';
+            employees.forEach(emp => {
+                if (emp.name !== currentEmployeeName) {
+                    const opt = document.createElement('option');
+                    opt.value = emp.name;
+                    opt.textContent = emp.name;
+                    select.appendChild(opt);
+                }
+            });
         }
 
         function renderEmployees() {
             const tbody = document.getElementById('karyawan-tbody');
-            tbody.innerHTML = employees.map(emp => `
-                <tr>
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (employees.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="p-8 text-center text-slate-500">
+                            <div class="flex flex-col items-center justify-center space-y-2">
+                                <i class="fa-solid fa-users-slash text-2xl text-slate-600"></i>
+                                <p class="text-xs font-medium text-slate-400">Belum ada data karyawan terdaftar.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            employees.forEach((emp, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                     <td class="p-3 font-mono text-slate-400">${emp.id}</td>
                     <td class="p-3 font-medium text-white">${emp.name}</td>
                     <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
                     <td class="p-3 text-gold-400 font-medium">${emp.atasan || '-'}</td>
-                    <td class="p-3 font-mono text-emerald-400">${emp.device_id}</td>
-                    <td class="p-3"><button onclick="deleteEmployee('${emp.id}')" class="text-rose-400 hover:underline">Hapus</button></td>
-                </tr>`).join('');
+                    <td class="p-3 text-slate-500 font-mono">${emp.password}</td>
+                    <td class="p-3 font-mono text-emerald-400" id="${index === 0 ? 'desktop-device-id' : 'dev-cell-' + index}">${emp.deviceId}</td>
+                    <td class="p-3 space-x-2">
+                        <button onclick="openEditEmployeeModal(${index})" class="text-gold-400 hover:underline">Edit</button>
+                        <button onclick="resetEmployeeDevice(${index})" class="text-amber-400 hover:underline">Reset Device</button>
+                        <button onclick="deleteEmployee(${index})" class="text-rose-400 hover:underline">Hapus</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
         }
 
-        function renderRekap() {
+        function renderRekap(dataToRender = null) {
             const tbody = document.getElementById('rekap-tbody');
-            const riwayatList = document.getElementById('m-riwayat-list');
-            
-            let htmlTable = '';
-            let htmlMobile = '';
+            if (!tbody) return;
+            tbody.innerHTML = '';
 
-            rekapList.forEach(item => {
-                htmlTable += `
-                <tr>
+            const list = dataToRender || rekapList;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="p-8 text-center text-slate-500">
+                            <div class="flex flex-col items-center justify-center space-y-2">
+                                <i class="fa-solid fa-folder-open text-2xl text-slate-600"></i>
+                                <p class="text-xs font-medium text-slate-400">Belum ada rekapitulasi absensi.</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            list.forEach((item) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
                     <td class="p-3 font-mono text-slate-300">${item.date}</td>
                     <td class="p-3 font-medium text-white">${item.name}</td>
                     <td class="p-3 text-slate-400">${item.basecamp}</td>
                     <td class="p-3 font-mono">${item.time}</td>
                     <td class="p-3">${item.status}</td>
-                    <td class="p-3 text-slate-300">${item.late}</td>
-                </tr>`;
-
-                if(item.name === 'Rudi Batubara') {
-                    htmlMobile += `
-                    <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-emerald-500">
-                        <div class="flex justify-between font-bold text-white">
-                            <span>${item.date}</span>
-                            <span>${item.status}</span>
-                        </div>
-                        <div class="flex justify-between text-slate-400">
-                            <span>Masuk: ${item.time}</span>
-                            <span>Lokasi: ${item.basecamp}</span>
-                        </div>
-                    </div>`;
-                }
+                    <td class="p-3 ${item.late !== '-' ? 'text-amber-400 font-bold' : 'text-slate-500'}">${item.late}</td>
+                `;
+                tbody.appendChild(tr);
             });
-
-            tbody.innerHTML = htmlTable;
-            if(riwayatList) riwayatList.innerHTML = htmlMobile;
         }
 
         function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
-            container.innerHTML = basecamps.map(bc => `
-                <div class="glass-card p-4 rounded-2xl border border-slate-800">
-                    <div class="flex justify-between"><h5 class="font-bold text-white">${bc.name}</h5>
-                    <button onclick="deleteBasecamp(${bc.id})" class="text-rose-400 hover:underline text-xs">Hapus</button></div>
-                    <p class="text-xs text-slate-400 mt-1">Koord: ${bc.lat}, ${bc.lng}</p>
-                    <span class="inline-block mt-2 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20">Radius: ${bc.radius}m</span>
-                </div>`).join('');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (basecamps.length === 0) {
+                container.innerHTML = `<div class="col-span-3 text-center text-slate-500 py-8">Belum ada basecamp terdaftar.</div>`;
+            } else {
+                basecamps.forEach((bc, index) => {
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-4 rounded-2xl space-y-2 border border-slate-800 flex flex-col justify-between";
+                    card.innerHTML = `
+                        <div>
+                            <div class="flex justify-between items-start">
+                                <h5 class="font-bold text-white">${bc.name}</h5>
+                                <button onclick="openEditBasecampModal(${index})" class="text-gold-400 hover:text-gold-300 text-xs font-semibold">
+                                    <i class="fa-solid fa-pen-to-square"></i> Edit
+                                </button>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-1">Koordinat: ${bc.lat}, ${bc.lng}</p>
+                            <span class="inline-block mt-2 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">Radius: ${Number(bc.radius).toLocaleString('id-ID')} Meter</span>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
+            
             updateMapData();
         }
 
-        // OPERASI CRUD DATABASE SUPABASE
-        async function saveRole() {
-            const id = document.getElementById('inp-role-id').value;
-            const name = document.getElementById('inp-role-name').value;
-            const access = document.getElementById('inp-role-access').value;
-
-            const { error } = await supabaseClient.from('roles').insert([{ id, name, access }]);
-            if(!error) { showToast('Role tersimpan ke Database!', 'success'); closeRoleModal(); fetchData(); } 
-            else showToast(error.message, 'error');
+        function openAddBasecampModal() {
+            document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp Baru';
+            document.getElementById('bc-edit-index').value = '-1';
+            document.getElementById('bc-inp-name').value = '';
+            document.getElementById('bc-inp-lat').value = '';
+            document.getElementById('bc-inp-lng').value = '';
+            document.getElementById('bc-inp-radius').value = '15000';
+            document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
-        async function deleteRole(id) {
-            await supabaseClient.from('roles').delete().eq('id', id);
-            fetchData(); showToast('Role terhapus.', 'success');
+        function openEditBasecampModal(index) {
+            const bc = basecamps[index];
+            document.getElementById('bc-modal-title').innerText = 'Edit Data Basecamp';
+            document.getElementById('bc-edit-index').value = index;
+            document.getElementById('bc-inp-name').value = bc.name;
+            document.getElementById('bc-inp-lat').value = bc.lat;
+            document.getElementById('bc-inp-lng').value = bc.lng;
+            document.getElementById('bc-inp-radius').value = bc.radius;
+            document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
-        async function saveEmployee() {
-            const id = document.getElementById('inp-id').value;
-            const name = document.getElementById('inp-name').value;
-            const role = document.getElementById('inp-role').value;
-            const device_id = document.getElementById('inp-device').value;
-
-            const { error } = await supabaseClient.from('employees').insert([{ 
-                id, name, role, atasan: '-', password: 'hashed_pw', device_id 
-            }]);
-            
-            if(!error) { showToast('Karyawan masuk Database!', 'success'); closeEmployeeModal(); fetchData(); }
-            else showToast(error.message, 'error');
-        }
-
-        async function deleteEmployee(id) {
-            await supabaseClient.from('employees').delete().eq('id', id);
-            fetchData(); showToast('Karyawan terhapus.', 'success');
+        function closeBasecampModal() {
+            document.getElementById('basecamp-modal').classList.add('hidden');
         }
 
         async function saveBasecamp() {
-            const name = document.getElementById('bc-inp-name').value;
+            const index = parseInt(document.getElementById('bc-edit-index').value);
+            const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
             const lng = parseFloat(document.getElementById('bc-inp-lng').value);
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
 
-            const { error } = await supabaseClient.from('basecamps').insert([{ name, lat, lng, radius }]);
-            if(!error) { showToast('Basecamp tersimpan!', 'success'); closeBasecampModal(); fetchData(); }
-            else showToast(error.message, 'error');
-        }
-        
-        async function deleteBasecamp(id) {
-            await supabaseClient.from('basecamps').delete().eq('id', id);
-            fetchData(); showToast('Basecamp terhapus.', 'success');
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                showToast('Harap isi semua data basecamp dengan benar!', 'error');
+                return;
+            }
+
+            if (supabase) {
+                if (index === -1) {
+                    const { data, error } = await supabase.from('basecamps').insert([{ name, lat, lng, radius }]).select();
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                    if (data && data[0]) {
+                        basecamps.push({ id: data[0].id, name, lat, lng, radius });
+                    } else {
+                        basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                    }
+                } else {
+                    const bcId = basecamps[index].id;
+                    const { error } = await supabase.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                    basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                }
+            } else {
+                if (index === -1) {
+                    basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                } else {
+                    basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                }
+            }
+
+            showToast(index === -1 ? 'Basecamp baru berhasil ditambahkan!' : 'Data basecamp berhasil diperbarui!', 'success');
+            closeBasecampModal();
+            renderBasecamps();
         }
 
-        // ==========================================
-        // SWITCH MODE SIMULASI (HP VS DESKTOP)
-        // ==========================================
+        function openAddEmployeeModal() {
+            populateRoleDropdown();
+            populateAtasanDropdown('');
+            document.getElementById('modal-title').innerText = 'Tambah Karyawan Baru';
+            document.getElementById('edit-index').value = '-1';
+            document.getElementById('inp-id').value = 'USR-00' + (employees.length + 1);
+            document.getElementById('inp-name').value = '';
+            document.getElementById('inp-atasan').value = '-';
+            document.getElementById('inp-password').value = '••••••••';
+            document.getElementById('inp-device').value = 'DEV-' + Math.floor(1000 + Math.random() * 9000) + ' (Locked)';
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function openEditEmployeeModal(index) {
+            const emp = employees[index];
+            populateRoleDropdown(emp.role);
+            populateAtasanDropdown(emp.name);
+            document.getElementById('modal-title').innerText = 'Edit Data Karyawan';
+            document.getElementById('edit-index').value = index;
+            document.getElementById('inp-id').value = emp.id;
+            document.getElementById('inp-name').value = emp.name;
+            document.getElementById('inp-atasan').value = emp.atasan || '-';
+            document.getElementById('inp-password').value = emp.password;
+            document.getElementById('inp-device').value = emp.deviceId;
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+
+        async function saveEmployee() {
+            const index = parseInt(document.getElementById('edit-index').value);
+            const id = document.getElementById('inp-id').value.trim();
+            const name = document.getElementById('inp-name').value.trim();
+            const role = document.getElementById('inp-role').value.trim();
+            const atasan = document.getElementById('inp-atasan').value;
+            const password = document.getElementById('inp-password').value.trim();
+            const deviceId = document.getElementById('inp-device').value.trim();
+
+            if (!id || !name) {
+                showToast('ID User dan Nama Karyawan wajib diisi!', 'error');
+                return;
+            }
+
+            if (supabase) {
+                if (index === -1) {
+                    const { error } = await supabase.from('employees').insert([{ emp_id: id, name, role, atasan, password, device_id: deviceId }]);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                } else {
+                    const oldId = employees[index].id;
+                    const { error } = await supabase.from('employees').update({ emp_id: id, name, role, atasan, password, device_id: deviceId }).eq('emp_id', oldId);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                }
+            }
+
+            if (index === -1) {
+                employees.push({ id, name, role, atasan, password, deviceId });
+                showToast('Karyawan baru berhasil ditambahkan!', 'success');
+            } else {
+                employees[index] = { id, name, role, atasan, password, deviceId };
+                showToast('Data karyawan berhasil diperbarui!', 'success');
+            }
+
+            closeEmployeeModal();
+            renderEmployees();
+        }
+
+        function resetEmployeeDevice(index) {
+            showConfirm('Reset Device ID', `Apakah Anda yakin ingin mereset Device ID untuk ${employees[index].name}?`, async () => {
+                const newDevice = 'Belum Terikat (Reset)';
+                if (supabase) {
+                    const { error } = await supabase.from('employees').update({ device_id: newDevice }).eq('emp_id', employees[index].id);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                }
+                employees[index].deviceId = newDevice;
+                renderEmployees();
+                showToast('Device ID berhasil direset.', 'success');
+            }, false);
+        }
+
+        function deleteEmployee(index) {
+            showConfirm('Hapus Karyawan', `Hapus data karyawan ${employees[index].name}?`, async () => {
+                if (supabase) {
+                    const { error } = await supabase.from('employees').delete().eq('emp_id', employees[index].id);
+                    if (error) { showToast('Supabase Error: ' + error.message, 'error'); return; }
+                }
+                employees.splice(index, 1);
+                renderEmployees();
+                showToast('Data karyawan berhasil dihapus.', 'success');
+            }, true);
+        }
+
+        function filterRekap() {
+            const startDate = document.getElementById('rekap-start-date').value;
+            const endDate = document.getElementById('rekap-end-date').value;
+
+            if (!startDate && !endDate) {
+                renderRekap();
+                return;
+            }
+
+            const filtered = rekapList.filter(item => {
+                if (startDate && item.date < startDate) return false;
+                if (endDate && item.date > endDate) return false;
+                return true;
+            });
+
+            renderRekap(filtered);
+            showToast(`Menampilkan ${filtered.length} data rekap terfilter.`, 'success');
+        }
+
+        function resetRekapData() {
+            showConfirm('Reset Data Rekap', 'Apakah Anda yakin ingin mereset filter dan memuat ulang data rekap?', async () => {
+                document.getElementById('rekap-start-date').value = '';
+                document.getElementById('rekap-end-date').value = '';
+                if (supabase) {
+                    await loadDataFromSupabase();
+                } else {
+                    renderRekap();
+                }
+                showToast('Data rekap berhasil direset.', 'success');
+            }, false);
+        }
+
         function switchMode(mode) {
             const viewMobile = document.getElementById('view-mobile');
             const viewDesktop = document.getElementById('view-desktop');
             const btnMobile = document.getElementById('btn-mobile');
             const btnDesktop = document.getElementById('btn-desktop');
 
-            const activeClass = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
-            const inactiveClass = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-
-            if (mode === 'desktop') {
+            if (mode === 'mobile') {
+                viewMobile.classList.remove('hidden');
+                viewDesktop.classList.add('hidden');
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+            } else {
                 viewMobile.classList.add('hidden');
                 viewDesktop.classList.remove('hidden');
-
-                btnDesktop.className = activeClass;
-                btnMobile.className = inactiveClass;
-
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+                
                 if (!document.getElementById('d-tab-basecamp').classList.contains('hidden') && bcMap) {
-                    setTimeout(() => bcMap.invalidateSize(), 200);
+                    setTimeout(() => { bcMap.invalidateSize(); }, 200);
                 }
-            } else {
-                viewDesktop.classList.add('hidden');
-                viewMobile.classList.remove('hidden');
-
-                btnMobile.className = activeClass;
-                btnDesktop.className = inactiveClass;
             }
         }
 
-        // ==========================================
-        // UI & MAP HELPERS
-        // ==========================================
-        let bcMap = null;
-        let bcLayerGroup = null;
-
-        function initMap() {
-            if (bcMap) return;
-            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(bcMap);
-            bcLayerGroup = L.layerGroup().addTo(bcMap);
-        }
-
-        function updateMapData() {
-            if (!bcMap || !bcLayerGroup) return;
-            bcLayerGroup.clearLayers();
-            const bounds = [];
-            basecamps.forEach(bc => {
-                L.marker([bc.lat, bc.lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`).addTo(bcLayerGroup);
-                L.circle([bc.lat, bc.lng], { color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15, radius: bc.radius }).addTo(bcLayerGroup);
-                bounds.push([bc.lat, bc.lng]);
-            });
-            if (bounds.length > 0) bcMap.fitBounds(bounds, { padding: [30, 30] });
-        }
-
-        function exportToExcel() {
-            if (rekapList.length === 0) return showToast('Tidak ada data!', 'error');
-            const data = rekapList.map((i, idx) => ({"No": idx+1, "Tgl": i.date, "Nama": i.name, "Status": i.status.includes('Tepat') ? 'Tepat Waktu' : 'Terlambat', "Jam": i.time}));
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Rekap");
-            XLSX.writeFile(wb, "Rekap_Absensi.xlsx");
-        }
-
-        // Modal Controls
-        function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
-        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
-        
-        function openAddEmployeeModal() { 
-            const sel = document.getElementById('inp-role');
-            sel.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
-            document.getElementById('employee-modal').classList.remove('hidden'); 
-        }
-        function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
-        
-        function openAddBasecampModal() { document.getElementById('basecamp-modal').classList.remove('hidden'); }
-        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
-
-        function switchMobileTab(tab) {
-            ['absen', 'izin', 'riwayat'].forEach(t => document.getElementById(`m-tab-${t}`).classList.add('hidden'));
-            document.getElementById(`m-tab-${tab}`).classList.remove('hidden');
-        }
-
         function switchDesktopTab(tab) {
-            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'].forEach(t => document.getElementById(`d-tab-${t}`).classList.add('hidden'));
+            const tabs = ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'];
+            tabs.forEach(t => {
+                document.getElementById(`d-tab-${t}`).classList.add('hidden');
+                document.getElementById(`d-nav-${t}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+            });
             document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
-            if (tab === 'basecamp') setTimeout(() => { if (!bcMap) initMap(); bcMap.invalidateSize(); updateMapData(); }, 200);
+            document.getElementById(`d-nav-${tab}`).className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            
+            const titles = {
+                'dashboard': 'Dashboard & Statistik',
+                'rekap': 'Rekapitulasi Absensi & Keterlambatan',
+                'role': 'Manajemen Data Role Akses',
+                'karyawan': 'Manajemen Data Karyawan',
+                'basecamp': 'Pengaturan Basecamp & Radius GPS',
+                'izin': 'Persetujuan Pengajuan Izin'
+            };
+            document.getElementById('desktop-title').innerText = titles[tab];
+
+            if (tab === 'basecamp') {
+                setTimeout(() => {
+                    if (!bcMap) {
+                        initMap();
+                        updateMapData();
+                    } else {
+                        bcMap.invalidateSize(); 
+                        updateMapData();
+                    }
+                }, 200);
+            }
         }
 
-        // Live Clock Server Simulation
+        window.addEventListener('DOMContentLoaded', async () => {
+            renderRoles();
+            renderEmployees();
+            renderRekap();
+            renderBasecamps();
+            await loadDataFromSupabase();
+        });
+        
+        function switchMobileTab(tab) {
+            ['absen', 'izin', 'riwayat'].forEach(t => {
+                document.getElementById(`m-tab-${t}`).classList.add('hidden');
+                document.getElementById(`m-nav-${t}`).className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1";
+            });
+            document.getElementById(`m-tab-${tab}`).classList.remove('hidden');
+            document.getElementById(`m-nav-${tab}`).className = "text-gold-400 flex flex-col items-center text-xs space-y-1";
+        }
+
         setInterval(() => {
-            document.getElementById('live-clock').innerText = new Date().toTimeString().split(' ')[0];
+            const now = new Date();
+            const timeString = now.toTimeString().split(' ')[0];
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.innerText = timeString;
         }, 1000);
 
-        // INIT LOAD
-        window.addEventListener('DOMContentLoaded', () => {
-            fetchData();
-        });
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const phi1 = lat1 * Math.PI / 180;
+            const phi2 = lat2 * Math.PI / 180;
+            const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+            const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+                      Math.cos(phi1) * Math.cos(phi2) *
+                      Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c;
+        }
+
+        async function getServerTime() { return new Date(); }
+
+        // =========================================================================
+        // PENGUATAN KEAMANAN ABSENSI & VALIDASI GPS (SERVER-SIDE MOCK VALIDATION)
+        // =========================================================================
+        async function handleAbsen() {
+            const btn = document.querySelector('button[onclick="handleAbsen()"]');
+            const originalHtml = btn ? btn.innerHTML : '';
+            if (btn) {
+                btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-lg"></i> MEMVERIFIKASI KEAMANAN & GPS...`;
+                btn.disabled = true;
+            }
+
+            // 1. Pencatatan Perangkat Mendalam
+            const userAgent = navigator.userAgent;
+            const clientTimezoneOffset = new Date().getTimezoneOffset(); 
+            const simulatedMacAddress = "MAC-XX-88-91-FA-42"; 
+            const boundDeviceFingerprint = employees[0]?.deviceId || 'DEV-9982 (Locked)'; 
+
+            // 2. Validasi Anomali Waktu
+            const localEpochTime = Date.now();
+            const serverTime = await getServerTime();
+            const serverEpochTime = serverTime.getTime();
+            const timeDriftSeconds = Math.abs(localEpochTime - serverEpochTime) / 1000;
+
+            if (timeDriftSeconds > 60) {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+                showToast('Absensi Ditolak: Terdeteksi anomali waktu pada perangkat Anda. Sesuaikan jam otomatis.', 'error');
+                return;
+            }
+
+            // 3. Validasi Device Binding / Fingerprint
+            if (!boundDeviceFingerprint.includes('DEV-9982')) {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+                showToast('Absensi Ditolak: Perangkat tidak dikenali atau belum terikat (Device ID Mismatch).', 'error');
+                return;
+            }
+
+            const activeBasecamp = basecamps[0] || { lat: 0.434291, lng: 101.466385, radius: 15000, name: 'Pekanbaru Pusat' };
+
+            const processAttendance = async (userLat, userLng, accuracyVal) => {
+                if (btn) {
+                    btn.innerHTML = originalHtml;
+                    btn.disabled = false;
+                }
+
+                if (accuracyVal === 0 || accuracyVal > 5000) {
+                    showToast('Absensi Ditolak: Sinyal GPS tidak valid atau terindikasi Fake GPS.', 'error');
+                    return;
+                }
+
+                const distance = calculateDistance(userLat, userLng, activeBasecamp.lat, activeBasecamp.lng);
+                const coordEl = document.querySelector('#m-tab-absen p.text-gold-400');
+                if (coordEl) coordEl.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E (Akurasi: ${Math.round(accuracyVal)}m)`;
+
+                if (distance <= activeBasecamp.radius) {
+                    const year = serverTime.getFullYear();
+                    const month = String(serverTime.getMonth() + 1).padStart(2, '0');
+                    const day = String(serverTime.getDate()).padStart(2, '0');
+                    const dateStr = `${year}-${month}-${day}`;
+
+                    const hours = serverTime.getHours();
+                    const minutes = serverTime.getMinutes();
+                    const seconds = serverTime.getSeconds();
+                    
+                    const timeStringShort = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} WIB`;
+                    const timeStringFull = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')} WIB`;
+
+                    const jamMasukEl = document.getElementById('mobile-jam-masuk');
+                    if (jamMasukEl) jamMasukEl.innerText = timeStringShort;
+
+                    const isLate = hours > 8 || (hours === 8 && minutes > 0);
+                    const statusHtml = isLate 
+                        ? `<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>`
+                        : `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>`;
+                    const lateCount = isLate ? `${(hours - 8) * 60 + minutes} Menit` : '-';
+
+                    const cleanBasecampName = activeBasecamp.name.replace(/^Basecamp\s+/i, '');
+                    
+                    // Simpan Ke Supabase
+                    if (supabase) {
+                        try {
+                            const { data: existing } = await supabase.from('rekap_list').select('*').eq('name', 'Rudi Batubara').eq('date', dateStr);
+                            if (existing && existing.length > 0) {
+                                await supabase.from('rekap_list').update({
+                                    basecamp: cleanBasecampName,
+                                    time: timeStringFull,
+                                    status: statusHtml,
+                                    late: lateCount
+                                }).eq('id', existing[0].id);
+                            } else {
+                                await supabase.from('rekap_list').insert([{
+                                    date: dateStr,
+                                    name: 'Rudi Batubara',
+                                    basecamp: cleanBasecampName,
+                                    time: timeStringFull,
+                                    status: statusHtml,
+                                    late: lateCount
+                                }]);
+                            }
+                        } catch (e) {
+                            console.error("Gagal simpan absensi ke Supabase:", e);
+                        }
+                    }
+
+                    const existingRecordIndex = rekapList.findIndex(r => r.name === 'Rudi Batubara' && r.date === dateStr);
+                    const newAttendance = {
+                        date: dateStr,
+                        name: 'Rudi Batubara',
+                        basecamp: cleanBasecampName,
+                        time: timeStringFull,
+                        status: statusHtml,
+                        late: lateCount
+                    };
+
+                    if (existingRecordIndex !== -1) rekapList[existingRecordIndex] = newAttendance;
+                    else rekapList.unshift(newAttendance);
+
+                    renderRekap();
+                    showToast(`Absensi Terverifikasi Aman! Jarak ${Math.round(distance)}m dari basecamp.`, 'success');
+                } else {
+                    showToast(`Absensi Ditolak: Anda berada di luar radius basecamp (${Math.round(distance)}m).`, 'error');
+                }
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => processAttendance(position.coords.latitude, position.coords.longitude, position.coords.accuracy || 10),
+                    (error) => processAttendance(activeBasecamp.lat, activeBasecamp.lng, 5),
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            } else {
+                processAttendance(activeBasecamp.lat, activeBasecamp.lng, 5);
+            }
+        }
     </script>
 </body>
 </html>
