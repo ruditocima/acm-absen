@@ -256,19 +256,19 @@
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
                                 <span class="text-xs text-slate-400">Total Karyawan</span>
-                                <h4 class="text-2xl font-bold text-white mt-1">124 Orang</h4>
+                                <h4 id="stat-total-karyawan" class="text-2xl font-bold text-white mt-1">0 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
                                 <span class="text-xs text-slate-400">Hadir Tepat Waktu</span>
-                                <h4 class="text-2xl font-bold text-emerald-400 mt-1">108 Orang</h4>
+                                <h4 id="stat-tepat-waktu" class="text-2xl font-bold text-emerald-400 mt-1">0 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500">
                                 <span class="text-xs text-slate-400">Terlambat</span>
-                                <h4 class="text-2xl font-bold text-amber-400 mt-1">12 Orang</h4>
+                                <h4 id="stat-terlambat" class="text-2xl font-bold text-amber-400 mt-1">0 Orang</h4>
                             </div>
                             <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
                                 <span class="text-xs text-slate-400">Izin / Alpha</span>
-                                <h4 class="text-2xl font-bold text-rose-400 mt-1">4 Orang</h4>
+                                <h4 id="stat-izin-alpha" class="text-2xl font-bold text-rose-400 mt-1">0 Orang</h4>
                             </div>
                         </div>
                     </div>
@@ -603,6 +603,70 @@
             { date: '2026-08-09', name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' },
             { date: '2026-08-09', name: 'Siti Aminah', basecamp: 'Padang Branch', time: '08:40 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '40 Menit' }
         ];
+
+        // ----------------- UPDATE DASHBOARD STATISTIK DINAMIS ----------------- //
+        function updateDashboardStats() {
+            const elTotal = document.getElementById('stat-total-karyawan');
+            const elTepat = document.getElementById('stat-tepat-waktu');
+            const elLate = document.getElementById('stat-terlambat');
+            const elIzin = document.getElementById('stat-izin-alpha');
+
+            if (!elTotal) return;
+
+            // 1. Total Karyawan Terdaftar
+            const totalEmployees = employees.length;
+
+            // 2. Hitung statistik dari rekap absensi
+            let tepatCount = 0;
+            let lateCount = 0;
+
+            rekapList.forEach(r => {
+                if (r.status.includes('Tepat Waktu')) {
+                    tepatCount++;
+                } else if (r.status.includes('Terlambat')) {
+                    lateCount++;
+                }
+            });
+
+            // 3. Izin / Alpha hitung dari selisih atau record izin
+            const totalHadir = tepatCount + lateCount;
+            const izinAlphaCount = Math.max(0, totalEmployees - totalHadir);
+
+            // Render ke UI
+            elTotal.innerText = `${totalEmployees} Orang`;
+            elTepat.innerText = `${tepatCount} Orang`;
+            elLate.innerText = `${lateCount} Orang`;
+            elIzin.innerText = `${izinAlphaCount} Orang`;
+        }
+
+        // ----------------- FUNGSI REKAP FILTER & RESET ----------------- //
+        function filterRekap() {
+            const start = document.getElementById('rekap-start-date').value;
+            const end = document.getElementById('rekap-end-date').value;
+
+            if (!start && !end) {
+                renderRekap();
+                return;
+            }
+
+            const filtered = rekapList.filter(item => {
+                if (start && item.date < start) return false;
+                if (end && item.date > end) return false;
+                return true;
+            });
+
+            renderRekap(filtered);
+            showToast(`Menampilkan ${filtered.length} data rekap.`, 'success');
+        }
+
+        function resetRekapData() {
+            showConfirm('Reset Rekap Data', 'Apakah Anda yakin ingin menghapus seluruh riwayat rekap absensi?', () => {
+                rekapList = [];
+                renderRekap();
+                updateDashboardStats();
+                showToast('Data rekap absensi berhasil dibersihkan.', 'success');
+            }, true);
+        }
 
         // ----------------- FUNGSI EXPORT EXCEL ----------------- //
         function exportToExcel() {
@@ -989,6 +1053,7 @@
 
             closeEmployeeModal();
             renderEmployees();
+            updateDashboardStats();
         }
 
         function resetEmployeeDevice(index) {
@@ -1003,6 +1068,7 @@
             showConfirm('Hapus Karyawan', `Hapus data karyawan ${employees[index].name}?`, () => {
                 employees.splice(index, 1);
                 renderEmployees();
+                updateDashboardStats();
                 showToast('Data karyawan berhasil dihapus.', 'success');
             }, true);
         }
@@ -1067,6 +1133,7 @@
             renderEmployees();
             renderRekap();
             renderBasecamps();
+            updateDashboardStats();
         });
         
         function switchMobileTab(tab) {
@@ -1211,6 +1278,7 @@
                     else rekapList.unshift(newAttendance);
 
                     renderRekap();
+                    updateDashboardStats();
                 } else {
                     showToast(`Absensi Ditolak: Anda berada di luar radius basecamp (${Math.round(distance)}m).`, 'error');
                 }
