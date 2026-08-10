@@ -1,650 +1,759 @@
 <!DOCTYPE html>
-<html lang="id" class="dark">
+<html lang="id" class="h-full bg-slate-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Absensi Enterprise</title>
-    
+    <title>Sistem Absensi Enterprise - Luxury Edition</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- LEAFLET JS FOR MAP -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <!-- SUPABASE JS CLIENT -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
+                    fontFamily: { sans: ['"Plus Jakarta Sans"', 'sans-serif'] },
                     colors: {
-                        slate: { 950: '#020617' }
+                        gold: { 500: '#d4af37', 600: '#aa8c2c', 400: '#e6ca65' }
                     }
                 }
             }
         }
     </script>
-    
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Leaflet CSS & JS (Map) -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- SheetJS (Excel Export) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-    <!-- SUPABASE JS SDK (TERINTEGRASI) -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
-        .glass-card {
-            background: rgba(15, 23, 42, 0.75);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .gold-gradient {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-        }
-        .gold-gradient-hover:hover {
-            background: linear-gradient(135deg, #fbbf24 0%, #b45309 100%);
-        }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #020617; }
-        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .gold-gradient { background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%); }
+        #basecamp-map { z-index: 10; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen antialiased flex flex-col justify-between selection:bg-amber-500 selection:text-slate-950">
+<body class="h-full text-slate-100 font-sans flex flex-col">
 
-    <!-- HEADER / NAVBAR -->
-    <header class="sticky top-0 z-40 glass-card border-b border-slate-800/80 px-4 lg:px-8 py-3">
-        <div class="max-w-7xl mx-auto flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-amber-500/20">
-                    <i class="fa-solid fa-fingerprint"></i>
-                </div>
-                <div>
-                    <h1 class="font-bold text-base tracking-wide text-white flex items-center gap-2">
-                        ATTENDANCE <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">ENTERPRISE</span>
-                    </h1>
-                    <p class="text-xs text-slate-400">Sistem Absensi Multi-Basecamp</p>
-                </div>
-            </div>
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-            <!-- Profile Badge & Time -->
-            <div class="flex items-center gap-4">
-                <div class="hidden sm:block text-right">
-                    <div id="clock-display" class="font-mono font-bold text-sm text-amber-400">00:00:00 WIB</div>
-                    <div id="date-display" class="text-[10px] text-slate-400">Senin, 10 Ags 2026</div>
-                </div>
-                <div class="h-8 w-[1px] bg-slate-800 hidden sm:block"></div>
-                <div class="flex items-center gap-3 bg-slate-900/80 p-1.5 pr-3 rounded-2xl border border-slate-800">
-                    <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs border border-amber-500/30">
-                        RB
-                    </div>
-                    <div class="text-left">
-                        <div class="text-xs font-semibold text-white">Rudi Batubara</div>
-                        <div class="text-[10px] text-slate-400">Administrator</div>
-                    </div>
-                </div>
+    <!-- SIMULATION CONTROL BAR -->
+    <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap justify-between items-center z-40 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold shadow-md">
+                <i class="fa-solid fa-fingerprint"></i>
             </div>
+            <div>
+                <h1 class="text-sm font-bold tracking-wide uppercase text-gold-400">Panel Simulasi Absensi</h1>
+                <p class="text-xs text-slate-400">Pilih mode tampilan perangkat untuk menguji sistem</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+            <button onclick="switchMode('mobile')" id="btn-mobile" class="px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen"></i> HP
+            </button>
+            <button onclick="switchMode('desktop')" id="btn-desktop" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-desktop"></i> Desktop
+            </button>
         </div>
     </header>
 
-    <!-- MAIN CONTENT -->
-    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 w-full space-y-6 flex-1">
-        
-        <!-- STATS CARDS -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="glass-card p-4 rounded-2xl relative overflow-hidden group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-slate-400 font-medium">Hadir Tepat Waktu</p>
-                        <h3 class="text-2xl font-bold text-white mt-1" id="stat-present">142</h3>
-                    </div>
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-user-check"></i>
-                    </div>
-                </div>
-                <div class="mt-3 text-[10px] text-emerald-400 flex items-center gap-1">
-                    <i class="fa-solid fa-arrow-trend-up"></i> <span>94.2% tingkat kehadiran</span>
-                </div>
-            </div>
+    <!-- MAIN APP CONTAINER -->
+    <main class="flex-1 overflow-hidden relative flex justify-center items-center bg-slate-950">
 
-            <div class="glass-card p-4 rounded-2xl relative overflow-hidden group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-slate-400 font-medium">Terlambat</p>
-                        <h3 class="text-2xl font-bold text-white mt-1" id="stat-late">8</h3>
-                    </div>
-                    <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-user-clock"></i>
-                    </div>
-                </div>
-                <div class="mt-3 text-[10px] text-amber-400 flex items-center gap-1">
-                    <i class="fa-solid fa-circle-exclamation"></i> <span>Toleransi max 15m</span>
-                </div>
-            </div>
-
-            <div class="glass-card p-4 rounded-2xl relative overflow-hidden group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-slate-400 font-medium">Izin / Cuti</p>
-                        <h3 class="text-2xl font-bold text-white mt-1" id="stat-leave">3</h3>
-                    </div>
-                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-envelope-open-text"></i>
-                    </div>
-                </div>
-                <div class="mt-3 text-[10px] text-blue-400 flex items-center gap-1">
-                    <i class="fa-solid fa-info-circle"></i> <span>2 Menunggu persetujuan</span>
-                </div>
-            </div>
-
-            <div class="glass-card p-4 rounded-2xl relative overflow-hidden group">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-slate-400 font-medium">Luar Radius (Warning)</p>
-                        <h3 class="text-2xl font-bold text-white mt-1" id="stat-out">1</h3>
-                    </div>
-                    <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-location-crosshairs"></i>
-                    </div>
-                </div>
-                <div class="mt-3 text-[10px] text-rose-400 flex items-center gap-1">
-                    <i class="fa-solid fa-triangle-exclamation"></i> <span>Ditolak oleh sistem</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- MAIN INTERACTIVE SECTION: MAP + ACTION PANEL -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- LEFT PANEL: MAP VIEW (LEAFLET JS) -->
-            <div class="lg:col-span-2 glass-card p-4 rounded-3xl space-y-3 flex flex-col">
-                <div class="flex items-center justify-between px-2">
-                    <div class="flex items-center gap-2">
-                        <i class="fa-solid fa-map-location-dot text-amber-400"></i>
-                        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Peta Geofencing Basecamp</h2>
-                    </div>
-                    <span class="text-[11px] text-slate-400 bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
-                        <i class="fa-solid fa-circle text-[8px] text-emerald-400 mr-1 animate-pulse"></i> PostGIS Sync Active
-                    </span>
-                </div>
-
-                <!-- Leaflet Map Container -->
-                <div id="map" class="w-full h-80 lg:h-[360px] rounded-2xl border border-slate-800 z-10 overflow-hidden"></div>
-
-                <div class="flex items-center justify-between text-xs text-slate-400 px-2 pt-1">
-                    <div class="flex items-center gap-4">
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-blue-500 text-[10px]"></i> Basecamp (Radius 15km)</span>
-                        <span class="flex items-center gap-1.5"><i class="fa-solid fa-circle text-amber-400 text-[10px]"></i> Lokasi Anda</span>
-                    </div>
-                    <span id="distance-info" class="text-amber-400 font-semibold">Mendeteksi GPS...</span>
-                </div>
-            </div>
-
-            <!-- RIGHT PANEL: QUICK ATTENDANCE ACTION -->
-            <div class="glass-card p-5 rounded-3xl flex flex-col justify-between space-y-4">
+        <!-- ==================== MOBILE VIEW (KARYAWAN) ==================== -->
+        <div id="view-mobile" class="w-full h-full max-w-md bg-slate-900 flex flex-col shadow-2xl relative overflow-hidden sm:border-x sm:border-slate-800 sm:max-h-[850px] sm:rounded-3xl">
+            <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
-                    <div class="border-b border-slate-800 pb-3 mb-4">
-                        <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                            <i class="fa-solid fa-clock text-amber-400"></i> Presensi Hari Ini
-                        </h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Pastikan Anda berada di dalam radius resmi basecamp.</p>
-                    </div>
+                    <span class="text-[10px] uppercase tracking-wider text-gold-400 font-bold bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">Basecamp: Pekanbaru Pusat</span>
+                    <h2 class="text-lg font-bold text-white mt-1">Halo, Rudi Batubara</h2>
+                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold">
+                    RB
+                </div>
+            </div>
 
-                    <!-- Basecamp Selection -->
-                    <div class="space-y-3">
-                        <label class="text-xs font-semibold text-slate-300 block">Pilih Basecamp/Proyek</label>
-                        <select id="select-basecamp" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 transition-colors">
-                            <option value="bc-pekanbaru">Basecamp Pekanbaru (Pusat)</option>
-                            <option value="bc-palembang">Project Fiber-Home Palembang</option>
-                            <option value="bc-padang">Site Padang (Maxim Regional)</option>
-                        </select>
-
-                        <!-- Device Fingerprint Status -->
-                        <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 flex items-center justify-between">
-                            <div class="flex items-center gap-2">
-                                <i class="fa-solid fa-mobile-screen text-slate-400 text-xs"></i>
-                                <span class="text-[11px] text-slate-300">Device ID Locked</span>
-                            </div>
-                            <span class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-amber-400 border border-slate-700">DEV-9982</span>
+            <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-24">
+                <!-- TAB 1: ABSENSI -->
+                <div id="m-tab-absen" class="space-y-5">
+                    <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Verifikasi Perangkat:</span>
+                            <span id="mobile-device-status" class="text-emerald-400 font-semibold"><i class="fa-solid fa-shield-check"></i> Terikat (ID: DEV-9982)</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Anti-Fake GPS & Anomali:</span>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-lock"></i> Aktif (Backend Validated)</span>
                         </div>
                     </div>
+
+                    <div class="glass-card p-6 rounded-3xl text-center relative overflow-hidden shadow-xl">
+                        <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
+                        <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
+                        <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">--:--:--</h3>
+                        <p class="text-xs text-gold-400 font-medium" id="gps-status"><i class="fa-solid fa-location-dot"></i> Koordinat: Menunggu Sinyal...</p>
+
+                        <div class="mt-6">
+                            <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
+                                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
+                                <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
+                            </div>
+                        </div>
+
+                        <button onclick="handleAbsen()" id="btn-absen" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
+                        </button>
+                    </div>
+
+                    <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
+                        <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Server-Side Processing:</p>
+                        <p class="text-slate-400">Kalkulasi jarak dan waktu dilakukan sepenuhnya di server Supabase untuk mencegah manipulasi data dari perangkat.</p>
+                    </div>
                 </div>
 
-                <!-- ATTENDANCE BUTTON -->
-                <div class="space-y-2 pt-2">
-                    <button onclick="handleAbsen()" class="w-full py-4 rounded-2xl gold-gradient gold-gradient-hover text-slate-950 font-black text-sm uppercase tracking-wider shadow-lg shadow-amber-500/10 flex items-center justify-center gap-2 transition-all transform active:scale-95">
-                        <i class="fa-solid fa-camera text-base"></i> Absen Masuk Sekarang
+                <!-- TAB 2: PENGAJUAN IZIN -->
+                <div id="m-tab-izin" class="space-y-5 hidden">
+                    <div class="glass-card p-5 rounded-2xl space-y-4">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Form Pengajuan Izin / Cuti</h3>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Jenis Pengajuan</label>
+                            <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                                <option>Izin Sakit (Dengan Surat Dokter)</option>
+                                <option>Izin Keperluan Pribadi</option>
+                                <option>Cuti Tahunan</option>
+                                <option>Dinas Luar Lapangan</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Tanggal Mulai & Selesai</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-400 mb-1">Keterangan / Alasan</label>
+                            <textarea rows="3" placeholder="Tuliskan alasan pengajuan..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
+                        </div>
+                        <button onclick="showToast('Pengajuan izin berhasil dikirim ke Master Admin!', 'success')" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">
+                            Kirim Pengajuan Izin
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 3: RIWAYAT SAYA -->
+                <div id="m-tab-riwayat" class="space-y-3 hidden">
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-3">Riwayat Absensi Anda</h3>
+                    <div id="m-riwayat-list" class="space-y-3">
+                        <!-- Akan diisi otomatis via JS dari DB -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="absolute bottom-0 left-0 right-0 bg-slate-950/90 backdrop-blur-lg border-t border-slate-800 px-6 py-3 flex justify-around items-center z-20">
+                <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-gold-400 flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-house text-base"></i>
+                    <span>Absen</span>
+                </button>
+                <button onclick="switchMobileTab('izin')" id="m-nav-izin" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-file-pen text-base"></i>
+                    <span>Izin</span>
+                </button>
+                <button onclick="switchMobileTab('riwayat')" id="m-nav-riwayat" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1">
+                    <i class="fa-solid fa-clock-rotate-left text-base"></i>
+                    <span>Riwayat</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ==================== DESKTOP VIEW (MASTER ADMIN) ==================== -->
+        <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
+            <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
+                <div class="p-5 border-b border-slate-800 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold">
+                        <i class="fa-solid fa-crown"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-bold text-white tracking-wide">Master Control</h2>
+                        <p class="text-[10px] text-slate-400">Enterprise Dashboard</p>
+                    </div>
+                </div>
+                <nav class="flex-1 p-4 space-y-1 text-xs font-medium">
+                    <button onclick="switchDesktopTab('dashboard')" id="d-nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20">
+                        <i class="fa-solid fa-chart-pie w-5"></i> Dashboard Utama
                     </button>
-                    <button onclick="openLeaveModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold text-xs border border-slate-800 flex items-center justify-center gap-2 transition-colors">
-                        <i class="fa-solid fa-file-signature text-amber-400"></i> Ajukan Izin / Cuti
+                    <button onclick="switchDesktopTab('rekap')" id="d-nav-rekap" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-table-list w-5"></i> Rekap Absensi
                     </button>
+                    <button onclick="switchDesktopTab('role')" id="d-nav-role" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-user-tie w-5"></i> Kelola Role
+                    </button>
+                    <button onclick="switchDesktopTab('karyawan')" id="d-nav-karyawan" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-users w-5"></i> Data Karyawan
+                    </button>
+                    <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp
+                    </button>
+                    <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
+                        <i class="fa-solid fa-envelope-open-text w-5"></i> Pengajuan Izin
+                    </button>
+                </nav>
+            </aside>
+
+            <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+                <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center z-20 shadow-sm relative">
+                    <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
+                    <div class="flex items-center gap-4 text-xs">
+                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]" id="db-status"></i> Supabase Connected</span>
+                        <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-bold">AD</div>
+                    </div>
+                </header>
+
+                <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                    <!-- TAB DASHBOARD -->
+                    <div id="d-tab-dashboard" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
+                                <span class="text-xs text-slate-400">Total Karyawan</span>
+                                <h4 id="stat-karyawan" class="text-2xl font-bold text-white mt-1">0 Orang</h4>
+                            </div>
+                            <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
+                                <span class="text-xs text-slate-400">Rekap Masuk</span>
+                                <h4 id="stat-masuk" class="text-2xl font-bold text-emerald-400 mt-1">0 Data</h4>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB REKAP ABSENSI -->
+                    <div id="d-tab-rekap" class="space-y-4 hidden">
+                        <div class="flex flex-wrap gap-2 justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran</h4>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <button onclick="fetchData()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
+                                    <i class="fa-solid fa-rotate"></i> Refresh DB
+                                </button>
+                                <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition">
+                                    <i class="fa-solid fa-file-excel"></i> Export Excel
+                                </button>
+                            </div>
+                        </div>
+                        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">Tanggal</th>
+                                        <th class="p-3">Nama Karyawan</th>
+                                        <th class="p-3">Basecamp</th>
+                                        <th class="p-3">Jam Masuk</th>
+                                        <th class="p-3">Status</th>
+                                        <th class="p-3">Jumlah Keterlambatan</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300">
+                                    <!-- Diisi via DB -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB KELOLA ROLE -->
+                    <div id="d-tab-role" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Role & Akses</h4>
+                            <button onclick="openRoleModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i> Tambah Role
+                            </button>
+                        </div>
+                        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">Kode Role</th>
+                                        <th class="p-3">Nama Role</th>
+                                        <th class="p-3">Hak Akses Modul</th>
+                                        <th class="p-3 w-32">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="role-tbody" class="divide-y divide-slate-800 text-slate-300">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB KARYAWAN -->
+                    <div id="d-tab-karyawan" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Karyawan & Device ID</h4>
+                            <button onclick="openAddEmployeeModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
+                                <i class="fa-solid fa-user-plus"></i> Tambah Karyawan
+                            </button>
+                        </div>
+                        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                                    <tr>
+                                        <th class="p-3">ID User</th>
+                                        <th class="p-3">Nama</th>
+                                        <th class="p-3">Role</th>
+                                        <th class="p-3">Atasan</th>
+                                        <th class="p-3">Device ID</th>
+                                        <th class="p-3">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="karyawan-tbody" class="divide-y divide-slate-800 text-slate-300">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB BASECAMP -->
+                    <div id="d-tab-basecamp" class="space-y-4 hidden">
+                        <div class="flex justify-between items-center mb-2">
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
+                            <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
+                                <i class="fa-solid fa-plus"></i> Tambah Basecamp
+                            </button>
+                        </div>
+                        <div class="glass-card p-1 rounded-2xl border border-slate-800 shadow-inner">
+                            <div id="basecamp-map" class="w-full h-64 sm:h-80 rounded-xl bg-slate-800"></div>
+                        </div>
+                        <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                        </div>
+                    </div>
+                    
+                    <!-- TAB PENGAJUAN IZIN ADMIN -->
+                    <div id="d-tab-izin" class="space-y-4 hidden">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan</h4>
+                        <div class="glass-card p-4 rounded-2xl space-y-3">
+                            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                                <div>
+                                    <h5 class="font-bold text-white text-xs">Rudi Batubara - Cuti Tahunan</h5>
+                                    <p class="text-[10px] text-slate-400">Tanggal: 10 Agt 2026 s/d 12 Agt 2026 | Alasan: Keperluan keluarga</p>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button onclick="showToast('Izin cuti berhasil disetujui.', 'success')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg">Setuju</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
-        <!-- LOGS TABLE & EXPORT SECTION -->
-        <div class="glass-card p-5 rounded-3xl space-y-4">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                <div>
-                    <h2 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-list-check text-amber-400"></i> Log Kehadiran Real-time
-                    </h2>
-                    <p class="text-xs text-slate-400">Catatan aktivitas absensi seluruh tim lapangan</p>
-                </div>
-
-                <div class="flex items-center gap-2 w-full sm:w-auto">
-                    <button onclick="exportToExcel()" class="flex-1 sm:flex-none px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors">
-                        <i class="fa-solid fa-file-excel"></i> Export Excel
-                    </button>
-                </div>
-            </div>
-
-            <!-- Table Container -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800/80 bg-slate-900/40">
-                            <th class="p-3">Karyawan</th>
-                            <th class="p-3">Waktu</th>
-                            <th class="p-3">Basecamp</th>
-                            <th class="p-3">Jarak</th>
-                            <th class="p-3">Verifikasi Selfie</th>
-                            <th class="p-3">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="attendance-table-body" class="divide-y divide-slate-800/50 text-xs text-slate-300">
-                        <!-- Data Dummy Awal / Dynamic Data -->
-                        <tr class="hover:bg-slate-900/50 transition-colors">
-                            <td class="p-3 font-semibold text-white">Rudi Batubara</td>
-                            <td class="p-3 font-mono text-slate-400">07:52:10 WIB</td>
-                            <td class="p-3">Basecamp Pekanbaru</td>
-                            <td class="p-3"><span class="text-emerald-400 font-mono">1.2 km</span></td>
-                            <td class="p-3">
-                                <span class="px-2 py-1 bg-slate-800 rounded text-[10px] text-slate-300 border border-slate-700">
-                                    <i class="fa-solid fa-image text-amber-400 mr-1"></i> Lihat Foto
-                                </span>
-                            </td>
-                            <td class="p-3">
-                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                                    Tepat Waktu
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
     </main>
 
-    <!-- FOOTER -->
-    <footer class="glass-card border-t border-slate-800/80 py-4 px-4 text-center text-xs text-slate-500">
-        <p>© 2026 Enterprise Attendance System — Powered by Supabase & PostGIS</p>
-    </footer>
-
-
-    <!-- ========================================================================= -->
-    <!-- MODAL 1: CAMERA VERIFICATION MODAL (SELFIE WEBCAM) -->
-    <!-- ========================================================================= -->
-    <div id="camera-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="glass-card w-full max-w-sm p-5 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-camera text-amber-400"></i> Verifikasi Foto Selfie
-                </h3>
-                <button onclick="closeCameraModal()" class="text-slate-400 hover:text-white text-sm"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <p class="text-[11px] text-slate-400">Posisikan wajah Anda di dalam area kamera untuk absen masuk</p>
-            
-            <!-- Video Feed / Stream -->
-            <div class="relative w-full aspect-square bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
-                <video id="webcam-feed" autoplay playsinline class="w-full h-full object-cover transform -scale-x-100"></video>
-                <canvas id="webcam-canvas" class="hidden"></canvas>
-            </div>
-
-            <div class="flex gap-2 pt-2">
-                <button onclick="captureAndUploadSelfie()" class="flex-1 py-3 rounded-xl gold-gradient gold-gradient-hover text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-2 transition-all">
-                    <i class="fa-solid fa-check text-base"></i> Ambil Foto & Absen
-                </button>
-                <button onclick="closeCameraModal()" class="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">
-                    Batal
-                </button>
-            </div>
-        </div>
-    </div>
-
-
-    <!-- ========================================================================= -->
-    <!-- MODAL 2: LEAVE / PERMIT REQUEST MODAL -->
-    <!-- ========================================================================= -->
-    <div id="leave-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <!-- MODAL ROLE -->
+    <div id="role-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                    <i class="fa-solid fa-file-signature text-amber-400"></i> Form Pengajuan Izin / Cuti
-                </h3>
-                <button onclick="closeLeaveModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            <h3 id="role-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Role</h3>
+            <input type="hidden" id="role-edit-mode" value="add">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Kode Role</label>
+                <input type="text" id="inp-role-id" placeholder="Contoh: ROL-01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
             </div>
-
-            <div class="space-y-3 text-xs">
-                <div>
-                    <label class="block text-slate-300 font-semibold mb-1">Jenis Pengajuan</label>
-                    <select id="leave-type" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200">
-                        <option value="sakit">Sakit / Surat Dokter</option>
-                        <option value="pribadi">Izin Keperluan Pribadi</option>
-                        <option value="cuti">Cuti Tahunan</option>
-                        <option value="dinas">Perjalanan Dinas / Proyek</option>
-                    </select>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-slate-300 font-semibold mb-1">Tanggal Mulai</label>
-                        <input type="date" id="leave-start" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200">
-                    </div>
-                    <div>
-                        <label class="block text-slate-300 font-semibold mb-1">Tanggal Selesai</label>
-                        <input type="date" id="leave-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200">
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-slate-300 font-semibold mb-1">Alasan Pengajuan</label>
-                    <textarea id="leave-reason" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200" placeholder="Tuliskan alasan rinci..."></textarea>
-                </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Nama Role</label>
+                <input type="text" id="inp-role-name" placeholder="Contoh: Manajer Lapangan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
             </div>
-
-            <div class="flex justify-end gap-2 pt-2">
-                <button onclick="closeLeaveModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold">Batal</button>
-                <button onclick="submitLeaveRequest()" class="px-5 py-2 rounded-xl gold-gradient text-slate-950 text-xs font-bold">Kirim Pengajuan</button>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Hak Akses Modul</label>
+                <textarea id="inp-role-access" rows="2" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"></textarea>
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveRole()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
+                <button onclick="closeRoleModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
             </div>
         </div>
     </div>
 
+    <!-- MODAL KARYAWAN -->
+    <div id="employee-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
+            <h3 id="modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Karyawan</h3>
+            <input type="hidden" id="edit-mode" value="add">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">ID User</label>
+                <input type="text" id="inp-id" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Nama Karyawan</label>
+                <input type="text" id="inp-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Role</label>
+                <select id="inp-role" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none"></select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Device ID</label>
+                <input type="text" id="inp-device" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveEmployee()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
+                <button onclick="closeEmployeeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+    <!-- MODAL BASECAMP -->
+    <div id="basecamp-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
+            <h3 id="bc-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Basecamp</h3>
+            <input type="hidden" id="bc-edit-id" value="">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Nama Basecamp</label>
+                <input type="text" id="bc-inp-name" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Latitude</label>
+                    <input type="text" id="bc-inp-lat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Longitude</label>
+                    <input type="text" id="bc-inp-lng" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label>
+                <input type="number" id="bc-inp-radius" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+            </div>
+            <div class="flex gap-2 pt-2">
+                <button onclick="saveBasecamp()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Basecamp</button>
+                <button onclick="closeBasecampModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
+            </div>
+        </div>
+    </div>
 
-
-    <!-- ========================================================================= -->
-    <!-- JAVASCRIPT LOGIC (SUPABASE + LEAFLET + CAMERA INTEGRATION) -->
-    <!-- ========================================================================= -->
+    <!-- JAVASCRIPT: SUPABASE & LOGIC INTEGRATION -->
     <script>
-        // ---------------------------------------------------------------------
-        // 1. SUPABASE CLIENT INITIALIZATION
-        // ---------------------------------------------------------------------
-        // TODO: Masukkan URL dan ANON KEY dari Dashboard Supabase Anda
-        const SUPABASE_URL = 'https://YOUR_SUPABASE_PROJECT_ID.supabase.co';
-        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        // === INISIALISASI SUPABASE KREDENSIAL ===
+        // GANTI DENGAN URL DAN ANON KEY PROJECT SUPABASE ANDA
+        const SUPABASE_URL = 'https://jeefuqitmvziihkcfrid.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZWZ1cWl0bXZ6aWloa2NmcmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNTE5MDAsImV4cCI6MjEwMTkyNzkwMH0.ngd6Mf-4CeaAHDiM9BJGGgBc000tUX-BHwaq8wlf1E4'; 
         
-        let supabaseClient = null;
-        if (SUPABASE_URL !== 'https://YOUR_SUPABASE_PROJECT_ID.supabase.co') {
-            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // State Penyimpanan Lokal (Cache dari DB)
+        let roles = [];
+        let employees = [];
+        let basecamps = [];
+        let rekapList = [];
+
+        // TOAST SYSTEM (Tetap Dipertahankan)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const borderColor = type === 'success' ? 'border-emerald-500/30' : 'border-rose-500/30';
+            const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-rose-400';
+
+            toast.className = `glass-card pointer-events-auto px-4 py-3 rounded-2xl border ${borderColor} shadow-xl flex items-center gap-3 transform translate-y-2 opacity-0 transition-all duration-300 text-xs text-white max-w-sm`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span class="flex-1">${message}</span>`;
+            
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
 
-        // Dummy Data Basecamp
-        const basecamps = [
-            { id: 'bc-pekanbaru', name: 'Basecamp Pekanbaru', lat: 0.507068, lng: 101.447779, radius: 15000 },
-            { id: 'bc-palembang', name: 'Project Fiber Palembang', lat: -2.976074, lng: 104.775431, radius: 15000 },
-            { id: 'bc-padang', name: 'Site Padang', lat: -0.947083, lng: 100.417181, radius: 15000 }
-        ];
+        // AMBIL DATA DARI SUPABASE SECARA ASYNCHRONOUS
+        async function fetchData() {
+            try {
+                const [resRoles, resEmp, resBc, resRekap] = await Promise.all([
+                    supabase.from('roles').select('*'),
+                    supabase.from('employees').select('*'),
+                    supabase.from('basecamps').select('*'),
+                    supabase.from('rekap_absensi').select('*').order('id', { ascending: false })
+                ]);
 
-        let map, userMarker, basecampCircle;
-        let currentUserLat = 0.507068, currentUserLng = 101.447779;
-        let cameraStream = null;
+                if(resRoles.data) roles = resRoles.data;
+                if(resEmp.data) employees = resEmp.data;
+                if(resBc.data) basecamps = resBc.data;
+                if(resRekap.data) rekapList = resRekap.data;
 
-        // ---------------------------------------------------------------------
-        // 2. CLOCK & INITIALIZATION
-        // ---------------------------------------------------------------------
-        document.addEventListener("DOMContentLoaded", () => {
-            initClock();
-            initLeafletMap();
-            initGeolocation();
-        });
+                // Update UI Counters
+                document.getElementById('stat-karyawan').innerText = `${employees.length} Orang`;
+                document.getElementById('stat-masuk').innerText = `${rekapList.length} Data`;
+                document.getElementById('db-status').classList.replace('text-rose-500', 'text-emerald-500');
 
-        function initClock() {
-            setInterval(() => {
-                const now = new Date();
-                document.getElementById('clock-display').innerText = now.toLocaleTimeString('id-ID') + ' WIB';
-            }, 1000);
+                // Render semua tabel
+                renderRoles();
+                renderEmployees();
+                renderBasecamps();
+                renderRekap();
+            } catch (error) {
+                console.error("Supabase Error:", error);
+                document.getElementById('db-status').classList.replace('text-emerald-500', 'text-rose-500');
+                showToast('Gagal terhubung ke Database Supabase. Pastikan URL dan KEY valid.', 'error');
+            }
         }
 
-        // ---------------------------------------------------------------------
-        // 3. LEAFLET JS MAP SETUP
-        // ---------------------------------------------------------------------
-        function initLeafletMap() {
-            const defaultBc = basecamps[0];
-            map = L.map('map', { zoomControl: false }).setView([defaultBc.lat, defaultBc.lng], 11);
+        // ==========================================
+        // FITUR UTAMA: VALIDASI ABSENSI (SERVER-SIDE)
+        // ==========================================
+        async function handleAbsen() {
+            const btn = document.getElementById('btn-absen');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-lg"></i> MEMPROSES KE BACKEND...`;
+            btn.disabled = true;
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                attribution: '&copy; OpenStreetMap &copy; CARTO',
-                maxZoom: 19
-            }).addTo(map);
-
-            L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-            // Radius Basecamp Circle
-            basecampCircle = L.circle([defaultBc.lat, defaultBc.lng], {
-                color: '#3b82f6',
-                fillColor: '#3b82f6',
-                fillOpacity: 0.15,
-                radius: defaultBc.radius
-            }).addTo(map);
-
-            // Marker User
-            userMarker = L.marker([defaultBc.lat, defaultBc.lng]).addTo(map)
-                .bindPopup("<b>Lokasi Anda</b><br>Mendeteksi koordinat GPS...")
-                .openPopup();
-        }
-
-        function initGeolocation() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.watchPosition(
-                    (position) => {
-                        currentUserLat = position.coords.latitude;
-                        currentUserLng = position.coords.longitude;
+            // Dapatkan kordinat GPS dari frontend, tapi KALKULASI dilakukan di Backend Postgre
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
                         
-                        if (userMarker) {
-                            userMarker.setLatLng([currentUserLat, currentUserLng]);
-                            map.panTo([currentUserLat, currentUserLng]);
+                        document.getElementById('gps-status').innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E`;
+
+                        // PANGGIL RPC SUPABASE (Fungsi Backend Validasi)
+                        // Parameter: id_karyawan (Rudi), Lattitude, Longitude, Device Fingerprint ID
+                        const { data, error } = await supabase.rpc('proses_absensi', {
+                            p_user_id: 'USR-001',
+                            p_lat: userLat,
+                            p_lng: userLng,
+                            p_device_id: 'DEV-9982 (Locked)' // Simulasi Hardware ID Karyawan
+                        });
+
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+
+                        if (error) {
+                            showToast('Error Server: ' + error.message, 'error');
+                        } else if (data.success === false) {
+                            showToast('Absensi Ditolak: ' + data.message, 'error');
+                        } else {
+                            showToast('Sukses! ' + data.message, 'success');
+                            document.getElementById('mobile-jam-masuk').innerText = data.time;
+                            fetchData(); // Refresh riwayat absensi
                         }
-
-                        // Calculate Client Distance Preview
-                        const bc = basecamps[0];
-                        const distMeters = calculateDistanceMeters(currentUserLat, currentUserLng, bc.lat, bc.lng);
-                        document.getElementById('distance-info').innerText = `Jarak ke Basecamp: ${(distMeters / 1000).toFixed(2)} km`;
                     },
-                    (err) => {
-                        console.warn('Geolocation warning:', err.message);
-                        document.getElementById('distance-info').innerText = 'Jarak: GPS Mode Simulasi';
+                    (error) => {
+                        btn.innerHTML = originalHtml;
+                        btn.disabled = false;
+                        showToast('Harap aktifkan Izin Lokasi GPS pada perangkat.', 'error');
                     },
-                    { enableHighAccuracy: true }
+                    { enableHighAccuracy: true, timeout: 5000 }
                 );
+            } else {
+                showToast('Browser Anda tidak mendukung Geolocation.', 'error');
             }
         }
 
-        // Formula Haversine (Hanya untuk preview visual di frontend)
-        function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        }
-
-        // ---------------------------------------------------------------------
-        // 4. CAMERA MODAL & SELFIE CAPTURE LOGIC
-        // ---------------------------------------------------------------------
-        function handleAbsen() {
-            openCameraModal();
-        }
-
-        async function openCameraModal() {
-            try {
-                cameraStream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } },
-                    audio: false
-                });
-                const videoEl = document.getElementById('webcam-feed');
-                videoEl.srcObject = cameraStream;
-                document.getElementById('camera-modal').classList.remove('hidden');
-            } catch (err) {
-                showToast('Gagal membuka kamera. Izinkan akses webcam/kamera HP Anda!', 'error');
-                console.error('Camera Access Error:', err);
-            }
-        }
-
-        function closeCameraModal() {
-            if (cameraStream) {
-                cameraStream.getTracks().forEach(track => track.stop());
-                cameraStream = null;
-            }
-            document.getElementById('camera-modal').classList.add('hidden');
-        }
-
-        async function processSelfieUpload(userId) {
-            const video = document.getElementById('webcam-feed');
-            const canvas = document.getElementById('webcam-canvas');
-            const context = canvas.getContext('2d');
-
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 640;
-
-            context.translate(canvas.width, 0);
-            context.scale(-1, 1);
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
-            if (!blob) throw new Error('Gagal memproses gambar foto.');
-
-            // Jika Supabase belum dikonfigurasi, return ObjectURL sementara untuk demo
-            if (!supabaseClient) {
-                return URL.createObjectURL(blob);
-            }
-
-            // Upload ke Supabase Storage
-            const fileName = `selfie_${userId}_${Date.now()}.jpg`;
-            const filePath = `public/${fileName}`;
-
-            const { data, error } = await supabaseClient.storage
-                .from('attendance-selfies')
-                .upload(filePath, blob, { contentType: 'image/jpeg', upsert: false });
-
-            if (error) throw error;
-
-            const { data: urlData } = supabaseClient.storage
-                .from('attendance-selfies')
-                .getPublicUrl(filePath);
-
-            return urlData.publicUrl;
-        }
-
-        async function captureAndUploadSelfie() {
-            const activeUserId = '00000000-0000-0000-0000-000000000000'; // Placeholder ID User
-            const activeDeviceId = 'DEV-9982';
-
-            showToast('Memproses foto & verifikasi GPS...', 'warning');
-
-            try {
-                // 1. Upload Selfie
-                const photoUrl = await processSelfieUpload(activeUserId);
-                closeCameraModal();
-
-                // 2. Eksekusi Ke Supabase RPC atau Mode Fallback
-                if (supabaseClient) {
-                    const { data, error } = await supabaseClient.rpc('submit_attendance', {
-                        p_lat: currentUserLat,
-                        p_lng: currentUserLng,
-                        p_basecamp_id: basecamps[0].id,
-                        p_photo_url: photoUrl,
-                        p_device_id: activeDeviceId
-                    });
-
-                    if (error) {
-                        showToast(`Absensi Ditolak: ${error.message}`, 'error');
-                        return;
-                    }
-                    showToast(`Absensi Berhasil! Status: ${data.status}`, 'success');
-                } else {
-                    // Demo Mode Response
-                    appendAttendanceRow('Rudi Batubara', new Date().toLocaleTimeString('id-ID') + ' WIB', 'Basecamp Pekanbaru', '1.2 km', photoUrl, 'Tepat Waktu');
-                    showToast('Absensi Berhasil (Demo Mode)! Data tersimpan.', 'success');
-                }
-
-            } catch (err) {
-                showToast(`Error: ${err.message}`, 'error');
-                console.error(err);
-            }
-        }
-
-        function appendAttendanceRow(nama, waktu, bcName, jarak, photoUrl, status) {
-            const tbody = document.getElementById('attendance-table-body');
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-900/50 transition-colors';
-            tr.innerHTML = `
-                <td class="p-3 font-semibold text-white">${nama}</td>
-                <td class="p-3 font-mono text-slate-400">${waktu}</td>
-                <td class="p-3">${bcName}</td>
-                <td class="p-3"><span class="text-emerald-400 font-mono">${jarak}</span></td>
-                <td class="p-3">
-                    <a href="${photoUrl}" target="_blank" class="px-2 py-1 bg-slate-800 rounded text-[10px] text-slate-300 border border-slate-700 hover:border-amber-500 inline-block">
-                        <i class="fa-solid fa-image text-amber-400 mr-1"></i> Lihat Foto
-                    </a>
-                </td>
-                <td class="p-3">
-                    <span class="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">
-                        ${status}
-                    </span>
-                </td>
-            `;
-            tbody.insertBefore(tr, tbody.firstChild);
-        }
-
-        // ---------------------------------------------------------------------
-        // 5. LEAVE MODAL & EXPORT EXCEL
-        // ---------------------------------------------------------------------
-        function openLeaveModal() { document.getElementById('leave-modal').classList.remove('hidden'); }
-        function closeLeaveModal() { document.getElementById('leave-modal').classList.add('hidden'); }
+        // ==========================================
+        // RENDER & CRUD MENGGUNAKAN SUPABASE
+        // ==========================================
         
-        function submitLeaveRequest() {
-            showToast('Pengajuan izin berhasil dikirim ke Supervisor!', 'success');
-            closeLeaveModal();
+        // RENDER RENDER DATA
+        function renderRoles() {
+            const tbody = document.getElementById('role-tbody');
+            tbody.innerHTML = roles.map(r => `
+                <tr>
+                    <td class="p-3 font-mono text-slate-400">${r.id}</td>
+                    <td class="p-3 font-bold text-white">${r.name}</td>
+                    <td class="p-3 text-slate-300">${r.access}</td>
+                    <td class="p-3"><button onclick="deleteRole('${r.id}')" class="text-rose-400 hover:underline">Hapus</button></td>
+                </tr>`).join('');
+        }
+
+        function renderEmployees() {
+            const tbody = document.getElementById('karyawan-tbody');
+            tbody.innerHTML = employees.map(emp => `
+                <tr>
+                    <td class="p-3 font-mono text-slate-400">${emp.id}</td>
+                    <td class="p-3 font-medium text-white">${emp.name}</td>
+                    <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
+                    <td class="p-3 text-gold-400 font-medium">${emp.atasan || '-'}</td>
+                    <td class="p-3 font-mono text-emerald-400">${emp.device_id}</td>
+                    <td class="p-3"><button onclick="deleteEmployee('${emp.id}')" class="text-rose-400 hover:underline">Hapus</button></td>
+                </tr>`).join('');
+        }
+
+        function renderRekap() {
+            const tbody = document.getElementById('rekap-tbody');
+            const riwayatList = document.getElementById('m-riwayat-list');
+            
+            let htmlTable = '';
+            let htmlMobile = '';
+
+            rekapList.forEach(item => {
+                htmlTable += `
+                <tr>
+                    <td class="p-3 font-mono text-slate-300">${item.date}</td>
+                    <td class="p-3 font-medium text-white">${item.name}</td>
+                    <td class="p-3 text-slate-400">${item.basecamp}</td>
+                    <td class="p-3 font-mono">${item.time}</td>
+                    <td class="p-3">${item.status}</td>
+                    <td class="p-3 text-slate-300">${item.late}</td>
+                </tr>`;
+
+                // Render khusus untuk layar HP Rudi Batubara
+                if(item.name === 'Rudi Batubara') {
+                    htmlMobile += `
+                    <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-emerald-500">
+                        <div class="flex justify-between font-bold text-white">
+                            <span>${item.date}</span>
+                            <span>${item.status}</span>
+                        </div>
+                        <div class="flex justify-between text-slate-400">
+                            <span>Masuk: ${item.time}</span>
+                            <span>Lokasi: ${item.basecamp}</span>
+                        </div>
+                    </div>`;
+                }
+            });
+
+            tbody.innerHTML = htmlTable;
+            if(riwayatList) riwayatList.innerHTML = htmlMobile;
+        }
+
+        function renderBasecamps() {
+            const container = document.getElementById('basecamp-container');
+            container.innerHTML = basecamps.map(bc => `
+                <div class="glass-card p-4 rounded-2xl border border-slate-800">
+                    <div class="flex justify-between"><h5 class="font-bold text-white">${bc.name}</h5>
+                    <button onclick="deleteBasecamp(${bc.id})" class="text-rose-400 hover:underline text-xs">Hapus</button></div>
+                    <p class="text-xs text-slate-400 mt-1">Koord: ${bc.lat}, ${bc.lng}</p>
+                    <span class="inline-block mt-2 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 border border-emerald-500/20">Radius: ${bc.radius}m</span>
+                </div>`).join('');
+            updateMapData();
+        }
+
+        // OPERASI CRUD DATABASE SUPABASE
+        async function saveRole() {
+            const id = document.getElementById('inp-role-id').value;
+            const name = document.getElementById('inp-role-name').value;
+            const access = document.getElementById('inp-role-access').value;
+
+            const { data, error } = await supabase.from('roles').insert([{ id, name, access }]);
+            if(!error) { showToast('Role tersimpan ke Database!', 'success'); closeRoleModal(); fetchData(); } 
+            else showToast(error.message, 'error');
+        }
+
+        async function deleteRole(id) {
+            await supabase.from('roles').delete().eq('id', id);
+            fetchData(); showToast('Role terhapus.', 'success');
+        }
+
+        async function saveEmployee() {
+            const id = document.getElementById('inp-id').value;
+            const name = document.getElementById('inp-name').value;
+            const role = document.getElementById('inp-role').value;
+            const device_id = document.getElementById('inp-device').value;
+
+            const { error } = await supabase.from('employees').insert([{ 
+                id, name, role, atasan: '-', password: 'hashed_pw', device_id 
+            }]);
+            
+            if(!error) { showToast('Karyawan masuk Database!', 'success'); closeEmployeeModal(); fetchData(); }
+            else showToast(error.message, 'error');
+        }
+
+        async function deleteEmployee(id) {
+            await supabase.from('employees').delete().eq('id', id);
+            fetchData(); showToast('Karyawan terhapus.', 'success');
+        }
+
+        async function saveBasecamp() {
+            const name = document.getElementById('bc-inp-name').value;
+            const lat = parseFloat(document.getElementById('bc-inp-lat').value);
+            const lng = parseFloat(document.getElementById('bc-inp-lng').value);
+            const radius = parseInt(document.getElementById('bc-inp-radius').value);
+
+            const { error } = await supabase.from('basecamps').insert([{ name, lat, lng, radius }]);
+            if(!error) { showToast('Basecamp tersimpan!', 'success'); closeBasecampModal(); fetchData(); }
+            else showToast(error.message, 'error');
+        }
+        
+        async function deleteBasecamp(id) {
+            await supabase.from('basecamps').delete().eq('id', id);
+            fetchData(); showToast('Basecamp terhapus.', 'success');
+        }
+
+        // ==========================================
+        // UI & MAP HELPERS (Tetap dipertahankan)
+        // ==========================================
+        let bcMap = null;
+        let bcLayerGroup = null;
+
+        function initMap() {
+            if (bcMap) return;
+            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(bcMap);
+            bcLayerGroup = L.layerGroup().addTo(bcMap);
+        }
+
+        function updateMapData() {
+            if (!bcMap || !bcLayerGroup) return;
+            bcLayerGroup.clearLayers();
+            const bounds = [];
+            basecamps.forEach(bc => {
+                L.marker([bc.lat, bc.lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`).addTo(bcLayerGroup);
+                L.circle([bc.lat, bc.lng], { color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15, radius: bc.radius }).addTo(bcLayerGroup);
+                bounds.push([bc.lat, bc.lng]);
+            });
+            if (bounds.length > 0) bcMap.fitBounds(bounds, { padding: [30, 30] });
         }
 
         function exportToExcel() {
-            const table = document.querySelector("table");
-            const wb = XLSX.utils.table_to_book(table, { sheet: "Log Kehadiran" });
-            XLSX.writeFile(wb, `Rekap_Absensi_${new Date().toISOString().slice(0,10)}.xlsx`);
-            showToast('File Excel berhasil diunduh!', 'success');
+            if (rekapList.length === 0) return showToast('Tidak ada data!', 'error');
+            const data = rekapList.map((i, idx) => ({"No": idx+1, "Tgl": i.date, "Nama": i.name, "Status": i.status.includes('Tepat') ? 'Tepat Waktu' : 'Terlambat', "Jam": i.time}));
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Rekap");
+            XLSX.writeFile(wb, "Rekap_Absensi.xlsx");
         }
 
-        // ---------------------------------------------------------------------
-        // 6. TOAST NOTIFICATION UTILITY
-        // ---------------------------------------------------------------------
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            
-            let bgBg = 'bg-slate-900 border-slate-800 text-white';
-            if (type === 'success') bgBg = 'bg-emerald-950/90 border-emerald-800 text-emerald-200';
-            if (type === 'error') bgBg = 'bg-rose-950/90 border-rose-800 text-rose-200';
-            if (type === 'warning') bgBg = 'bg-amber-950/90 border-amber-800 text-amber-200';
-
-            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border ${bgBg} backdrop-blur-md shadow-xl text-xs font-semibold flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0`;
-            toast.innerHTML = `<i class="fa-solid fa-circle-info"></i> ${message}`;
-
-            container.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.classList.remove('translate-y-2', 'opacity-0');
-            }, 10);
-
-            setTimeout(() => {
-                toast.classList.add('opacity-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
+        // Modal Controls
+        function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
+        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
+        
+        function openAddEmployeeModal() { 
+            const sel = document.getElementById('inp-role');
+            sel.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+            document.getElementById('employee-modal').classList.remove('hidden'); 
         }
+        function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
+        
+        function openAddBasecampModal() { document.getElementById('basecamp-modal').classList.remove('hidden'); }
+        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
+
+        // Navigation
+        function switchMode(mode) {
+            document.getElementById('view-mobile').classList.toggle('hidden', mode !== 'mobile');
+            document.getElementById('view-desktop').classList.toggle('hidden', mode !== 'desktop');
+            if (mode === 'desktop' && document.getElementById('d-tab-basecamp').classList.contains('hidden') === false && bcMap) {
+                setTimeout(() => bcMap.invalidateSize(), 200);
+            }
+        }
+        function switchMobileTab(tab) {
+            ['absen', 'izin', 'riwayat'].forEach(t => document.getElementById(`m-tab-${t}`).classList.add('hidden'));
+            document.getElementById(`m-tab-${tab}`).classList.remove('hidden');
+        }
+        function switchDesktopTab(tab) {
+            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'].forEach(t => document.getElementById(`d-tab-${t}`).classList.add('hidden'));
+            document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
+            if (tab === 'basecamp') setTimeout(() => { if (!bcMap) initMap(); bcMap.invalidateSize(); updateMapData(); }, 200);
+        }
+
+        // Live Clock Server Simulation
+        setInterval(() => {
+            document.getElementById('live-clock').innerText = new Date().toTimeString().split(' ')[0];
+        }, 1000);
+
+        // INIT LOAD
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchData(); // Menarik data langsung dari Supabase saat web dimuat
+        });
     </script>
 </body>
 </html>
