@@ -436,10 +436,11 @@
     <script>
         // === INISIALISASI SUPABASE KREDENSIAL ===
         // GANTI DENGAN URL DAN ANON KEY PROJECT SUPABASE ANDA
-        const SUPABASE_URL = 'https://jeefuqitmvziihkcfrid.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImplZWZ1cWl0bXZ6aWloa2NmcmlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzNTE5MDAsImV4cCI6MjEwMTkyNzkwMH0.ngd6Mf-4CeaAHDiM9BJGGgBc000tUX-BHwaq8wlf1E4'; 
+        const SUPABASE_URL = 'https://XXXXXXXXXXXXXXXX.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; 
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        // Menggunakan instance window.supabase untuk menghindari ReferenceError/Shadowing
+        const supabaseClient = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
         // State Penyimpanan Lokal (Cache dari DB)
         let roles = [];
@@ -447,7 +448,7 @@
         let basecamps = [];
         let rekapList = [];
 
-        // TOAST SYSTEM (Tetap Dipertahankan)
+        // TOAST SYSTEM
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -467,12 +468,13 @@
 
         // AMBIL DATA DARI SUPABASE SECARA ASYNCHRONOUS
         async function fetchData() {
+            if (!supabaseClient) return;
             try {
                 const [resRoles, resEmp, resBc, resRekap] = await Promise.all([
-                    supabase.from('roles').select('*'),
-                    supabase.from('employees').select('*'),
-                    supabase.from('basecamps').select('*'),
-                    supabase.from('rekap_absensi').select('*').order('id', { ascending: false })
+                    supabaseClient.from('roles').select('*'),
+                    supabaseClient.from('employees').select('*'),
+                    supabaseClient.from('basecamps').select('*'),
+                    supabaseClient.from('rekap_absensi').select('*').order('id', { ascending: false })
                 ]);
 
                 if(resRoles.data) roles = resRoles.data;
@@ -506,7 +508,6 @@
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-lg"></i> MEMPROSES KE BACKEND...`;
             btn.disabled = true;
 
-            // Dapatkan kordinat GPS dari frontend, tapi KALKULASI dilakukan di Backend Postgre
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     async (position) => {
@@ -515,13 +516,19 @@
                         
                         document.getElementById('gps-status').innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(4)}° N, ${userLng.toFixed(4)}° E`;
 
+                        if (!supabaseClient) {
+                            btn.innerHTML = originalHtml;
+                            btn.disabled = false;
+                            showToast('Supabase client belum terkonfigurasi!', 'error');
+                            return;
+                        }
+
                         // PANGGIL RPC SUPABASE (Fungsi Backend Validasi)
-                        // Parameter: id_karyawan (Rudi), Lattitude, Longitude, Device Fingerprint ID
-                        const { data, error } = await supabase.rpc('proses_absensi', {
+                        const { data, error } = await supabaseClient.rpc('proses_absensi', {
                             p_user_id: 'USR-001',
                             p_lat: userLat,
                             p_lng: userLng,
-                            p_device_id: 'DEV-9982 (Locked)' // Simulasi Hardware ID Karyawan
+                            p_device_id: 'DEV-9982 (Locked)'
                         });
 
                         btn.innerHTML = originalHtml;
@@ -534,7 +541,7 @@
                         } else {
                             showToast('Sukses! ' + data.message, 'success');
                             document.getElementById('mobile-jam-masuk').innerText = data.time;
-                            fetchData(); // Refresh riwayat absensi
+                            fetchData();
                         }
                     },
                     (error) => {
@@ -552,8 +559,6 @@
         // ==========================================
         // RENDER & CRUD MENGGUNAKAN SUPABASE
         // ==========================================
-        
-        // RENDER RENDER DATA
         function renderRoles() {
             const tbody = document.getElementById('role-tbody');
             tbody.innerHTML = roles.map(r => `
@@ -596,7 +601,6 @@
                     <td class="p-3 text-slate-300">${item.late}</td>
                 </tr>`;
 
-                // Render khusus untuk layar HP Rudi Batubara
                 if(item.name === 'Rudi Batubara') {
                     htmlMobile += `
                     <div class="glass-card p-3 rounded-xl text-xs space-y-1 border-l-2 border-emerald-500">
@@ -634,13 +638,13 @@
             const name = document.getElementById('inp-role-name').value;
             const access = document.getElementById('inp-role-access').value;
 
-            const { data, error } = await supabase.from('roles').insert([{ id, name, access }]);
+            const { error } = await supabaseClient.from('roles').insert([{ id, name, access }]);
             if(!error) { showToast('Role tersimpan ke Database!', 'success'); closeRoleModal(); fetchData(); } 
             else showToast(error.message, 'error');
         }
 
         async function deleteRole(id) {
-            await supabase.from('roles').delete().eq('id', id);
+            await supabaseClient.from('roles').delete().eq('id', id);
             fetchData(); showToast('Role terhapus.', 'success');
         }
 
@@ -650,7 +654,7 @@
             const role = document.getElementById('inp-role').value;
             const device_id = document.getElementById('inp-device').value;
 
-            const { error } = await supabase.from('employees').insert([{ 
+            const { error } = await supabaseClient.from('employees').insert([{ 
                 id, name, role, atasan: '-', password: 'hashed_pw', device_id 
             }]);
             
@@ -659,7 +663,7 @@
         }
 
         async function deleteEmployee(id) {
-            await supabase.from('employees').delete().eq('id', id);
+            await supabaseClient.from('employees').delete().eq('id', id);
             fetchData(); showToast('Karyawan terhapus.', 'success');
         }
 
@@ -669,18 +673,49 @@
             const lng = parseFloat(document.getElementById('bc-inp-lng').value);
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
 
-            const { error } = await supabase.from('basecamps').insert([{ name, lat, lng, radius }]);
+            const { error } = await supabaseClient.from('basecamps').insert([{ name, lat, lng, radius }]);
             if(!error) { showToast('Basecamp tersimpan!', 'success'); closeBasecampModal(); fetchData(); }
             else showToast(error.message, 'error');
         }
         
         async function deleteBasecamp(id) {
-            await supabase.from('basecamps').delete().eq('id', id);
+            await supabaseClient.from('basecamps').delete().eq('id', id);
             fetchData(); showToast('Basecamp terhapus.', 'success');
         }
 
         // ==========================================
-        // UI & MAP HELPERS (Tetap dipertahankan)
+        // SWITCH MODE SIMULASI (HP VS DESKTOP)
+        // ==========================================
+        function switchMode(mode) {
+            const viewMobile = document.getElementById('view-mobile');
+            const viewDesktop = document.getElementById('view-desktop');
+            const btnMobile = document.getElementById('btn-mobile');
+            const btnDesktop = document.getElementById('btn-desktop');
+
+            const activeClass = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+            const inactiveClass = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+
+            if (mode === 'desktop') {
+                viewMobile.classList.add('hidden');
+                viewDesktop.classList.remove('hidden');
+
+                btnDesktop.className = activeClass;
+                btnMobile.className = inactiveClass;
+
+                if (!document.getElementById('d-tab-basecamp').classList.contains('hidden') && bcMap) {
+                    setTimeout(() => bcMap.invalidateSize(), 200);
+                }
+            } else {
+                viewDesktop.classList.add('hidden');
+                viewMobile.classList.remove('hidden');
+
+                btnMobile.className = activeClass;
+                btnDesktop.className = inactiveClass;
+            }
+        }
+
+        // ==========================================
+        // UI & MAP HELPERS
         // ==========================================
         let bcMap = null;
         let bcLayerGroup = null;
@@ -727,18 +762,11 @@
         function openAddBasecampModal() { document.getElementById('basecamp-modal').classList.remove('hidden'); }
         function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
 
-        // Navigation
-        function switchMode(mode) {
-            document.getElementById('view-mobile').classList.toggle('hidden', mode !== 'mobile');
-            document.getElementById('view-desktop').classList.toggle('hidden', mode !== 'desktop');
-            if (mode === 'desktop' && document.getElementById('d-tab-basecamp').classList.contains('hidden') === false && bcMap) {
-                setTimeout(() => bcMap.invalidateSize(), 200);
-            }
-        }
         function switchMobileTab(tab) {
             ['absen', 'izin', 'riwayat'].forEach(t => document.getElementById(`m-tab-${t}`).classList.add('hidden'));
             document.getElementById(`m-tab-${tab}`).classList.remove('hidden');
         }
+
         function switchDesktopTab(tab) {
             ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'].forEach(t => document.getElementById(`d-tab-${t}`).classList.add('hidden'));
             document.getElementById(`d-tab-${tab}`).classList.remove('hidden');
@@ -752,7 +780,7 @@
 
         // INIT LOAD
         window.addEventListener('DOMContentLoaded', () => {
-            fetchData(); // Menarik data langsung dari Supabase saat web dimuat
+            fetchData();
         });
     </script>
 </body>
