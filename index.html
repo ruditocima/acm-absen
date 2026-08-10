@@ -128,7 +128,7 @@
                         <h3 class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Form Pengajuan Izin / Cuti</h3>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Jenis Pengajuan</label>
-                            <select class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                            <select id="m-izin-type" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                                 <option>Izin Sakit (Dengan Surat Dokter)</option>
                                 <option>Izin Keperluan Pribadi</option>
                                 <option>Cuti Tahunan</option>
@@ -138,16 +138,16 @@
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Tanggal Mulai & Selesai</label>
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
-                                <input type="date" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                                <input type="date" id="m-izin-start" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+                                <input type="date" id="m-izin-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs text-slate-400 mb-1">Keterangan / Alasan</label>
-                            <textarea rows="3" placeholder="Tuliskan alasan pengajuan..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
+                            <textarea id="m-izin-reason" rows="3" placeholder="Tuliskan alasan pengajuan..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
-                        <button onclick="showToast('Pengajuan izin berhasil dikirim ke Master Admin!', 'success')" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">
-                            Kirim Pengajuan Izin
+                        <button onclick="submitIzin()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-2">
+                            <i class="fa-brands fa-whatsapp text-base"></i> Kirim Pengajuan & WA Atasan
                         </button>
                     </div>
                 </div>
@@ -397,18 +397,9 @@
 
                     <!-- TAB PENGAJUAN IZIN ADMIN -->
                     <div id="d-tab-izin" class="space-y-4 hidden">
-                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan</h4>
-                        <div class="glass-card p-4 rounded-2xl space-y-3">
-                            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                                <div>
-                                    <h5 class="font-bold text-white text-xs">Rudi Batubara - Cuti Tahunan</h5>
-                                    <p class="text-[10px] text-slate-400">Tanggal: 10 Agt 2026 s/d 12 Agt 2026 | Alasan: Keperluan keluarga</p>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button onclick="showToast('Izin cuti berhasil disetujui.', 'success')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg">Setuju</button>
-                                    <button onclick="showToast('Pengajuan izin ditolak.', 'warning')" class="px-3 py-1 bg-rose-500 text-white font-bold text-xs rounded-lg">Tolak</button>
-                                </div>
-                            </div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan (Atasan Langsung)</h4>
+                        <div id="d-izin-list" class="space-y-3">
+                            <!-- Dynamic Izin List Rendered via JS -->
                         </div>
                     </div>
 
@@ -596,9 +587,33 @@
         ];
 
         let employees = [
-            { id: 'USR-001', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: '-', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'USR-001', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-9982 (Locked)' },
             { id: 'USR-002', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', deviceId: 'DEV-1022 (Locked)' },
             { id: 'USR-003', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', deviceId: 'DEV-4411 (Locked)' }
+        ];
+
+        // Data Pengajuan Izin
+        let izinList = [
+            {
+                id: 101,
+                applicant: 'Rudi Batubara',
+                type: 'Cuti Tahunan',
+                startDate: '2026-08-10',
+                endDate: '2026-08-12',
+                reason: 'Keperluan keluarga',
+                atasan: 'Budi Santoso',
+                status: 'Pending'
+            },
+            {
+                id: 102,
+                applicant: 'Siti Aminah',
+                type: 'Izin Sakit (Dengan Surat Dokter)',
+                startDate: '2026-08-11',
+                endDate: '2026-08-12',
+                reason: 'Demam dan flu tinggi',
+                atasan: 'Budi Santoso',
+                status: 'Pending'
+            }
         ];
 
         // Disimulasikan berdasarkan data default untuk menunjukkan hari ini
@@ -614,6 +629,142 @@
             { date: initToday, name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' },
             { date: initToday, name: 'Budi Santoso', basecamp: 'Palembang Field', time: '08:25 WIB', status: '<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">Terlambat</span>', late: '25 Menit' }
         ];
+
+        // =========================================================================
+        // FUNGSI SUBMIT IZIN & WHATSAPP NOTIFICATION KE ATASAN LANGSUNG
+        // =========================================================================
+        function submitIzin() {
+            const type = document.getElementById('m-izin-type').value;
+            const startDate = document.getElementById('m-izin-start').value;
+            const endDate = document.getElementById('m-izin-end').value;
+            const reason = document.getElementById('m-izin-reason').value.trim();
+
+            if (!startDate || !endDate || !reason) {
+                showToast('Harap isi tanggal mulai, tanggal selesai, dan alasan pengajuan!', 'warning');
+                return;
+            }
+
+            // Karyawan aktif yang sedang login di mobile view
+            const currentUser = "Rudi Batubara";
+
+            // Cari data karyawan & atasan langsungnya
+            const empObj = employees.find(e => e.name === currentUser);
+            const atasanName = empObj ? empObj.atasan : '-';
+            const atasanObj = employees.find(e => e.name === atasanName);
+
+            // Tambahkan pengajuan baru ke data izin
+            const newIzin = {
+                id: Date.now(),
+                applicant: currentUser,
+                type: type,
+                startDate: startDate,
+                endDate: endDate,
+                reason: reason,
+                atasan: atasanName,
+                status: 'Pending'
+            };
+
+            izinList.unshift(newIzin);
+            renderIzin();
+
+            // Kirim Notifikasi WhatsApp ke Atasan Langsung
+            if (atasanObj && atasanObj.whatsapp && atasanObj.whatsapp !== '-') {
+                let formattedWa = atasanObj.whatsapp.replace(/[^0-9]/g, '');
+                if (formattedWa.startsWith('0')) {
+                    formattedWa = '62' + formattedWa.substring(1);
+                }
+
+                const waText = `Halo *${atasanObj.name}*,\n\nKaryawan *${currentUser}* telah mengajukan izin via Sistem Absensi:\n• *Jenis*: ${type}\n• *Tanggal*: ${startDate} s/d ${endDate}\n• *Alasan*: ${reason}\n\nMohon diproses persetujuan izinnya. Terima kasih.`;
+                const waUrl = `https://wa.me/${formattedWa}?text=${encodeURIComponent(waText)}`;
+
+                showToast(`Pengajuan dikirim! Mengalihkan ke WhatsApp Atasan (${atasanObj.name})...`, 'success');
+
+                setTimeout(() => {
+                    window.open(waUrl, '_blank');
+                }, 1000);
+            } else {
+                showToast(`Pengajuan izin berhasil dikirim ke Master Admin!`, 'success');
+            }
+
+            // Reset Form Input
+            document.getElementById('m-izin-start').value = '';
+            document.getElementById('m-izin-end').value = '';
+            document.getElementById('m-izin-reason').value = '';
+        }
+
+        // =========================================================================
+        // RENDERING & PROSES PERSETUJUAN IZIN KHUSUS ATASAN
+        // =========================================================================
+        function renderIzin() {
+            const container = document.getElementById('d-izin-list');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (izinList.length === 0) {
+                container.innerHTML = `
+                    <div class="glass-card p-8 text-center text-slate-500 rounded-2xl">
+                        <i class="fa-solid fa-envelope-open text-2xl text-slate-600 mb-2"></i>
+                        <p class="text-xs font-medium text-slate-400">Belum ada pengajuan izin dari karyawan.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            izinList.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = "glass-card p-4 rounded-2xl space-y-3 border border-slate-800";
+
+                let statusBadge = '';
+                if (item.status === 'Pending') {
+                    statusBadge = `<span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-semibold">Menunggu Persetujuan Atasan</span>`;
+                } else if (item.status === 'Disetujui') {
+                    statusBadge = `<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold">Disetujui</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-semibold">Ditolak</span>`;
+                }
+
+                card.innerHTML = `
+                    <div class="flex flex-wrap justify-between items-start gap-2 border-b border-slate-800 pb-3">
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h5 class="font-bold text-white text-xs">${item.applicant} - ${item.type}</h5>
+                                ${statusBadge}
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1">
+                                Tanggal: <span class="text-slate-200">${item.startDate}</span> s/d <span class="text-slate-200">${item.endDate}</span> | Alasan: ${item.reason}
+                            </p>
+                            <p class="text-[10px] text-gold-400 mt-1 font-medium">
+                                <i class="fa-solid fa-user-tie"></i> Atasan Penanggung Jawab: <span class="font-bold">${item.atasan}</span>
+                            </p>
+                        </div>
+                        <div class="flex gap-2">
+                            ${item.status === 'Pending' ? `
+                                <button onclick="processIzin(${index}, 'Disetujui')" class="px-3 py-1 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-lg transition">Setuju</button>
+                                <button onclick="processIzin(${index}, 'Ditolak')" class="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs rounded-lg transition">Tolak</button>
+                            ` : `
+                                <span class="text-xs text-slate-500 italic">Selesai Diproses</span>
+                            `}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function processIzin(index, newStatus) {
+            if (index < 0 || index >= izinList.length) return;
+            
+            const item = izinList[index];
+            item.status = newStatus;
+            
+            renderIzin();
+
+            if (newStatus === 'Disetujui') {
+                showToast(`Pengajuan izin ${item.applicant} berhasil disetujui oleh Atasan (${item.atasan}).`, 'success');
+            } else {
+                showToast(`Pengajuan izin ${item.applicant} ditolak oleh Atasan (${item.atasan}).`, 'warning');
+            }
+        }
 
         // =========================================================================
         // FUNGSI UPDATE STATISTIK DASHBOARD SECARA OTOMATIS
@@ -1154,6 +1305,7 @@
             renderEmployees();
             renderRekap();
             renderBasecamps();
+            renderIzin();
             
             // Eksekusi fungsi update statistik saat aplikasi dibuka pertama kali
             updateDashboardStats();
