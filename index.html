@@ -72,7 +72,7 @@
             <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
                     <span id="mobile-badge-status" class="text-[10px] uppercase tracking-wider text-gold-400 font-bold bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">Basecamp: Pekanbaru Pusat</span>
-                    <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Rudi Batubara[cite: 1]</h2>
+                    <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Rudi Batubara</h2>
                 </div>
                 <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold" id="mobile-user-initial">
                     RB
@@ -153,14 +153,26 @@
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
                         <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.434291° N, 101.466385° E</p>
 
-                        <div class="mt-6">
+                        <div class="mt-4">
                             <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
                                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
                                 <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
                             </div>
                         </div>
 
-                        <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                        <!-- FORM ABSENSI: Email & Password -->
+                        <div class="mt-5 space-y-3 text-left">
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">Email Karyawan</label>
+                                <input type="email" id="absen-email" placeholder="nama@gmail.com" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">Password</label>
+                                <input type="password" id="absen-password" placeholder="••••••••" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                            </div>
+                        </div>
+
+                        <button onclick="handleAbsen()" class="w-full mt-5 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
                         </button>
                     </div>
@@ -542,9 +554,9 @@
         ];
 
         let employees = [
-            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-9982 (Locked)' },
-            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'DEV-1022 (Locked)' },
-            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-4411 (Locked)' }
+            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: 'password123', status: 'Approved', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: 'password123', status: 'Approved', deviceId: 'DEV-1022 (Locked)' },
+            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: 'password123', status: 'Approved', deviceId: 'DEV-4411 (Locked)' }
         ];
 
         let basecamps = [
@@ -976,19 +988,57 @@
         });
 
         function handleAbsen() {
-            showToast('Absensi Terverifikasi Aman di Basecamp Pusat!', 'success');
+            // Ambil nilai dari form absen
+            const email = document.getElementById('absen-email').value.trim();
+            const password = document.getElementById('absen-password').value.trim();
+
+            // Validasi input kosong
+            if (!email || !password) {
+                showToast('Email dan Password wajib diisi untuk melakukan absensi!', 'error');
+                return;
+            }
+
+            // Cari data karyawan di database simulasi
+            const emp = employees.find(e => e.id === email && e.password === password);
+
+            if (!emp) {
+                showToast('Gagal absen! Email atau Password salah.', 'error');
+                return;
+            }
+
+            if (emp.status !== 'Approved') {
+                showToast('Akun Anda masih Pending. Menunggu persetujuan Master Admin.', 'warning');
+                return;
+            }
+
+            // Update profil karyawan aktif di header mobile
+            activeEmployeeSession = emp;
+            document.getElementById('mobile-user-title').innerText = `Halo, ${emp.name}`;
+            document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+
+            // Proses Absensi Berhasil
+            showToast(`Absensi atas nama ${emp.name} Terverifikasi Aman!`, 'success');
             const jamMasukEl = document.getElementById('mobile-jam-masuk');
-            if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
+            
+            const waktuSekarang = new Date().toTimeString().split(' ')[0];
+            if (jamMasukEl) jamMasukEl.innerText = waktuSekarang + ' WIB';
+            
+            // Simpan ke riwayat rekapitulasi
             rekapList.unshift({
                 date: new Date().toISOString().split('T')[0],
                 name: activeEmployeeSession.name,
                 basecamp: 'Pekanbaru Pusat',
-                time: new Date().toTimeString().split(' ')[0] + ' WIB',
+                time: waktuSekarang + ' WIB',
                 status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
                 late: '-'
             });
+            
+            // Refresh tabel rekap di dashboard master
             renderRekap();
             updateDashboardStats();
+
+            // Reset password field setelah absen demi keamanan
+            document.getElementById('absen-password').value = '';
         }
     </script>
 </body>
