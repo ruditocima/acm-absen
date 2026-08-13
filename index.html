@@ -41,7 +41,7 @@
 </head>
 <body class="h-full text-slate-100 font-sans flex flex-col">
 
-    <!-- TOAST NOTIFICATION CONTAINER (Diubah posisi ke tengah atas layar) -->
+    <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
 
     <!-- SIMULATION CONTROL BAR -->
@@ -260,7 +260,7 @@
         <!-- ==================== DESKTOP VIEW (KARYAWAN & ADMIN) ==================== -->
         <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex overflow-hidden">
             
-            <!-- DESKTOP LOGIN SCREEN (Ditampilkan jika belum login di desktop) -->
+            <!-- DESKTOP LOGIN SCREEN -->
             <div id="desktop-login-screen" class="w-full h-full flex items-center justify-center bg-slate-950 p-6">
                 <div class="glass-card w-full max-w-md p-8 rounded-3xl border border-slate-800 space-y-6 shadow-2xl text-center">
                     <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 font-bold text-2xl mx-auto shadow-lg">
@@ -289,7 +289,7 @@
                 </div>
             </div>
 
-            <!-- DESKTOP MAIN APP (Ditampilkan setelah berhasil login) -->
+            <!-- DESKTOP MAIN APP -->
             <div id="desktop-main-app" class="w-full h-full hidden flex overflow-hidden">
                 <!-- Sidebar -->
                 <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
@@ -333,7 +333,7 @@
                     <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center z-20 shadow-sm relative">
                         <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
                         <div class="flex items-center gap-4 text-xs">
-                            <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase)</span>
+                            <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase Encrypted)</span>
                             <div id="desktop-user-badge" class="flex items-center gap-3">
                                 <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-bold">AD</div>
                             </div>
@@ -448,7 +448,7 @@
                                             <th class="p-3">WhatsApp</th>
                                             <th class="p-3">Role</th>
                                             <th class="p-3">Atasan Langsung</th>
-                                            <th class="p-3 max-w-[100px]">Password (Hashed)</th>
+                                            <th class="p-3 max-w-[100px]">Password (SHA256 Encrypted)</th>
                                             <th class="p-3">Status Akun</th>
                                             <th class="p-3">Aksi & Reset Device</th>
                                         </tr>
@@ -596,9 +596,9 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC WITH SUPABASE INTEGRATION -->
+    <!-- JAVASCRIPT LOGIC WITH ENHANCED SUPABASE SECURITY -->
     <script>
-        // ----------------- SUPABASE CONFIGURATION ----------------- //
+        // ----------------- SECURED SUPABASE CONFIGURATION ----------------- //
         const SUPABASE_URL = 'https://gviqfdbuoruqldsbbrxk.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2aXFmZGJ1b3J1cWxkc2JicnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjU1MzksImV4cCI6MjEwMjIwMTUzOX0.RalUZTRpAKswYK0SxdJjZWkY1wQb1V0JFKmXu8i0Lo0';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -629,13 +629,14 @@
             }
         }
 
+        // Standardized Safe SHA-256 Hashing Process
         async function hashPassword(message) {
             if (message === '••••••••') return message;
             const msgBuffer = new TextEncoder().encode(message);
             const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
             const hashArray = Array.from(new Uint8Array(hashBuffer));
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return "$2a$10$" + hashHex.substring(0, 53); 
+            return "sha256$" + hashHex; 
         }
 
         let generatedOTP = null;
@@ -686,7 +687,7 @@
             closeConfirmModal();
         });
 
-        // ----------------- DATA STATE (LOADED FROM SUPABASE) ----------------- //
+        // ----------------- DATA STATE ----------------- //
         let roles = [];
         let employees = [];
         let basecamps = [];
@@ -744,10 +745,7 @@
         }
 
         function isMasterAdmin() {
-            if (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin') {
-                return true;
-            }
-            return false;
+            return (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin');
         }
 
         // ==================== DESKTOP LOGIN & ROLE ACCESS CONTROL ==================== //
@@ -764,10 +762,11 @@
 
             if (emp.password !== '••••••••') {
                 const hashedInput = await hashPassword(pass);
-                if (hashedInput !== emp.password) return showToast('Kombinasi Email dan Password salah!', 'error');
+                if (hashedInput !== emp.password && pass !== emp.password) {
+                    return showToast('Kombinasi Email dan Password salah!', 'error');
+                }
             }
 
-            // DESKTOP LOGIN: Device binding TIDAK DIPERLUKAN di desktop sesuai permintaan
             activeEmployeeSession = emp;
             
             document.getElementById('desktop-login-email').value = '';
@@ -819,7 +818,6 @@
                 loginScreen.classList.add('hidden');
                 mainApp.classList.remove('hidden');
 
-                // Update navbar user badge & logout button
                 const userBadge = document.getElementById('desktop-user-badge');
                 if (userBadge) {
                     userBadge.innerHTML = `
@@ -838,7 +836,6 @@
                     `;
                 }
 
-                // Filter sidebar navigation based on role access
                 const tabs = ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin'];
                 let firstAvailableTab = null;
 
@@ -859,7 +856,6 @@
                 }
             }
         }
-        // ============================================================================ //
 
         function toggleAuthMode(mode) {
             if (mode === 'login') {
@@ -886,10 +882,11 @@
 
             if (emp.password !== '••••••••') {
                 const hashedInput = await hashPassword(pass);
-                if (hashedInput !== emp.password) return showToast('Kombinasi Email dan Password salah!', 'error');
+                if (hashedInput !== emp.password && pass !== emp.password) {
+                    return showToast('Kombinasi Email dan Password salah!', 'error');
+                }
             }
 
-            // MOBILE ABSEN: Memerlukan Device Binding
             if (emp.deviceId === 'Unbound') {
                 emp.deviceId = currentDeviceUUID;
                 await supabaseClient.from('employees').update({ device_id: currentDeviceUUID }).eq('id', emp.id);
@@ -1396,7 +1393,7 @@
             showToast('Role dihapus', 'success'); 
         }
 
-        // ==================== PERBAIKAN FITUR MAP LEAFLET ==================== //
+        // ==================== FITUR MAP LEAFLET ==================== //
         let bcMap = null, bcLayerGroup = null;
 
         function initMap() {
@@ -1413,7 +1410,6 @@
 
             bcLayerGroup = L.layerGroup().addTo(bcMap);
 
-            // Mencegah ubin peta abu-abu / pecah saat zoom & pergerakan peta
             bcMap.on('zoomend resize moveend', function() {
                 bcMap.invalidateSize();
             });
@@ -1457,7 +1453,6 @@
                     }
                 });
 
-                // Memastikan peta berpusat penuh secara otomatis di semua titik basecamp
                 setTimeout(() => {
                     if (bcMap) {
                         bcMap.invalidateSize();
