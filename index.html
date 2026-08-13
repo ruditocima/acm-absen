@@ -157,7 +157,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 2: ABSENSI -->
+                <!-- TAB 2: ABSENSI, PENGAJUAN IZIN & RIWAYAT -->
                 <div id="m-tab-absen" class="space-y-5 hidden">
                     <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
                         <div class="flex justify-between items-center text-xs">
@@ -189,6 +189,49 @@
                         </button>
                     </div>
 
+                    <!-- TAMBAHAN FITUR 2: FORM PENGAJUAN IZIN DI HP -->
+                    <div class="glass-card p-5 rounded-3xl space-y-3">
+                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-file-lines"></i> Form Pengajuan Izin
+                        </h3>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Jenis Izin</label>
+                            <select id="m-izin-jenis" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                                <option value="Cuti Tahunan">Cuti Tahunan</option>
+                                <option value="Sakit">Sakit</option>
+                                <option value="Izin Pribadi">Izin Pribadi</option>
+                                <option value="Dinas Luar">Dinas Luar</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">Tanggal Mulai</label>
+                                <input type="date" id="m-izin-start" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] text-slate-400 mb-1">Tanggal Selesai</label>
+                                <input type="date" id="m-izin-end" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Keterangan / Alasan</label>
+                            <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan izin..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
+                        </div>
+                        <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
+                            Ajukan Izin ke Atasan (Kirim WA)
+                        </button>
+                    </div>
+
+                    <!-- TAMBAHAN FITUR 2: RIWAYAT SAYA DI HP -->
+                    <div class="glass-card p-5 rounded-3xl space-y-3">
+                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Saya (Absen & Izin)
+                        </h3>
+                        <div id="mobile-my-history" class="space-y-2 text-xs text-slate-300">
+                            <p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>
+                        </div>
+                    </div>
+
                     <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
                         <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Informasi Lokasi Lapangan / Kantor:</p>
                         <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar menggunakan GPS real-time.</p>
@@ -205,7 +248,7 @@
                 </button>
                 <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition">
                     <i class="fa-solid fa-fingerprint text-base"></i>
-                    <span>Absen</span>
+                    <span>Absen & Izin</span>
                 </button>
             </div>
         </div>
@@ -369,7 +412,7 @@
                                         <th class="p-3">Atasan Langsung</th>
                                         <th class="p-3 max-w-[100px]">Password (Hashed)</th>
                                         <th class="p-3">Status Akun</th>
-                                        <th class="p-3">Aksi</th>
+                                        <th class="p-3">Aksi & Reset Device</th>
                                     </tr>
                                 </thead>
                                 <tbody id="karyawan-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
@@ -680,6 +723,7 @@
             document.getElementById('login-email').value = '';
             document.getElementById('login-pass').value = '';
 
+            renderMobileMyHistory();
             showToast('Login berhasil! Mengarahkan ke panel absensi...', 'success');
             switchMobileTab('absen');
         }
@@ -757,6 +801,105 @@
             showToast(`Akun disetujui!`, 'success');
         }
 
+        // ----------------- FITUR 3 & 4: RESET DEVICE & PENGAJUAN IZIN & WHATSAPP ----------------- //
+        function resetEmployeeDevice(index) {
+            if (!isMasterAdmin()) {
+                showToast('Akses Ditolak! Hanya Master Admin yang dapat mereset device karyawan.', 'error');
+                return;
+            }
+            showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, () => {
+                employees[index].deviceId = 'Unbound';
+                renderEmployees();
+                showToast(`Perangkat ${employees[index].name} berhasil di-reset menjadi Unbound.`, 'success');
+            }, false);
+        }
+
+        function submitMobileIzin() {
+            if (activeEmployeeSession.name === 'Tamu') {
+                showToast('Silakan login terlebih dahulu untuk mengajukan izin.', 'error');
+                switchMobileTab('daftar');
+                return;
+            }
+
+            const jenis = document.getElementById('m-izin-jenis').value;
+            const start = document.getElementById('m-izin-start').value;
+            const end = document.getElementById('m-izin-end').value;
+            const desc = document.getElementById('m-izin-desc').value.trim();
+
+            if (!start || !end || !desc) {
+                showToast('Harap lengkapi tanggal mulai, tanggal selesai, dan keterangan izin!', 'error');
+                return;
+            }
+
+            const atasanName = activeEmployeeSession.atasan || 'Budi Santoso';
+            const supervisor = employees.find(e => e.name === atasanName) || { whatsapp: '081298765432', name: atasanName };
+
+            const newIzin = {
+                id: Date.now(),
+                name: activeEmployeeSession.name,
+                jenis: jenis,
+                start: start,
+                end: end,
+                desc: desc,
+                atasan: supervisor.name,
+                status: 'Pending'
+            };
+
+            izinList.push(newIzin);
+            renderAdminIzin();
+            renderMobileMyHistory();
+
+            // WhatsApp Message Trigger (Fitur 4)
+            const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
+            const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
+
+            showToast(`Pengajuan izin berhasil dikirim & Notifikasi WhatsApp disiapkan ke ${supervisor.name}!`, 'success');
+            
+            // Buka link WhatsApp atasan langsung di tab baru
+            window.open(waUrl, '_blank');
+
+            document.getElementById('m-izin-start').value = '';
+            document.getElementById('m-izin-end').value = '';
+            document.getElementById('m-izin-desc').value = '';
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if (!container) return;
+            container.innerHTML = '';
+
+            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name);
+            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
+
+            if (myRekap.length === 0 && myIzin.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+                return;
+            }
+
+            myRekap.forEach(r => {
+                container.innerHTML += `
+                    <div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
+                        <div>
+                            <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-fingerprint"></i> Hadir (${r.basecamp})</span>
+                            <div class="text-slate-400">${r.date} - ${r.time}</div>
+                        </div>
+                        <span class="text-emerald-400 font-bold">Sukses</span>
+                    </div>`;
+            });
+
+            myIzin.forEach(i => {
+                const badgeColor = i.status === 'Approved' ? 'text-emerald-400' : i.status === 'Rejected' ? 'text-rose-400' : 'text-amber-400';
+                container.innerHTML += `
+                    <div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
+                        <div>
+                            <span class="text-gold-400 font-semibold"><i class="fa-solid fa-envelope"></i> Izin: ${i.jenis}</span>
+                            <div class="text-slate-400">${i.start} s/d ${i.end} (${i.desc})</div>
+                        </div>
+                        <span class="${badgeColor} font-bold">${i.status}</span>
+                    </div>`;
+            });
+        }
+
         function renderAdminIzin() {
             const container = document.getElementById('admin-izin-container');
             if (!container) return;
@@ -792,6 +935,7 @@
         function handleIzinAction(index, action) {
             izinList[index].status = action;
             renderAdminIzin();
+            renderMobileMyHistory();
             showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
         }
 
@@ -919,6 +1063,7 @@
                         <td class="p-3 space-x-2">
                             <button onclick="openEditEmployeeModal(${index})" class="text-gold-400 hover:underline">Edit</button>
                             <button onclick="deleteEmployee(${index})" class="text-rose-400 hover:underline">Hapus</button>
+                            <button onclick="resetEmployeeDevice(${index})" class="text-amber-400 hover:underline font-semibold" title="Reset Device (Hanya Master Admin)"><i class="fa-solid fa-mobile-screen-button"></i> Reset Dev</button>
                         </td>
                     </tr>`;
             });
@@ -1011,6 +1156,7 @@
             bcLayerGroup = L.layerGroup().addTo(bcMap);
         }
 
+        // FITUR 1: TAMBAH PIN LOKASI PADA PETA BASECAMP SESUAI TITIK KOORDINATNYA
         function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if (!container) return;
@@ -1035,7 +1181,13 @@
             });
             if (bcMap && bcLayerGroup) {
                 bcLayerGroup.clearLayers();
-                basecamps.forEach(bc => L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37' }).addTo(bcLayerGroup));
+                basecamps.forEach(bc => {
+                    // Gambar area radius lingkaran
+                    L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
+                    // Tambahkan pin/marker lokasi sesuai koordinat (Fitur 1)
+                    L.marker([bc.lat, bc.lng]).addTo(bcLayerGroup)
+                      .bindPopup(`<div style="color: #0f172a; font-weight: bold;">${bc.name}</div><div style="color: #334155; font-size: 11px;">Lat: ${bc.lat}, Lng: ${bc.lng}<br>Radius: ${bc.radius}m</div>`);
+                });
             }
         }
 
@@ -1160,6 +1312,7 @@
             const activeNav = document.getElementById(`m-nav-${tab}`);
             if (activeTab) activeTab.classList.remove('hidden');
             if (activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
+            if (tab === 'absen') { renderMobileMyHistory(); }
         }
 
         function renderRekap(data = null) {
@@ -1270,6 +1423,7 @@
                         late: '-'
                     });
                     renderRekap();
+                    renderMobileMyHistory();
                     updateDashboardStats();
                 },
                 (error) => {
