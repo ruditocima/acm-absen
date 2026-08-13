@@ -79,7 +79,7 @@
                 </div>
             </div>
 
-            <!-- Mobile Body Content (Tab Content with safe padding for bottom nav) -->
+            <!-- Mobile Body Content -->
             <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-28">
 
                 <!-- TAB 1: DAFTAR / LOGIN AKUN -->
@@ -92,7 +92,7 @@
                         <p class="text-xs text-slate-400">Silakan Login atau Daftar akun baru</p>
                     </div>
 
-                    <!-- STEP 0: FORM LOGIN (BARU) -->
+                    <!-- FORM LOGIN -->
                     <div id="login-step" class="glass-card p-5 rounded-2xl space-y-3">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Login Sistem</h3>
                         <div>
@@ -112,7 +112,7 @@
                         </div>
                     </div>
 
-                    <!-- STEP 1: FORM REGISTER -->
+                    <!-- FORM REGISTER -->
                     <div id="reg-step-1" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Daftar Akun Baru</h3>
                         <div>
@@ -140,7 +140,7 @@
                         </div>
                     </div>
 
-                    <!-- STEP 2: VERIFIKASI OTP -->
+                    <!-- VERIFIKASI OTP -->
                     <div id="reg-step-2" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verifikasi Kode OTP 6 Digit</h3>
                         <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email dan WhatsApp terdaftar Anda.</p>
@@ -380,7 +380,7 @@
                     <!-- TAB BASECAMP -->
                     <div id="d-tab-basecamp" class="space-y-4 hidden">
                         <div class="flex justify-between items-center mb-2">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
+                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS (Eksklusif Master Admin)</h4>
                             <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
                                 <i class="fa-solid fa-plus"></i> Tambah Basecamp
                             </button>
@@ -395,7 +395,7 @@
                     <div id="d-tab-izin" class="space-y-4 hidden">
                         <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan oleh Atasan Langsung</h4>
                         <div id="admin-izin-container" class="glass-card p-4 rounded-2xl space-y-3">
-                            <!-- Dynamic Izin List for Supervisor/Admin Approval -->
+                            <!-- Dynamic Izin List -->
                         </div>
                     </div>
 
@@ -605,7 +605,7 @@
         ];
 
         let employees = [
-            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
+            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Master Admin', atasan: '-', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
             { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
             { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' }
         ];
@@ -626,6 +626,14 @@
 
         let activeEmployeeSession = { name: 'Tamu' };
         let tempRegData = null;
+
+        // Helper untuk memeriksa hak akses Master Admin
+        function isMasterAdmin() {
+            if (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin') {
+                return true;
+            }
+            return false;
+        }
 
         // ----------------- LOGIN & AUTHENTICATION TOGGLE ----------------- //
         function toggleAuthMode(mode) {
@@ -1002,33 +1010,112 @@
             L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(bcMap);
             bcLayerGroup = L.layerGroup().addTo(bcMap);
         }
+
         function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if (!container) return;
             container.innerHTML = '';
-            basecamps.forEach((bc) => {
-                container.innerHTML += `<div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
-                    <h5 class="font-bold text-white">${bc.name}</h5>
-                    <p class="text-xs text-slate-400">Radius: ${bc.radius}m</p>
-                </div>`;
+            basecamps.forEach((bc, index) => {
+                container.innerHTML += `
+                    <div class="glass-card p-4 rounded-2xl space-y-3 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <h5 class="font-bold text-white text-sm">${bc.name}</h5>
+                            <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${bc.lat}, Lng: ${bc.lng}</p>
+                            <p class="text-xs text-slate-400">Radius Aman: ${bc.radius}m</p>
+                        </div>
+                        <div class="flex gap-2 pt-2 border-t border-slate-800/60">
+                            <button onclick="openEditBasecampModal(${index})" class="flex-1 py-1.5 px-3 bg-gold-500/10 text-gold-400 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-pen-to-square"></i> Edit
+                            </button>
+                            <button onclick="deleteBasecamp(${index})" class="flex-1 py-1.5 px-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-trash"></i> Hapus
+                            </button>
+                        </div>
+                    </div>`;
             });
             if (bcMap && bcLayerGroup) {
                 bcLayerGroup.clearLayers();
                 basecamps.forEach(bc => L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37' }).addTo(bcLayerGroup));
             }
         }
-        function openAddBasecampModal() { document.getElementById('basecamp-modal').classList.remove('hidden'); }
-        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
+
+        function openAddBasecampModal() {
+            if (!isMasterAdmin()) {
+                showToast('Akses Ditolak! Hanya Master Admin yang dapat menambah basecamp.', 'error');
+                return;
+            }
+            document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
+            document.getElementById('bc-edit-index').value = '-1';
+            document.getElementById('bc-inp-name').value = '';
+            document.getElementById('bc-inp-lat').value = '';
+            document.getElementById('bc-inp-lng').value = '';
+            document.getElementById('bc-inp-radius').value = '15000';
+            document.getElementById('basecamp-modal').classList.remove('hidden');
+        }
+
+        function openEditBasecampModal(index) {
+            if (!isMasterAdmin()) {
+                showToast('Akses Ditolak! Hanya Master Admin yang dapat mengedit basecamp.', 'error');
+                return;
+            }
+            const bc = basecamps[index];
+            document.getElementById('bc-modal-title').innerText = 'Edit Basecamp';
+            document.getElementById('bc-edit-index').value = index;
+            document.getElementById('bc-inp-name').value = bc.name;
+            document.getElementById('bc-inp-lat').value = bc.lat;
+            document.getElementById('bc-inp-lng').value = bc.lng;
+            document.getElementById('bc-inp-radius').value = bc.radius;
+            document.getElementById('basecamp-modal').classList.remove('hidden');
+        }
+
+        function closeBasecampModal() { 
+            document.getElementById('basecamp-modal').classList.add('hidden'); 
+        }
+
         function saveBasecamp() {
-            const name = document.getElementById('bc-inp-name').value;
+            if (!isMasterAdmin()) {
+                showToast('Akses Ditolak! Hanya Master Admin yang dapat menyimpan perubahan basecamp.', 'error');
+                return;
+            }
+            const index = parseInt(document.getElementById('bc-edit-index').value);
+            const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
             const lng = parseFloat(document.getElementById('bc-inp-lng').value);
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
-            if (!name || isNaN(lat)) return;
-            basecamps.push({ id: Date.now(), name, lat, lng, radius });
+
+            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                showToast('Semua field basecamp wajib diisi dengan format yang benar!', 'error');
+                return;
+            }
+
+            if (index === -1) {
+                basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                showToast('Basecamp baru berhasil ditambahkan!', 'success');
+            } else {
+                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                showToast('Basecamp berhasil diperbarui!', 'success');
+            }
+
             closeBasecampModal();
             renderBasecamps();
-            showToast('Basecamp disimpan', 'success');
+            if (bcMap) {
+                bcMap.invalidateSize();
+            }
+        }
+
+        function deleteBasecamp(index) {
+            if (!isMasterAdmin()) {
+                showToast('Akses Ditolak! Hanya Master Admin yang dapat menghapus basecamp.', 'error');
+                return;
+            }
+            showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, () => {
+                basecamps.splice(index, 1);
+                renderBasecamps();
+                if (bcMap) {
+                    bcMap.invalidateSize();
+                }
+                showToast('Basecamp berhasil dihapus.', 'success');
+            }, true);
         }
 
         function switchMode(mode) {
@@ -1113,7 +1200,7 @@
                       Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-            return R * c; // Jarak dalam meter
+            return R * c; 
         }
 
         async function handleAbsen() {
@@ -1134,15 +1221,13 @@
                 async (position) => {
                     const userLat = position.coords.latitude;
                     const userLng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy; // Akurasi GPS dalam meter
+                    const accuracy = position.coords.accuracy;
 
-                    // Validasi Mock Location / Fake GPS (Jika akurasi terlalu mencurigakan atau mendeteksi flag palsu)
                     if (accuracy > 5000) {
                         showToast('Peringatan: Akurasi GPS terlalu rendah atau terindikasi Fake GPS!', 'error');
                         return;
                     }
 
-                    // Cek jarak terhadap seluruh basecamp terdaftar
                     let validBasecamp = null;
                     let minDistance = Infinity;
 
@@ -1161,13 +1246,11 @@
                         return;
                     }
 
-                    // Update informasi koordinat aktual pada UI Mobile
                     const coordDisplay = document.querySelector('#m-tab-absen .text-gold-400.font-medium');
                     if (coordDisplay) {
                         coordDisplay.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(6)}° N, ${userLng.toFixed(6)}° E`;
                     }
 
-                    // Update label badge basecamp aktif
                     const badgeEl = document.getElementById('mobile-badge-status');
                     if (badgeEl) {
                         badgeEl.innerText = `Basecamp: ${validBasecamp.name}`;
