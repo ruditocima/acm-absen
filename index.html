@@ -162,7 +162,6 @@
                     <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Verifikasi Perangkat:</span>
-                            <!-- Elemen ini akan diupdate secara dinamis oleh JavaScript -->
                             <span id="mobile-device-status" class="text-amber-400 font-semibold"><i class="fa-solid fa-spinner fa-spin"></i> Mendeteksi UUID...</span>
                         </div>
                         <div class="flex justify-between items-center text-xs">
@@ -176,7 +175,7 @@
                         <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
                         <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
-                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.434291° N, 101.466385° E</p>
+                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: Menunggu deteksi GPS...</p>
 
                         <div class="mt-6">
                             <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
@@ -192,7 +191,7 @@
 
                     <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
                         <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Informasi Lokasi Lapangan / Kantor:</p>
-                        <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar (Maksimal 15000 Meter).</p>
+                        <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar menggunakan GPS real-time.</p>
                     </div>
                 </div>
 
@@ -513,35 +512,28 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
-        // ----------------- HARDWARE DEVICE BINDING LOGIC (NEW) ----------------- //
-        let currentDeviceUUID = "PENDING"; // Akan diisi oleh Capacitor atau LocalStorage
+        // ----------------- HARDWARE DEVICE BINDING LOGIC ----------------- //
+        let currentDeviceUUID = "PENDING"; 
 
         async function initializeDeviceBinding() {
             try {
-                // Mengecek apakah aplikasi berjalan di dalam Capacitor Wrapper (Native Android/iOS)
                 if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Device) {
                     const info = await window.Capacitor.Plugins.Device.getId();
                     currentDeviceUUID = info.uuid;
-                    console.log("[Native Hybrid Mode] Terdeteksi Hardware UUID:", currentDeviceUUID);
                 } else {
                     throw new Error("Capacitor Native Plugin not found.");
                 }
             } catch (error) {
-                // Fallback Mode Web Browser: Menggunakan LocalStorage untuk menahan state ID
                 let localUUID = localStorage.getItem('hybrid_device_uuid');
                 if (!localUUID) {
-                    // Generate ID Acak berbasis Web sebagai simulasi fisik
                     localUUID = 'WEB-' + Math.random().toString(36).substring(2, 12).toUpperCase();
                     localStorage.setItem('hybrid_device_uuid', localUUID);
                 }
                 currentDeviceUUID = localUUID;
-                console.log("[Web Fallback Mode] Terdeteksi Local UUID:", currentDeviceUUID);
             }
 
-            // Memperbarui UI di template tanpa mengubah kode HTML bawaannya
             const deviceStatusEl = document.getElementById('mobile-device-status');
             if(deviceStatusEl) {
-                // Menampilkan 8 karakter pertama untuk kerapian
                 deviceStatusEl.innerHTML = `<i class="fa-solid fa-shield-check"></i> ID: ${currentDeviceUUID.substring(0,8)}...`;
                 deviceStatusEl.className = "text-emerald-400 font-semibold text-[11px]";
             }
@@ -560,7 +552,6 @@
         let generatedOTP = null;
         let otpExpiryTime = null;
 
-        // Toast Notification System
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             if (!container) return;
@@ -613,8 +604,6 @@
             { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
         ];
 
-        // Membiarkan data dummy bawaan untuk keperluan demo Anda.
-        // Data akun ini akan otomatis "Terikat" pada login pertama.
         let employees = [
             { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
             { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
@@ -662,30 +651,24 @@
 
             if(emp.status !== 'Approved') return showToast('Akun Anda masih berstatus Pending (Menunggu Approval Admin).', 'warning');
 
-            // Simulasi pengecekan password
             if (emp.password !== '••••••••') {
                 const hashedInput = await hashPassword(pass);
                 if (hashedInput !== emp.password) return showToast('Kombinasi Email dan Password salah!', 'error');
             }
 
-            // ======== IMPLEMENTASI SECURITY DEVICE BINDING ========
-            // Jika akun belum terikat perangkat keras apa pun, ikat secara permanen
             if (emp.deviceId === 'Unbound') {
                 emp.deviceId = currentDeviceUUID;
                 showToast(`Perangkat berhasil diikat ke akun ini (ID: ${currentDeviceUUID.substring(0,8)}).`, 'success');
-                renderEmployees(); // Update tabel admin
+                renderEmployees(); 
             } 
-            // Jika sudah terikat, pastikan UUID fisik saat ini cocok dengan database
             else if (emp.deviceId !== currentDeviceUUID) {
                 return showToast('SECURITY ALERT: Login Ditolak! Akun ini telah terikat pada perangkat lunak / HP fisik lain.', 'error');
             }
 
-            // Set sesi aktif setelah berhasil login dan verifikasi UUID selesai
             activeEmployeeSession = emp;
             document.getElementById('mobile-user-title').innerText = `Halo, ${emp.name}`;
             document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
             
-            // Bersihkan field form
             document.getElementById('login-email').value = '';
             document.getElementById('login-pass').value = '';
 
@@ -715,7 +698,6 @@
                 instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
             }
 
-            console.log(`[API GATEWAY SIMULATION] OTP untuk ${wa} adalah: ${generatedOTP}`);
             showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
             
             document.getElementById('reg-step-1').classList.add('hidden');
@@ -744,7 +726,7 @@
                 atasan: 'Budi Santoso',
                 password: hashedPassword,
                 status: 'Pending',
-                deviceId: 'Unbound' // Akan diikat ke UUID spesifik setelah Admin Approve dan pengguna Login pertama kalinya
+                deviceId: 'Unbound' 
             };
 
             employees.push(newEmp);
@@ -759,7 +741,6 @@
             toggleAuthMode('login');
         }
 
-        // ----------------- ADMIN MASTER APPROVE AKUN ----------------- //
         function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
@@ -806,7 +787,6 @@
             showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
         }
 
-        // ----------------- DASHBOARD STATS & REKAP ----------------- //
         function updateDashboardStats() {
             const elTotal = document.getElementById('stat-total-karyawan');
             const elTepat = document.getElementById('stat-tepat-waktu');
@@ -861,7 +841,6 @@
             showToast('Export Excel berhasil!', 'success');
         }
 
-        // ----------------- ROLE & EMPLOYEE MANAGEMENT ----------------- //
         function renderRoles() {
             const tbody = document.getElementById('role-tbody');
             if (!tbody) return;
@@ -915,7 +894,6 @@
                     ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Approved</span>' 
                     : `<button onclick="approveEmployeeAccount(${index})" class="px-2.5 py-1 bg-gold-500 text-slate-950 font-bold rounded hover:opacity-90">Approve Akun</button>`;
 
-                // Memperindah Tampilan UUID Binding pada tabel Admin
                 let displayDevice = emp.deviceId === 'Unbound' ? '<span class="text-rose-400">Belum Terikat</span>' : `<span class="text-emerald-400" title="${emp.deviceId}">Terikat (${emp.deviceId.substring(0,5)}...)</span>`;
 
                 tbody.innerHTML += `
@@ -982,11 +960,9 @@
             const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
 
             if (index === -1) {
-                // Karyawan baru yang ditambahkan Admin langsung berstatus Approved, tapi DeviceID menunggu login pertama
                 employees.push({ id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', deviceId: 'Unbound' });
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                // Preservasi Device ID saat edit
                 const currentDeviceId = employees[index].deviceId; 
                 employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password: finalPassword, deviceId: currentDeviceId };
                 showToast('Data karyawan diperbarui!', 'success');
@@ -1019,7 +995,6 @@
         }
         function deleteRole(idx) { roles.splice(idx, 1); renderRoles(); showToast('Role dihapus', 'success'); }
 
-        // Basecamp & Map
         let bcMap = null, bcLayerGroup = null;
         function initMap() {
             if (bcMap) return;
@@ -1056,7 +1031,6 @@
             showToast('Basecamp disimpan', 'success');
         }
 
-        // Mode & Navigation Switcher
         function switchMode(mode) {
             const viewMobile = document.getElementById('view-mobile');
             const viewDesktop = document.getElementById('view-desktop');
@@ -1117,7 +1091,7 @@
         }, 1000);
 
         window.addEventListener('DOMContentLoaded', () => {
-            initializeDeviceBinding(); // Panggil fungsi pendeteksi UUID saat aplikasi dimuat
+            initializeDeviceBinding(); 
             renderRoles();
             renderEmployees();
             renderRekap();
@@ -1126,26 +1100,104 @@
             updateDashboardStats();
         });
 
-        function handleAbsen() {
+        // ----------------- HAVERSINE FORMULA & GEOFENCING IMPLEMENTATION ----------------- //
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius bumi dalam meter
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // Jarak dalam meter
+        }
+
+        async function handleAbsen() {
             if (activeEmployeeSession.name === 'Tamu') {
                 showToast('Mohon Login terlebih dahulu sebelum melakukan Absensi.', 'error');
                 switchMobileTab('daftar');
                 return;
             }
 
-            showToast(`Absensi Terverifikasi Aman dengan ID Perangkat: ${currentDeviceUUID.substring(0,8)}...`, 'success');
-            const jamMasukEl = document.getElementById('mobile-jam-masuk');
-            if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
-            rekapList.unshift({
-                date: new Date().toISOString().split('T')[0],
-                name: activeEmployeeSession.name,
-                basecamp: 'Pekanbaru Pusat',
-                time: new Date().toTimeString().split(' ')[0] + ' WIB',
-                status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
-                late: '-'
-            });
-            renderRekap();
-            updateDashboardStats();
+            if (!navigator.geolocation) {
+                showToast('Browser atau perangkat Anda tidak mendukung Geolocation GPS.', 'error');
+                return;
+            }
+
+            showToast('Mendeteksi posisi GPS real-time...', 'warning');
+
+            navigator.geolocation.getCurrentPosition(
+                async (position) => {
+                    const userLat = position.coords.latitude;
+                    const userLng = position.coords.longitude;
+                    const accuracy = position.coords.accuracy; // Akurasi GPS dalam meter
+
+                    // Validasi Mock Location / Fake GPS (Jika akurasi terlalu mencurigakan atau mendeteksi flag palsu)
+                    if (accuracy > 5000) {
+                        showToast('Peringatan: Akurasi GPS terlalu rendah atau terindikasi Fake GPS!', 'error');
+                        return;
+                    }
+
+                    // Cek jarak terhadap seluruh basecamp terdaftar
+                    let validBasecamp = null;
+                    let minDistance = Infinity;
+
+                    for (let bc of basecamps) {
+                        const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                        if (distance <= bc.radius) {
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                validBasecamp = bc;
+                            }
+                        }
+                    }
+
+                    if (!validBasecamp) {
+                        showToast(`Absensi Ditolak! Anda berada di luar radius basecamp manapun (Jarak terdekat: ${Math.round(minDistance)}m).`, 'error');
+                        return;
+                    }
+
+                    // Update informasi koordinat aktual pada UI Mobile
+                    const coordDisplay = document.querySelector('#m-tab-absen .text-gold-400.font-medium');
+                    if (coordDisplay) {
+                        coordDisplay.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(6)}° N, ${userLng.toFixed(6)}° E`;
+                    }
+
+                    // Update label badge basecamp aktif
+                    const badgeEl = document.getElementById('mobile-badge-status');
+                    if (badgeEl) {
+                        badgeEl.innerText = `Basecamp: ${validBasecamp.name}`;
+                    }
+
+                    showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
+                    
+                    const jamMasukEl = document.getElementById('mobile-jam-masuk');
+                    if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
+                    
+                    rekapList.unshift({
+                        date: new Date().toISOString().split('T')[0],
+                        name: activeEmployeeSession.name,
+                        basecamp: validBasecamp.name,
+                        time: new Date().toTimeString().split(' ')[0] + ' WIB',
+                        status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
+                        late: '-'
+                    });
+                    renderRekap();
+                    updateDashboardStats();
+                },
+                (error) => {
+                    let errMessage = 'Gagal mengambil data lokasi GPS.';
+                    if (error.code === error.PERMISSION_DENIED) errMessage = 'Izin akses lokasi ditolak oleh pengguna.';
+                    else if (error.code === error.POSITION_UNAVAILABLE) errMessage = 'Informasi sinyal GPS tidak tersedia.';
+                    else if (error.code === error.TIMEOUT) errMessage = 'Waktu permintaan GPS habis (Timeout).';
+                    showToast(errMessage, 'error');
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
         }
     </script>
 </body>
