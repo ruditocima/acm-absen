@@ -1051,6 +1051,7 @@
                         <td class="p-3 font-bold text-white">${r.name}</td>
                         <td class="p-3 text-slate-300">${r.access}</td>
                         <td class="p-3 space-x-2">
+                            <button onclick="openEditRoleModal(${index})" class="text-gold-400 hover:underline">Edit</button>
                             <button onclick="deleteRole(${index})" class="text-rose-400 hover:underline">Hapus</button>
                         </td>
                     </tr>`;
@@ -1190,28 +1191,56 @@
             document.getElementById('inp-role-id').value = 'ROL-0' + (roles.length + 1);
             document.getElementById('inp-role-name').value = '';
             document.getElementById('inp-role-access').value = '';
+            document.getElementById('inp-role-id').disabled = false;
             document.getElementById('role-modal').classList.remove('hidden');
         }
 
-        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
+        function openEditRoleModal(index) {
+            const r = roles[index];
+            document.getElementById('role-edit-index').value = index;
+            document.getElementById('role-modal-title').innerText = 'Edit Role';
+            document.getElementById('inp-role-id').value = r.id;
+            document.getElementById('inp-role-id').disabled = true; // Kode role utama sebagai identifier tidak diubah
+            document.getElementById('inp-role-name').value = r.name;
+            document.getElementById('inp-role-access').value = r.access;
+            document.getElementById('role-modal').classList.remove('hidden');
+        }
+
+        function closeRoleModal() { 
+            document.getElementById('role-modal').classList.add('hidden'); 
+        }
 
         async function saveRole() {
+            const index = parseInt(document.getElementById('role-edit-index').value);
             const roleId = document.getElementById('inp-role-id').value.trim() || ('ROL-0' + (roles.length + 1));
             const name = document.getElementById('inp-role-name').value.trim();
             const access = document.getElementById('inp-role-access').value.trim();
+            
             if (!name) {
                 showToast('Nama role wajib diisi!', 'error');
                 return;
             }
-            const newRole = { id: roleId, name, access };
-            const { error } = await supabaseClient.from('roles').insert([newRole]);
-            if (error) {
-                showToast('Gagal menambahkan role: ' + error.message, 'error');
-                return;
+
+            if (index === -1) {
+                const newRole = { id: roleId, name, access };
+                const { error } = await supabaseClient.from('roles').insert([newRole]);
+                if (error) {
+                    showToast('Gagal menambahkan role: ' + error.message, 'error');
+                    return;
+                }
+                showToast('Role berhasil ditambahkan', 'success');
+            } else {
+                const targetRole = roles[index];
+                const { error } = await supabaseClient.from('roles').update({ name, access }).eq('id', targetRole.id);
+                if (error) {
+                    showToast('Gagal memperbarui role: ' + error.message, 'error');
+                    return;
+                }
+                showToast('Role berhasil diperbarui', 'success');
             }
+
             closeRoleModal();
             await fetchAllDataFromSupabase();
-            showToast('Role berhasil ditambahkan', 'success');
         }
 
         async function deleteRole(idx) { 
