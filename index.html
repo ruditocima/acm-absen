@@ -561,7 +561,7 @@
         // ----------------- SUPABASE CONFIGURATION ----------------- //
         const SUPABASE_URL = 'https://slzsklcrjpyeosuznvgy.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsenNrbGNyanB5ZW9zdXpudmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjE3NDYsImV4cCI6MjEwMjE5Nzc0Nn0.sJqD8hhiS-qGNEpQBcNiUTLCazMaFHdX61V6Ehh5djw';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         let currentDeviceUUID = "PENDING"; 
 
@@ -659,11 +659,11 @@
         async function fetchAllDataFromSupabase() {
             try {
                 // Fetch Roles
-                const { data: rData } = await supabase.from('roles').select('*');
+                const { data: rData } = await supabaseClient.from('roles').select('*');
                 if (rData && rData.length > 0) roles = rData;
 
                 // Fetch Employees
-                const { data: eData } = await supabase.from('employees').select('*');
+                const { data: eData } = await supabaseClient.from('employees').select('*');
                 if (eData && eData.length > 0) {
                     employees = eData.map(e => ({
                         id: e.id,
@@ -678,15 +678,15 @@
                 }
 
                 // Fetch Basecamps
-                const { data: bData } = await supabase.from('basecamps').select('*');
+                const { data: bData } = await supabaseClient.from('basecamps').select('*');
                 if (bData && bData.length > 0) basecamps = bData;
 
                 // Fetch Rekap
-                const { data: rkData } = await supabase.from('rekap_list').select('*');
+                const { data: rkData } = await supabaseClient.from('rekap_list').select('*');
                 if (rkData) rekapList = rkData;
 
                 // Fetch Izin
-                const { data: iData } = await supabase.from('izin_list').select('*');
+                const { data: iData } = await supabaseClient.from('izin_list').select('*');
                 if (iData) izinList = iData;
 
                 renderRoles();
@@ -738,7 +738,7 @@
 
             if (emp.deviceId === 'Unbound') {
                 emp.deviceId = currentDeviceUUID;
-                await supabase.from('employees').update({ device_id: currentDeviceUUID }).eq('id', emp.id);
+                await supabaseClient.from('employees').update({ device_id: currentDeviceUUID }).eq('id', emp.id);
                 showToast(`Perangkat berhasil diikat ke akun ini (ID: ${currentDeviceUUID.substring(0,8)}).`, 'success');
                 renderEmployees(); 
             } 
@@ -810,7 +810,7 @@
                 device_id: 'Unbound' 
             };
 
-            const { error } = await supabase.from('employees').insert([newEmp]);
+            const { error } = await supabaseClient.from('employees').insert([newEmp]);
             if (error) {
                 showToast('Gagal mendaftarkan akun ke database: ' + error.message, 'error');
                 return;
@@ -829,7 +829,7 @@
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
-            await supabase.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
+            await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
             renderEmployees();
             updateDashboardStats();
             showToast(`Akun disetujui!`, 'success');
@@ -842,7 +842,7 @@
             }
             showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, async () => {
                 employees[index].deviceId = 'Unbound';
-                await supabase.from('employees').update({ device_id: 'Unbound' }).eq('id', employees[index].id);
+                await supabaseClient.from('employees').update({ device_id: 'Unbound' }).eq('id', employees[index].id);
                 renderEmployees();
                 showToast(`Perangkat ${employees[index].name} berhasil di-reset menjadi Unbound.`, 'success');
             }, false);
@@ -879,7 +879,7 @@
                 status: 'Pending'
             };
 
-            const { error } = await supabase.from('izin_list').insert([newIzin]);
+            const { error } = await supabaseClient.from('izin_list').insert([newIzin]);
             if (error) {
                 showToast('Gagal mengirim izin ke database: ' + error.message, 'error');
                 return;
@@ -971,7 +971,7 @@
 
         async function handleIzinAction(index, action) {
             izinList[index].status = action;
-            await supabase.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
+            await supabaseClient.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
             renderAdminIzin();
             renderMobileMyHistory();
             showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
@@ -1011,7 +1011,7 @@
 
         function resetRekapData() {
             showConfirm('Reset Rekap Data', 'Hapus seluruh riwayat rekap absensi?', async () => {
-                await supabase.from('rekap_list').delete().neq('id', 0);
+                await supabaseClient.from('rekap_list').delete().neq('id', 0);
                 rekapList = [];
                 renderRekap();
                 updateDashboardStats();
@@ -1153,11 +1153,11 @@
 
             if (index === -1) {
                 const newEmp = { id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
-                await supabase.from('employees').insert([newEmp]);
+                await supabaseClient.from('employees').insert([newEmp]);
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
                 const currentDeviceId = employees[index].deviceId; 
-                await supabase.from('employees').update({ name, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
+                await supabaseClient.from('employees').update({ name, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
@@ -1167,7 +1167,7 @@
 
         function deleteEmployee(index) {
             showConfirm('Hapus Karyawan', `Hapus ${employees[index].name}?`, async () => {
-                await supabase.from('employees').delete().eq('id', employees[index].id);
+                await supabaseClient.from('employees').delete().eq('id', employees[index].id);
                 await fetchAllDataFromSupabase();
                 showToast('Karyawan dihapus.', 'success');
             }, true);
@@ -1180,13 +1180,13 @@
             const access = document.getElementById('inp-role-access').value.trim();
             if (!name) return;
             const newRole = { id: 'ROL-0' + (roles.length + 1), name, access };
-            await supabase.from('roles').insert([newRole]);
+            await supabaseClient.from('roles').insert([newRole]);
             closeRoleModal();
             await fetchAllDataFromSupabase();
             showToast('Role berhasil ditambahkan', 'success');
         }
         async function deleteRole(idx) { 
-            await supabase.from('roles').delete().eq('id', roles[idx].id);
+            await supabaseClient.from('roles').delete().eq('id', roles[idx].id);
             await fetchAllDataFromSupabase(); 
             showToast('Role dihapus', 'success'); 
         }
@@ -1282,11 +1282,11 @@
 
             if (index === -1) {
                 const newBc = { id: Date.now(), name, lat, lng, radius };
-                await supabase.from('basecamps').insert([newBc]);
+                await supabaseClient.from('basecamps').insert([newBc]);
                 showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
                 const bcId = basecamps[index].id;
-                await supabase.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
+                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
                 showToast('Basecamp berhasil diperbarui!', 'success');
             }
 
@@ -1301,7 +1301,7 @@
                 return;
             }
             showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
-                await supabase.from('basecamps').delete().eq('id', basecamps[index].id);
+                await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
                 await fetchAllDataFromSupabase();
                 if (bcMap) bcMap.invalidateSize();
                 showToast('Basecamp berhasil dihapus.', 'success');
@@ -1450,7 +1450,7 @@
                         late: '-'
                     };
 
-                    await supabase.from('rekap_list').insert([newRekap]);
+                    await supabaseClient.from('rekap_list').insert([newRekap]);
                     await fetchAllDataFromSupabase();
 
                     showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
