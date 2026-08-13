@@ -162,7 +162,8 @@
                     <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Verifikasi Perangkat:</span>
-                            <span id="mobile-device-status" class="text-emerald-400 font-semibold"><i class="fa-solid fa-shield-check"></i> Terikat (ID: DEV-9982)</span>
+                            <!-- Elemen ini akan diupdate secara dinamis oleh JavaScript -->
+                            <span id="mobile-device-status" class="text-amber-400 font-semibold"><i class="fa-solid fa-spinner fa-spin"></i> Mendeteksi UUID...</span>
                         </div>
                         <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-400">Anti-Fake GPS & Anomali:</span>
@@ -512,6 +513,40 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // ----------------- HARDWARE DEVICE BINDING LOGIC (NEW) ----------------- //
+        let currentDeviceUUID = "PENDING"; // Akan diisi oleh Capacitor atau LocalStorage
+
+        async function initializeDeviceBinding() {
+            try {
+                // Mengecek apakah aplikasi berjalan di dalam Capacitor Wrapper (Native Android/iOS)
+                if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Device) {
+                    const info = await window.Capacitor.Plugins.Device.getId();
+                    currentDeviceUUID = info.uuid;
+                    console.log("[Native Hybrid Mode] Terdeteksi Hardware UUID:", currentDeviceUUID);
+                } else {
+                    throw new Error("Capacitor Native Plugin not found.");
+                }
+            } catch (error) {
+                // Fallback Mode Web Browser: Menggunakan LocalStorage untuk menahan state ID
+                let localUUID = localStorage.getItem('hybrid_device_uuid');
+                if (!localUUID) {
+                    // Generate ID Acak berbasis Web sebagai simulasi fisik
+                    localUUID = 'WEB-' + Math.random().toString(36).substring(2, 12).toUpperCase();
+                    localStorage.setItem('hybrid_device_uuid', localUUID);
+                }
+                currentDeviceUUID = localUUID;
+                console.log("[Web Fallback Mode] Terdeteksi Local UUID:", currentDeviceUUID);
+            }
+
+            // Memperbarui UI di template tanpa mengubah kode HTML bawaannya
+            const deviceStatusEl = document.getElementById('mobile-device-status');
+            if(deviceStatusEl) {
+                // Menampilkan 8 karakter pertama untuk kerapian
+                deviceStatusEl.innerHTML = `<i class="fa-solid fa-shield-check"></i> ID: ${currentDeviceUUID.substring(0,8)}...`;
+                deviceStatusEl.className = "text-emerald-400 font-semibold text-[11px]";
+            }
+        }
+
         // ----------------- SECURITY FUNCTIONS ----------------- //
         async function hashPassword(message) {
             if (message === '••••••••') return message;
@@ -578,10 +613,12 @@
             { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
         ];
 
+        // Membiarkan data dummy bawaan untuk keperluan demo Anda.
+        // Data akun ini akan otomatis "Terikat" pada login pertama.
         let employees = [
-            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-9982 (Locked)' },
-            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'DEV-1022 (Locked)' },
-            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-4411 (Locked)' }
+            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
+            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
+            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' }
         ];
 
         let basecamps = [
@@ -601,7 +638,7 @@
         let activeEmployeeSession = { name: 'Tamu' };
         let tempRegData = null;
 
-        // ----------------- LOGIN & AUTHENTICATION TOGGLE (NEW) ----------------- //
+        // ----------------- LOGIN & AUTHENTICATION TOGGLE ----------------- //
         function toggleAuthMode(mode) {
             if (mode === 'login') {
                 document.getElementById('login-step').classList.remove('hidden');
@@ -625,13 +662,25 @@
 
             if(emp.status !== 'Approved') return showToast('Akun Anda masih berstatus Pending (Menunggu Approval Admin).', 'warning');
 
-            // Simulasi pengecekan password (Bypass untuk akun dummy lama berpassword '••••••••')
+            // Simulasi pengecekan password
             if (emp.password !== '••••••••') {
                 const hashedInput = await hashPassword(pass);
                 if (hashedInput !== emp.password) return showToast('Kombinasi Email dan Password salah!', 'error');
             }
 
-            // Set sesi aktif setelah berhasil login
+            // ======== IMPLEMENTASI SECURITY DEVICE BINDING ========
+            // Jika akun belum terikat perangkat keras apa pun, ikat secara permanen
+            if (emp.deviceId === 'Unbound') {
+                emp.deviceId = currentDeviceUUID;
+                showToast(`Perangkat berhasil diikat ke akun ini (ID: ${currentDeviceUUID.substring(0,8)}).`, 'success');
+                renderEmployees(); // Update tabel admin
+            } 
+            // Jika sudah terikat, pastikan UUID fisik saat ini cocok dengan database
+            else if (emp.deviceId !== currentDeviceUUID) {
+                return showToast('SECURITY ALERT: Login Ditolak! Akun ini telah terikat pada perangkat lunak / HP fisik lain.', 'error');
+            }
+
+            // Set sesi aktif setelah berhasil login dan verifikasi UUID selesai
             activeEmployeeSession = emp;
             document.getElementById('mobile-user-title').innerText = `Halo, ${emp.name}`;
             document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
@@ -641,8 +690,6 @@
             document.getElementById('login-pass').value = '';
 
             showToast('Login berhasil! Mengarahkan ke panel absensi...', 'success');
-            
-            // Pindahkan tab otomatis ke halaman Absen
             switchMobileTab('absen');
         }
 
@@ -661,7 +708,7 @@
             tempRegData = { email, nama, wa, pass };
             
             generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-            otpExpiryTime = Date.now() + (3 * 60 * 1000); // 3 menit
+            otpExpiryTime = Date.now() + (3 * 60 * 1000); 
 
             const instElem = document.getElementById('otp-instruction-text');
             if (instElem) {
@@ -683,18 +730,9 @@
         async function verifyOTP() {
             const otp = document.getElementById('reg-otp-input').value.trim();
             
-            if (!generatedOTP) {
-                showToast('Sesi OTP tidak valid, silakan minta kode ulang.', 'error');
-                return;
-            }
-            if (Date.now() > otpExpiryTime) {
-                showToast('Kode OTP sudah kedaluwarsa! Silakan minta ulang.', 'error');
-                return;
-            }
-            if (otp !== generatedOTP) {
-                showToast('Kode OTP salah! Pastikan Anda memasukkan kode yang benar.', 'error');
-                return;
-            }
+            if (!generatedOTP) { return showToast('Sesi OTP tidak valid.', 'error'); }
+            if (Date.now() > otpExpiryTime) { return showToast('Kode OTP sudah kedaluwarsa!', 'error'); }
+            if (otp !== generatedOTP) { return showToast('Kode OTP salah!', 'error'); }
 
             const hashedPassword = await hashPassword(tempRegData.pass);
 
@@ -706,20 +744,18 @@
                 atasan: 'Budi Santoso',
                 password: hashedPassword,
                 status: 'Pending',
-                deviceId: 'DEV-' + Math.floor(1000 + Math.random() * 9000) + ' (Unbound)'
+                deviceId: 'Unbound' // Akan diikat ke UUID spesifik setelah Admin Approve dan pengguna Login pertama kalinya
             };
 
             employees.push(newEmp);
             renderEmployees();
             updateDashboardStats();
 
-            showToast('Registrasi berhasil! Akun berstatus Pending menunggu persetujuan Admin.', 'success');
+            showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
             
             generatedOTP = null;
             otpExpiryTime = null;
             document.getElementById('reg-otp-input').value = '';
-            
-            // Kembalikan ke tampilan Login setelah registrasi sukses
             toggleAuthMode('login');
         }
 
@@ -729,7 +765,7 @@
             emp.status = 'Approved';
             renderEmployees();
             updateDashboardStats();
-            showToast(`[Simulasi Notifikasi Gmail terkirim ke ${emp.id}] Akun Anda telah disetujui!`, 'success');
+            showToast(`Akun disetujui!`, 'success');
         }
 
         function renderAdminIzin() {
@@ -767,10 +803,10 @@
         function handleIzinAction(index, action) {
             izinList[index].status = action;
             renderAdminIzin();
-            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'} oleh atasan bersangkutan.`, 'success');
+            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
         }
 
-        // ----------------- DASHBOARD STATS ----------------- //
+        // ----------------- DASHBOARD STATS & REKAP ----------------- //
         function updateDashboardStats() {
             const elTotal = document.getElementById('stat-total-karyawan');
             const elTepat = document.getElementById('stat-tepat-waktu');
@@ -837,7 +873,6 @@
                         <td class="p-3 font-bold text-white">${r.name}</td>
                         <td class="p-3 text-slate-300">${r.access}</td>
                         <td class="p-3 space-x-2">
-                            <button onclick="openEditRoleModal(${index})" class="text-gold-400 hover:underline">Edit</button>
                             <button onclick="deleteRole(${index})" class="text-rose-400 hover:underline">Hapus</button>
                         </td>
                     </tr>`;
@@ -880,10 +915,16 @@
                     ? '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Approved</span>' 
                     : `<button onclick="approveEmployeeAccount(${index})" class="px-2.5 py-1 bg-gold-500 text-slate-950 font-bold rounded hover:opacity-90">Approve Akun</button>`;
 
+                // Memperindah Tampilan UUID Binding pada tabel Admin
+                let displayDevice = emp.deviceId === 'Unbound' ? '<span class="text-rose-400">Belum Terikat</span>' : `<span class="text-emerald-400" title="${emp.deviceId}">Terikat (${emp.deviceId.substring(0,5)}...)</span>`;
+
                 tbody.innerHTML += `
                     <tr>
                         <td class="p-3 font-mono text-slate-400">${emp.id}</td>
-                        <td class="p-3 font-medium text-white">${emp.name}</td>
+                        <td class="p-3 font-medium text-white">
+                            ${emp.name}
+                            <div class="text-[9px] mt-0.5 font-mono text-slate-500">${displayDevice}</div>
+                        </td>
                         <td class="p-3 text-gold-400 font-mono">${emp.whatsapp}</td>
                         <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
                         <td class="p-3 text-slate-300">${emp.atasan || '-'}</td>
@@ -918,7 +959,7 @@
             document.getElementById('inp-id').value = emp.id;
             document.getElementById('inp-name').value = emp.name;
             document.getElementById('inp-wa').value = emp.whatsapp;
-            document.getElementById('inp-password').value = '••••••••'; // Hidden in edit view
+            document.getElementById('inp-password').value = '••••••••'; 
             document.getElementById('employee-modal').classList.remove('hidden');
         }
 
@@ -941,10 +982,13 @@
             const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
 
             if (index === -1) {
-                employees.push({ id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', deviceId: 'DEV-9999' });
-                showToast('Karyawan baru berhasil ditambahkan (Password diamankan)!', 'success');
+                // Karyawan baru yang ditambahkan Admin langsung berstatus Approved, tapi DeviceID menunggu login pertama
+                employees.push({ id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', deviceId: 'Unbound' });
+                showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password: finalPassword };
+                // Preservasi Device ID saat edit
+                const currentDeviceId = employees[index].deviceId; 
+                employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password: finalPassword, deviceId: currentDeviceId };
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
@@ -1073,6 +1117,7 @@
         }, 1000);
 
         window.addEventListener('DOMContentLoaded', () => {
+            initializeDeviceBinding(); // Panggil fungsi pendeteksi UUID saat aplikasi dimuat
             renderRoles();
             renderEmployees();
             renderRekap();
@@ -1088,7 +1133,7 @@
                 return;
             }
 
-            showToast('Absensi Terverifikasi Aman di Basecamp Pusat!', 'success');
+            showToast(`Absensi Terverifikasi Aman dengan ID Perangkat: ${currentDeviceUUID.substring(0,8)}...`, 'success');
             const jamMasukEl = document.getElementById('mobile-jam-masuk');
             if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
             rekapList.unshift({
