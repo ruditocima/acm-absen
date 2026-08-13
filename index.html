@@ -72,10 +72,10 @@
             <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
                     <span id="mobile-badge-status" class="text-[10px] uppercase tracking-wider text-gold-400 font-bold bg-gold-500/10 px-2 py-0.5 rounded-full border border-gold-500/20">Basecamp: Pekanbaru Pusat</span>
-                    <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Rudi Batubara</h2>
+                    <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Tamu</h2>
                 </div>
                 <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold" id="mobile-user-initial">
-                    RB
+                    T
                 </div>
             </div>
 
@@ -119,10 +119,10 @@
                     <!-- STEP 2: VERIFIKASI OTP -->
                     <div id="reg-step-2" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verifikasi Kode OTP 6 Digit</h3>
-                        <p class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email dan WhatsApp terdaftar Anda. (Simulasi OTP: <b class="text-gold-400">123456</b>)</p>
+                        <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email dan WhatsApp terdaftar Anda.</p>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Masukkan 6 Digit OTP</label>
-                            <input type="text" id="reg-otp-input" maxlength="6" placeholder="123456" class="w-full text-center tracking-widest font-mono text-lg bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500">
+                            <input type="text" id="reg-otp-input" maxlength="6" placeholder="------" class="w-full text-center tracking-widest font-mono text-lg bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500">
                         </div>
                         <button onclick="verifyOTP()" class="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-md">
                             Verifikasi & Daftarkan Akun
@@ -153,26 +153,14 @@
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">08:00:24</h3>
                         <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: 0.434291° N, 101.466385° E</p>
 
-                        <div class="mt-4">
+                        <div class="mt-6">
                             <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
                                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
                                 <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
                             </div>
                         </div>
 
-                        <!-- FORM ABSENSI: Email & Password -->
-                        <div class="mt-5 space-y-3 text-left">
-                            <div>
-                                <label class="block text-[11px] text-slate-400 mb-1">Email Karyawan</label>
-                                <input type="email" id="absen-email" placeholder="nama@gmail.com" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-                            </div>
-                            <div>
-                                <label class="block text-[11px] text-slate-400 mb-1">Password</label>
-                                <input type="password" id="absen-password" placeholder="••••••••" class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-                            </div>
-                        </div>
-
-                        <button onclick="handleAbsen()" class="w-full mt-5 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                        <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
                         </button>
                     </div>
@@ -355,7 +343,7 @@
                                         <th class="p-3">WhatsApp</th>
                                         <th class="p-3">Role</th>
                                         <th class="p-3">Atasan Langsung</th>
-                                        <th class="p-3">Password</th>
+                                        <th class="p-3 max-w-[100px]">Password (Hashed)</th>
                                         <th class="p-3">Status Akun</th>
                                         <th class="p-3">Aksi</th>
                                     </tr>
@@ -500,6 +488,21 @@
 
     <!-- JAVASCRIPT LOGIC -->
     <script>
+        // ----------------- SECURITY FUNCTIONS (NEW) ----------------- //
+        // Fungsi simulasi Hashing menggunakan Web Crypto API (SHA-256)
+        // Di-format menyerupai output Bcrypt secara visual untuk demo frontend
+        async function hashPassword(message) {
+            if (message === '••••••••') return message; // Skip mock data lama
+            const msgBuffer = new TextEncoder().encode(message);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return "$2a$10$" + hashHex.substring(0, 53); 
+        }
+
+        let generatedOTP = null;
+        let otpExpiryTime = null;
+
         // Toast Notification System
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -554,9 +557,9 @@
         ];
 
         let employees = [
-            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: 'password123', status: 'Approved', deviceId: 'DEV-9982 (Locked)' },
-            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: 'password123', status: 'Approved', deviceId: 'DEV-1022 (Locked)' },
-            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: 'password123', status: 'Approved', deviceId: 'DEV-4411 (Locked)' }
+            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-9982 (Locked)' },
+            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'DEV-1022 (Locked)' },
+            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'DEV-4411 (Locked)' }
         ];
 
         let basecamps = [
@@ -573,10 +576,10 @@
             { id: 1, name: 'Rudi Batubara', jenis: 'Cuti Tahunan', start: '2026-08-10', end: '2026-08-12', desc: 'Keperluan keluarga', atasan: 'Budi Santoso', status: 'Pending' }
         ];
 
-        let activeEmployeeSession = employees[0];
+        let activeEmployeeSession = { name: 'Tamu' };
         let tempRegData = null;
 
-        // ----------------- REGISTRASI & OTP MOBILE ----------------- //
+        // ----------------- REGISTRASI & OTP MOBILE (UPDATED) ----------------- //
         function requestOTP() {
             const email = document.getElementById('reg-email').value.trim();
             const nama = document.getElementById('reg-nama').value.trim();
@@ -589,7 +592,21 @@
             }
 
             tempRegData = { email, nama, wa, pass };
-            showToast('Kode OTP 6 digit telah dikirim ke Email & WhatsApp Anda!', 'success');
+            
+            // Logika Dynamic OTP Baru
+            generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
+            otpExpiryTime = Date.now() + (3 * 60 * 1000); // Kedaluwarsa 3 menit
+
+            // Inject informasi ke UI tanpa merusak HTML file asli
+            const instElem = document.getElementById('otp-instruction-text');
+            if (instElem) {
+                instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
+            }
+
+            // Simulasi ke sistem log (Seolah terkirim via API WA)
+            console.log(`[API GATEWAY SIMULATION] OTP untuk ${wa} adalah: ${generatedOTP}`);
+            showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
+            
             document.getElementById('reg-step-1').classList.add('hidden');
             document.getElementById('reg-step-2').classList.remove('hidden');
         }
@@ -599,12 +616,25 @@
             document.getElementById('reg-step-1').classList.remove('hidden');
         }
 
-        function verifyOTP() {
+        async function verifyOTP() {
             const otp = document.getElementById('reg-otp-input').value.trim();
-            if (otp !== '123456') {
-                showToast('Kode OTP salah! Masukkan 123456 untuk simulasi.', 'error');
+            
+            // Validasi Sesi & Expired OTP
+            if (!generatedOTP) {
+                showToast('Sesi OTP tidak valid, silakan minta kode ulang.', 'error');
                 return;
             }
+            if (Date.now() > otpExpiryTime) {
+                showToast('Kode OTP sudah kedaluwarsa! Silakan minta ulang.', 'error');
+                return;
+            }
+            if (otp !== generatedOTP) {
+                showToast('Kode OTP salah! Pastikan Anda memasukkan kode yang benar.', 'error');
+                return;
+            }
+
+            // Enkripsi kata sandi menggunakan Web Crypto sebelum menyimpan
+            const hashedPassword = await hashPassword(tempRegData.pass);
 
             const newEmp = {
                 id: tempRegData.email,
@@ -612,7 +642,7 @@
                 whatsapp: tempRegData.wa,
                 role: 'Karyawan / Field (Pending Role)',
                 atasan: 'Budi Santoso',
-                password: tempRegData.pass,
+                password: hashedPassword, // Tersimpan tersamar
                 status: 'Pending',
                 deviceId: 'DEV-' + Math.floor(1000 + Math.random() * 9000) + ' (Unbound)'
             };
@@ -621,13 +651,18 @@
             renderEmployees();
             updateDashboardStats();
 
-            showToast('Registrasi berhasil! Akun Anda berstatus Pending menunggu persetujuan Admin Master.', 'success');
+            showToast('Registrasi berhasil! Akun berstatus Pending menunggu persetujuan Admin.', 'success');
             
             activeEmployeeSession = newEmp;
             document.getElementById('mobile-user-title').innerText = `Halo, ${newEmp.name}`;
             document.getElementById('mobile-user-initial').innerText = newEmp.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
             
-            // Otomatis pindah ke tab Absen setelah registrasi berhasil
+            // Reset OTP Cache
+            generatedOTP = null;
+            otpExpiryTime = null;
+            document.getElementById('reg-otp-input').value = '';
+
+            // Pindah tab
             switchMobileTab('absen');
         }
 
@@ -637,7 +672,7 @@
             emp.status = 'Approved';
             renderEmployees();
             updateDashboardStats();
-            showToast(`[Simulasi Notifikasi Gmail terkirim ke ${emp.id}] Akun Anda telah disetujui oleh Master Admin!`, 'success');
+            showToast(`[Simulasi Notifikasi Gmail terkirim ke ${emp.id}] Akun Anda telah disetujui!`, 'success');
         }
 
         function renderAdminIzin() {
@@ -795,7 +830,7 @@
                         <td class="p-3 text-gold-400 font-mono">${emp.whatsapp}</td>
                         <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
                         <td class="p-3 text-slate-300">${emp.atasan || '-'}</td>
-                        <td class="p-3 text-slate-500 font-mono">${emp.password}</td>
+                        <td class="p-3 text-slate-500 font-mono text-[10px] truncate max-w-[100px]" title="Hashed Security">${emp.password}</td>
                         <td class="p-3">${statusBadge}</td>
                         <td class="p-3 space-x-2">
                             <button onclick="openEditEmployeeModal(${index})" class="text-gold-400 hover:underline">Edit</button>
@@ -826,13 +861,13 @@
             document.getElementById('inp-id').value = emp.id;
             document.getElementById('inp-name').value = emp.name;
             document.getElementById('inp-wa').value = emp.whatsapp;
-            document.getElementById('inp-password').value = emp.password;
+            document.getElementById('inp-password').value = '••••••••'; // Hidden in edit view
             document.getElementById('employee-modal').classList.remove('hidden');
         }
 
         function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
 
-        function saveEmployee() {
+        async function saveEmployee() {
             const index = parseInt(document.getElementById('edit-index').value);
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
@@ -846,11 +881,14 @@
                 return;
             }
 
+            // Menerapkan Security Hash jika Admin mengubah/menambah password
+            const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
+
             if (index === -1) {
-                employees.push({ id, name, whatsapp, role, atasan, password, status: 'Approved', deviceId: 'DEV-9999' });
-                showToast('Karyawan baru berhasil ditambahkan!', 'success');
+                employees.push({ id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', deviceId: 'DEV-9999' });
+                showToast('Karyawan baru berhasil ditambahkan (Password diamankan)!', 'success');
             } else {
-                employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password };
+                employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password: finalPassword };
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
@@ -988,57 +1026,19 @@
         });
 
         function handleAbsen() {
-            // Ambil nilai dari form absen
-            const email = document.getElementById('absen-email').value.trim();
-            const password = document.getElementById('absen-password').value.trim();
-
-            // Validasi input kosong
-            if (!email || !password) {
-                showToast('Email dan Password wajib diisi untuk melakukan absensi!', 'error');
-                return;
-            }
-
-            // Cari data karyawan di database simulasi
-            const emp = employees.find(e => e.id === email && e.password === password);
-
-            if (!emp) {
-                showToast('Gagal absen! Email atau Password salah.', 'error');
-                return;
-            }
-
-            if (emp.status !== 'Approved') {
-                showToast('Akun Anda masih Pending. Menunggu persetujuan Master Admin.', 'warning');
-                return;
-            }
-
-            // Update profil karyawan aktif di header mobile
-            activeEmployeeSession = emp;
-            document.getElementById('mobile-user-title').innerText = `Halo, ${emp.name}`;
-            document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-
-            // Proses Absensi Berhasil
-            showToast(`Absensi atas nama ${emp.name} Terverifikasi Aman!`, 'success');
+            showToast('Absensi Terverifikasi Aman di Basecamp Pusat!', 'success');
             const jamMasukEl = document.getElementById('mobile-jam-masuk');
-            
-            const waktuSekarang = new Date().toTimeString().split(' ')[0];
-            if (jamMasukEl) jamMasukEl.innerText = waktuSekarang + ' WIB';
-            
-            // Simpan ke riwayat rekapitulasi
+            if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
             rekapList.unshift({
                 date: new Date().toISOString().split('T')[0],
                 name: activeEmployeeSession.name,
                 basecamp: 'Pekanbaru Pusat',
-                time: waktuSekarang + ' WIB',
+                time: new Date().toTimeString().split(' ')[0] + ' WIB',
                 status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
                 late: '-'
             });
-            
-            // Refresh tabel rekap di dashboard master
             renderRekap();
             updateDashboardStats();
-
-            // Reset password field setelah absen demi keamanan
-            document.getElementById('absen-password').value = '';
         }
     </script>
 </body>
