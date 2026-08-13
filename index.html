@@ -18,6 +18,9 @@
     <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
+    <!-- SUPABASE JS CLIENT -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -189,7 +192,7 @@
                         </button>
                     </div>
 
-                    <!-- TAMBAHAN FITUR 2: FORM PENGAJUAN IZIN DI HP -->
+                    <!-- FORM PENGAJUAN IZIN DI HP -->
                     <div class="glass-card p-5 rounded-3xl space-y-3">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
                             <i class="fa-solid fa-file-lines"></i> Form Pengajuan Izin
@@ -222,7 +225,7 @@
                         </button>
                     </div>
 
-                    <!-- TAMBAHAN FITUR 2: RIWAYAT SAYA DI HP -->
+                    <!-- RIWAYAT SAYA DI HP -->
                     <div class="glass-card p-5 rounded-3xl space-y-3">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
                             <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Saya (Absen & Izin)
@@ -298,7 +301,7 @@
                 <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center z-20 shadow-sm relative">
                     <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
                     <div class="flex items-center gap-4 text-xs">
-                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online</span>
+                        <span class="text-slate-400"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase)</span>
                         <div class="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white font-bold">AD</div>
                     </div>
                 </header>
@@ -553,9 +556,13 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT LOGIC -->
+    <!-- JAVASCRIPT LOGIC WITH SUPABASE INTEGRATION -->
     <script>
-        // ----------------- HARDWARE DEVICE BINDING LOGIC ----------------- //
+        // ----------------- SUPABASE CONFIGURATION ----------------- //
+        const SUPABASE_URL = 'https://slzsklcrjpyeosuznvgy.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNsenNrbGNyanB5ZW9zdXpudmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjE3NDYsImV4cCI6MjEwMjE5Nzc0Nn0.sJqD8hhiS-qGNEpQBcNiUTLCazMaFHdX61V6Ehh5djw';
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
         let currentDeviceUUID = "PENDING"; 
 
         async function initializeDeviceBinding() {
@@ -582,7 +589,6 @@
             }
         }
 
-        // ----------------- SECURITY FUNCTIONS ----------------- //
         async function hashPassword(message) {
             if (message === '••••••••') return message;
             const msgBuffer = new TextEncoder().encode(message);
@@ -640,37 +646,61 @@
             closeConfirmModal();
         });
 
-        // ----------------- DATA STATE ----------------- //
-        let roles = [
-            { id: 'ROL-01', name: 'Master Admin', access: 'Semua Akses Modul' },
-            { id: 'ROL-02', name: 'Supervisor Field', access: 'Dashboard, Rekap, Izin' },
-            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Absensi, Riwayat Saya' }
-        ];
-
-        let employees = [
-            { id: 'rudi.batubara@gmail.com', name: 'Rudi Batubara', whatsapp: '081234567890', role: 'Master Admin', atasan: '-', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
-            { id: 'budi.santoso@gmail.com', name: 'Budi Santoso', whatsapp: '081298765432', role: 'Supervisor Field', atasan: 'Rudi Batubara', password: '••••••••', status: 'Approved', deviceId: 'Unbound' },
-            { id: 'siti.aminah@gmail.com', name: 'Siti Aminah', whatsapp: '081311223344', role: 'Karyawan / Field', atasan: 'Budi Santoso', password: '••••••••', status: 'Approved', deviceId: 'Unbound' }
-        ];
-
-        let basecamps = [
-            { id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 15000 },
-            { id: 2, name: 'Palembang Field', lat: -2.990934, lng: 104.756554, radius: 10000 },
-            { id: 3, name: 'Padang Branch', lat: -0.947083, lng: 100.417181, radius: 12000 }
-        ];
-
-        let rekapList = [
-            { date: '2026-08-08', name: 'Rudi Batubara', basecamp: 'Pekanbaru Pusat', time: '07:45 WIB', status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>', late: '-' }
-        ];
-
-        let izinList = [
-            { id: 1, name: 'Rudi Batubara', jenis: 'Cuti Tahunan', start: '2026-08-10', end: '2026-08-12', desc: 'Keperluan keluarga', atasan: 'Budi Santoso', status: 'Pending' }
-        ];
+        // ----------------- DATA STATE (LOADED FROM SUPABASE) ----------------- //
+        let roles = [];
+        let employees = [];
+        let basecamps = [];
+        let rekapList = [];
+        let izinList = [];
 
         let activeEmployeeSession = { name: 'Tamu' };
         let tempRegData = null;
 
-        // Helper untuk memeriksa hak akses Master Admin
+        async function fetchAllDataFromSupabase() {
+            try {
+                // Fetch Roles
+                const { data: rData } = await supabase.from('roles').select('*');
+                if (rData && rData.length > 0) roles = rData;
+
+                // Fetch Employees
+                const { data: eData } = await supabase.from('employees').select('*');
+                if (eData && eData.length > 0) {
+                    employees = eData.map(e => ({
+                        id: e.id,
+                        name: e.name,
+                        whatsapp: e.whatsapp,
+                        role: e.role,
+                        atasan: e.atasan,
+                        password: e.password,
+                        status: e.status,
+                        deviceId: e.device_id || 'Unbound'
+                    }));
+                }
+
+                // Fetch Basecamps
+                const { data: bData } = await supabase.from('basecamps').select('*');
+                if (bData && bData.length > 0) basecamps = bData;
+
+                // Fetch Rekap
+                const { data: rkData } = await supabase.from('rekap_list').select('*');
+                if (rkData) rekapList = rkData;
+
+                // Fetch Izin
+                const { data: iData } = await supabase.from('izin_list').select('*');
+                if (iData) izinList = iData;
+
+                renderRoles();
+                renderEmployees();
+                renderRekap();
+                renderBasecamps();
+                renderAdminIzin();
+                updateDashboardStats();
+            } catch (err) {
+                console.error("Gagal sinkronisasi dengan Supabase:", err);
+                showToast("Gagal memuat data dari server Supabase.", "error");
+            }
+        }
+
         function isMasterAdmin() {
             if (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin') {
                 return true;
@@ -678,7 +708,6 @@
             return false;
         }
 
-        // ----------------- LOGIN & AUTHENTICATION TOGGLE ----------------- //
         function toggleAuthMode(mode) {
             if (mode === 'login') {
                 document.getElementById('login-step').classList.remove('hidden');
@@ -709,6 +738,7 @@
 
             if (emp.deviceId === 'Unbound') {
                 emp.deviceId = currentDeviceUUID;
+                await supabase.from('employees').update({ device_id: currentDeviceUUID }).eq('id', emp.id);
                 showToast(`Perangkat berhasil diikat ke akun ini (ID: ${currentDeviceUUID.substring(0,8)}).`, 'success');
                 renderEmployees(); 
             } 
@@ -728,7 +758,6 @@
             switchMobileTab('absen');
         }
 
-        // ----------------- REGISTRASI & OTP MOBILE ----------------- //
         function requestOTP() {
             const email = document.getElementById('reg-email').value.trim();
             const nama = document.getElementById('reg-nama').value.trim();
@@ -778,12 +807,16 @@
                 atasan: 'Budi Santoso',
                 password: hashedPassword,
                 status: 'Pending',
-                deviceId: 'Unbound' 
+                device_id: 'Unbound' 
             };
 
-            employees.push(newEmp);
-            renderEmployees();
-            updateDashboardStats();
+            const { error } = await supabase.from('employees').insert([newEmp]);
+            if (error) {
+                showToast('Gagal mendaftarkan akun ke database: ' + error.message, 'error');
+                return;
+            }
+
+            await fetchAllDataFromSupabase();
 
             showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
             
@@ -793,28 +826,29 @@
             toggleAuthMode('login');
         }
 
-        function approveEmployeeAccount(index) {
+        async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
+            await supabase.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
             renderEmployees();
             updateDashboardStats();
             showToast(`Akun disetujui!`, 'success');
         }
 
-        // ----------------- FITUR 3 & 4: RESET DEVICE & PENGAJUAN IZIN & WHATSAPP ----------------- //
         function resetEmployeeDevice(index) {
             if (!isMasterAdmin()) {
                 showToast('Akses Ditolak! Hanya Master Admin yang dapat mereset device karyawan.', 'error');
                 return;
             }
-            showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, () => {
+            showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, async () => {
                 employees[index].deviceId = 'Unbound';
+                await supabase.from('employees').update({ device_id: 'Unbound' }).eq('id', employees[index].id);
                 renderEmployees();
                 showToast(`Perangkat ${employees[index].name} berhasil di-reset menjadi Unbound.`, 'success');
             }, false);
         }
 
-        function submitMobileIzin() {
+        async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') {
                 showToast('Silakan login terlebih dahulu untuk mengajukan izin.', 'error');
                 switchMobileTab('daftar');
@@ -845,17 +879,20 @@
                 status: 'Pending'
             };
 
+            const { error } = await supabase.from('izin_list').insert([newIzin]);
+            if (error) {
+                showToast('Gagal mengirim izin ke database: ' + error.message, 'error');
+                return;
+            }
+
             izinList.push(newIzin);
             renderAdminIzin();
             renderMobileMyHistory();
 
-            // WhatsApp Message Trigger (Fitur 4)
             const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
             const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
 
             showToast(`Pengajuan izin berhasil dikirim & Notifikasi WhatsApp disiapkan ke ${supervisor.name}!`, 'success');
-            
-            // Buka link WhatsApp atasan langsung di tab baru
             window.open(waUrl, '_blank');
 
             document.getElementById('m-izin-start').value = '';
@@ -932,8 +969,9 @@
             });
         }
 
-        function handleIzinAction(index, action) {
+        async function handleIzinAction(index, action) {
             izinList[index].status = action;
+            await supabase.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
             renderAdminIzin();
             renderMobileMyHistory();
             showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
@@ -972,7 +1010,8 @@
         }
 
         function resetRekapData() {
-            showConfirm('Reset Rekap Data', 'Hapus seluruh riwayat rekap absensi?', () => {
+            showConfirm('Reset Rekap Data', 'Hapus seluruh riwayat rekap absensi?', async () => {
+                await supabase.from('rekap_list').delete().neq('id', 0);
                 rekapList = [];
                 renderRekap();
                 updateDashboardStats();
@@ -1063,7 +1102,7 @@
                         <td class="p-3 space-x-2">
                             <button onclick="openEditEmployeeModal(${index})" class="text-gold-400 hover:underline">Edit</button>
                             <button onclick="deleteEmployee(${index})" class="text-rose-400 hover:underline">Hapus</button>
-                            <button onclick="resetEmployeeDevice(${index})" class="text-amber-400 hover:underline font-semibold" title="Reset Device (Hanya Master Admin)"><i class="fa-solid fa-mobile-screen-button"></i> Reset Dev</button>
+                            <button onclick="resetEmployeeDevice(${index})" class="text-amber-400 hover:underline font-semibold" title="Reset Device"><i class="fa-solid fa-mobile-screen-button"></i> Reset Dev</button>
                         </td>
                     </tr>`;
             });
@@ -1113,40 +1152,44 @@
             const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
 
             if (index === -1) {
-                employees.push({ id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', deviceId: 'Unbound' });
+                const newEmp = { id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
+                await supabase.from('employees').insert([newEmp]);
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
                 const currentDeviceId = employees[index].deviceId; 
-                employees[index] = { ...employees[index], id, name, whatsapp, role, atasan, password: finalPassword, deviceId: currentDeviceId };
+                await supabase.from('employees').update({ name, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
             closeEmployeeModal();
-            renderEmployees();
-            updateDashboardStats();
+            await fetchAllDataFromSupabase();
         }
 
         function deleteEmployee(index) {
-            showConfirm('Hapus Karyawan', `Hapus ${employees[index].name}?`, () => {
-                employees.splice(index, 1);
-                renderEmployees();
-                updateDashboardStats();
+            showConfirm('Hapus Karyawan', `Hapus ${employees[index].name}?`, async () => {
+                await supabase.from('employees').delete().eq('id', employees[index].id);
+                await fetchAllDataFromSupabase();
                 showToast('Karyawan dihapus.', 'success');
             }, true);
         }
 
         function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
         function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
-        function saveRole() {
+        async function saveRole() {
             const name = document.getElementById('inp-role-name').value.trim();
             const access = document.getElementById('inp-role-access').value.trim();
             if (!name) return;
-            roles.push({ id: 'ROL-0' + (roles.length + 1), name, access });
+            const newRole = { id: 'ROL-0' + (roles.length + 1), name, access };
+            await supabase.from('roles').insert([newRole]);
             closeRoleModal();
-            renderRoles();
+            await fetchAllDataFromSupabase();
             showToast('Role berhasil ditambahkan', 'success');
         }
-        function deleteRole(idx) { roles.splice(idx, 1); renderRoles(); showToast('Role dihapus', 'success'); }
+        async function deleteRole(idx) { 
+            await supabase.from('roles').delete().eq('id', roles[idx].id);
+            await fetchAllDataFromSupabase(); 
+            showToast('Role dihapus', 'success'); 
+        }
 
         let bcMap = null, bcLayerGroup = null;
         function initMap() {
@@ -1156,7 +1199,6 @@
             bcLayerGroup = L.layerGroup().addTo(bcMap);
         }
 
-        // FITUR 1: TAMBAH PIN LOKASI PADA PETA BASECAMP SESUAI TITIK KOORDINATNYA
         function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if (!container) return;
@@ -1182,9 +1224,7 @@
             if (bcMap && bcLayerGroup) {
                 bcLayerGroup.clearLayers();
                 basecamps.forEach(bc => {
-                    // Gambar area radius lingkaran
                     L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
-                    // Tambahkan pin/marker lokasi sesuai koordinat (Fitur 1)
                     L.marker([bc.lat, bc.lng]).addTo(bcLayerGroup)
                       .bindPopup(`<div style="color: #0f172a; font-weight: bold;">${bc.name}</div><div style="color: #334155; font-size: 11px;">Lat: ${bc.lat}, Lng: ${bc.lng}<br>Radius: ${bc.radius}m</div>`);
                 });
@@ -1224,7 +1264,7 @@
             document.getElementById('basecamp-modal').classList.add('hidden'); 
         }
 
-        function saveBasecamp() {
+        async function saveBasecamp() {
             if (!isMasterAdmin()) {
                 showToast('Akses Ditolak! Hanya Master Admin yang dapat menyimpan perubahan basecamp.', 'error');
                 return;
@@ -1241,18 +1281,18 @@
             }
 
             if (index === -1) {
-                basecamps.push({ id: Date.now(), name, lat, lng, radius });
+                const newBc = { id: Date.now(), name, lat, lng, radius };
+                await supabase.from('basecamps').insert([newBc]);
                 showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
-                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
+                const bcId = basecamps[index].id;
+                await supabase.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
                 showToast('Basecamp berhasil diperbarui!', 'success');
             }
 
             closeBasecampModal();
-            renderBasecamps();
-            if (bcMap) {
-                bcMap.invalidateSize();
-            }
+            await fetchAllDataFromSupabase();
+            if (bcMap) bcMap.invalidateSize();
         }
 
         function deleteBasecamp(index) {
@@ -1260,12 +1300,10 @@
                 showToast('Akses Ditolak! Hanya Master Admin yang dapat menghapus basecamp.', 'error');
                 return;
             }
-            showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, () => {
-                basecamps.splice(index, 1);
-                renderBasecamps();
-                if (bcMap) {
-                    bcMap.invalidateSize();
-                }
+            showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
+                await supabase.from('basecamps').delete().eq('id', basecamps[index].id);
+                await fetchAllDataFromSupabase();
+                if (bcMap) bcMap.invalidateSize();
                 showToast('Basecamp berhasil dihapus.', 'success');
             }, true);
         }
@@ -1330,19 +1368,13 @@
             if(clockEl) clockEl.innerText = now.toTimeString().split(' ')[0];
         }, 1000);
 
-        window.addEventListener('DOMContentLoaded', () => {
-            initializeDeviceBinding(); 
-            renderRoles();
-            renderEmployees();
-            renderRekap();
-            renderBasecamps();
-            renderAdminIzin();
-            updateDashboardStats();
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initializeDeviceBinding(); 
+            await fetchAllDataFromSupabase();
         });
 
-        // ----------------- HAVERSINE FORMULA & GEOFENCING IMPLEMENTATION ----------------- //
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius bumi dalam meter
+            const R = 6371e3;
             const φ1 = lat1 * Math.PI / 180;
             const φ2 = lat2 * Math.PI / 180;
             const Δφ = (lat2 - lat1) * Math.PI / 180;
@@ -1409,22 +1441,22 @@
                         badgeEl.innerText = `Basecamp: ${validBasecamp.name}`;
                     }
 
-                    showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
-                    
-                    const jamMasukEl = document.getElementById('mobile-jam-masuk');
-                    if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
-                    
-                    rekapList.unshift({
+                    const newRekap = {
                         date: new Date().toISOString().split('T')[0],
                         name: activeEmployeeSession.name,
                         basecamp: validBasecamp.name,
                         time: new Date().toTimeString().split(' ')[0] + ' WIB',
                         status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
                         late: '-'
-                    });
-                    renderRekap();
-                    renderMobileMyHistory();
-                    updateDashboardStats();
+                    };
+
+                    await supabase.from('rekap_list').insert([newRekap]);
+                    await fetchAllDataFromSupabase();
+
+                    showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
+                    
+                    const jamMasukEl = document.getElementById('mobile-jam-masuk');
+                    if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
                 },
                 (error) => {
                     let errMessage = 'Gagal mengambil data lokasi GPS.';
