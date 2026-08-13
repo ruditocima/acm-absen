@@ -1396,12 +1396,27 @@
             showToast('Role dihapus', 'success'); 
         }
 
+        // ==================== PERBAIKAN FITUR MAP LEAFLET ==================== //
         let bcMap = null, bcLayerGroup = null;
+
         function initMap() {
             if (bcMap) return;
-            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(bcMap);
+            bcMap = L.map('basecamp-map', {
+                zoomControl: true,
+                scrollWheelZoom: true
+            }).setView([0.434291, 101.466385], 11);
+
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(bcMap);
+
             bcLayerGroup = L.layerGroup().addTo(bcMap);
+
+            // Mencegah ubin peta abu-abu / pecah saat zoom & pergerakan peta
+            bcMap.on('zoomend resize moveend', function() {
+                bcMap.invalidateSize();
+            });
         }
 
         function renderBasecamps() {
@@ -1426,13 +1441,35 @@
                         </div>
                     </div>`;
             });
+
             if (bcMap && bcLayerGroup) {
                 bcLayerGroup.clearLayers();
+                const bounds = [];
+
                 basecamps.forEach(bc => {
-                    L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
-                    L.marker([bc.lat, bc.lng]).addTo(bcLayerGroup)
-                      .bindPopup(`<div style="color: #0f172a; font-weight: bold;">${bc.name}</div><div style="color: #334155; font-size: 11px;">Lat: ${bc.lat}, Lng: ${bc.lng}<br>Radius: ${bc.radius}m</div>`);
+                    const lat = parseFloat(bc.lat);
+                    const lng = parseFloat(bc.lng);
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        L.circle([lat, lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
+                        L.marker([lat, lng]).addTo(bcLayerGroup)
+                          .bindPopup(`<div style="color: #0f172a; font-weight: bold;">${bc.name}</div><div style="color: #334155; font-size: 11px;">Lat: ${lat}, Lng: ${lng}<br>Radius: ${bc.radius}m</div>`);
+                        bounds.push([lat, lng]);
+                    }
                 });
+
+                // Memastikan peta berpusat penuh secara otomatis di semua titik basecamp
+                setTimeout(() => {
+                    if (bcMap) {
+                        bcMap.invalidateSize();
+                        if (bounds.length > 0) {
+                            if (bounds.length === 1) {
+                                bcMap.setView(bounds[0], 13);
+                            } else {
+                                bcMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+                            }
+                        }
+                    }
+                }, 200);
             }
         }
 
@@ -1497,7 +1534,12 @@
 
             closeBasecampModal();
             await fetchAllDataFromSupabase();
-            if (bcMap) bcMap.invalidateSize();
+            if (bcMap) {
+                setTimeout(() => {
+                    bcMap.invalidateSize();
+                    renderBasecamps();
+                }, 200);
+            }
         }
 
         function deleteBasecamp(index) {
@@ -1508,7 +1550,12 @@
             showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
                 await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
                 await fetchAllDataFromSupabase();
-                if (bcMap) bcMap.invalidateSize();
+                if (bcMap) {
+                    setTimeout(() => {
+                        bcMap.invalidateSize();
+                        renderBasecamps();
+                    }, 200);
+                }
                 showToast('Basecamp berhasil dihapus.', 'success');
             }, true);
         }
@@ -1529,7 +1576,12 @@
                 viewDesktop.classList.remove('hidden');
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-                if (bcMap) bcMap.invalidateSize();
+                setTimeout(() => {
+                    if (bcMap) {
+                        bcMap.invalidateSize();
+                        renderBasecamps();
+                    }
+                }, 200);
             }
         }
 
@@ -1548,7 +1600,15 @@
             const activeNav = document.getElementById(`d-nav-${tab}`);
             if (activeTab) activeTab.classList.remove('hidden');
             if (activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
-            if (tab === 'basecamp' && !bcMap) { initMap(); renderBasecamps(); }
+            if (tab === 'basecamp') { 
+                if (!bcMap) { 
+                    initMap(); 
+                } 
+                renderBasecamps(); 
+                setTimeout(() => {
+                    if (bcMap) bcMap.invalidateSize();
+                }, 200);
+            }
             if (tab === 'izin') { renderAdminIzin(); }
         }
 
