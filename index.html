@@ -381,7 +381,7 @@
                                     <button onclick="filterRekap()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
                                         <i class="fa-solid fa-filter"></i> Filter
                                     </button>
-                                    <button onclick="resetRekapData()" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition">
+                                    <button onclick="resetRekapData()" id="btn-reset-rekap" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition">
                                         <i class="fa-solid fa-rotate-left"></i> Reset Data
                                     </button>
                                     <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition">
@@ -461,8 +461,8 @@
                         <!-- TAB BASECAMP -->
                         <div id="d-tab-basecamp" class="space-y-4 hidden">
                             <div class="flex justify-between items-center mb-2">
-                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS (Eksklusif Master Admin)</h4>
-                                <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
+                                <button onclick="openAddBasecampModal()" id="btn-add-basecamp" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
                                     <i class="fa-solid fa-plus"></i> Tambah Basecamp
                                 </button>
                             </div>
@@ -703,11 +703,6 @@
                 const { data: rData } = await supabaseClient.from('roles').select('*');
                 if (rData && rData.length > 0) roles = rData;
 
-                // --- INJEKSI DEFAULT MASTER ADMIN ROLE ---
-                if (!roles.find(r => r.name === 'Master Admin')) {
-                    roles.push({ id: 'ROL-MASTER', name: 'Master Admin', access: 'Semua Akses' });
-                }
-
                 // Fetch Employees
                 const { data: eData } = await supabaseClient.from('employees').select('*');
                 if (eData && eData.length > 0) {
@@ -722,21 +717,6 @@
                         status: e.status,
                         deviceId: e.device_id || 'Unbound'
                     }));
-                }
-
-                // --- INJEKSI DEFAULT ADMINISTRATOR USER ---
-                if (!employees.find(e => e.id === 'admin')) {
-                    employees.push({
-                        id: 'admin',
-                        name: 'Administrator',
-                        position: 'System Administrator',
-                        whatsapp: '080000000000',
-                        role: 'Master Admin',
-                        atasan: '-',
-                        password: 'Ounyenk2018#',
-                        status: 'Approved',
-                        deviceId: 'Unbound'
-                    });
                 }
 
                 // Fetch Basecamps
@@ -806,7 +786,20 @@
             if (activeEmployeeSession.name === 'Tamu') return false;
             if (activeEmployeeSession.role === 'Master Admin' || isMasterAdmin()) return true;
             
-            const currentRoleObj = roles.find(r => r.name === activeEmployeeSession.role);
+            const roleName = activeEmployeeSession.role;
+
+            // Specific Role Access Control Rules
+            if (roleName === 'Supervisor Field') {
+                return ['dashboard', 'rekap', 'basecamp', 'izin'].includes(tabName);
+            }
+            if (roleName === 'Admin') {
+                return ['dashboard', 'rekap', 'basecamp'].includes(tabName);
+            }
+            if (roleName === 'Karyawan / Field') {
+                return ['dashboard', 'rekap', 'basecamp'].includes(tabName);
+            }
+            
+            const currentRoleObj = roles.find(r => r.name === roleName);
             if (!currentRoleObj || !currentRoleObj.access) {
                 return ['dashboard', 'izin'].includes(tabName);
             }
@@ -1182,6 +1175,11 @@
         }
 
         function resetRekapData() {
+            const role = activeEmployeeSession.role;
+            if (role === 'Supervisor Field' || role === 'Admin' || role === 'Karyawan / Field') {
+                showToast('Akses Ditolak! Role Anda tidak diizinkan untuk mereset data rekap.', 'error');
+                return;
+            }
             showConfirm('Reset Rekap Data', 'Hapus seluruh riwayat rekap absensi?', async () => {
                 await supabaseClient.from('rekap_list').delete().neq('id', 0);
                 rekapList = [];
@@ -1193,7 +1191,11 @@
 
         function exportToExcel() {
             if (!rekapList.length) { showToast('Tidak ada data rekap!', 'warning'); return; }
-            const excelData = rekapList.map((item, index) => ({
+            let listToExport = rekapList;
+            if (activeEmployeeSession.role === 'Karyawan / Field') {
+                listToExport = rekapList.filter(item => item.name === activeEmployeeSession.name);
+            }
+            const excelData = listToExport.map((item, index) => ({
                 "No": index + 1, "Tanggal": item.date, "Nama Karyawan": item.name,
                 "Basecamp": item.basecamp, "Jam Masuk": item.time, "Status": 'Hadir', "Keterlambatan": item.late
             }));
@@ -1439,14 +1441,24 @@
             const container = document.getElementById('basecamp-container');
             if (!container) return;
             container.innerHTML = '';
+
+            const role = activeEmployeeSession.role;
+            const canAdd = (role === 'Master Admin' || role === 'Supervisor Field' || isMasterAdmin());
+            const canManage = (role === 'Master Admin' || isMasterAdmin());
+
+            const addBcBtn = document.getElementById('btn-add-basecamp');
+            if (addBcBtn) {
+                if (canAdd) {
+                    addBcBtn.classList.remove('hidden');
+                } else {
+                    addBcBtn.classList.add('hidden');
+                }
+            }
+
             basecamps.forEach((bc, index) => {
-                container.innerHTML += `
-                    <div class="glass-card p-4 rounded-2xl space-y-3 border border-slate-800 flex flex-col justify-between">
-                        <div>
-                            <h5 class="font-bold text-white text-sm">${bc.name}</h5>
-                            <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${bc.lat}, Lng: ${bc.lng}</p>
-                            <p class="text-xs text-slate-400">Radius Aman: ${bc.radius}m</p>
-                        </div>
+                let actionButtonsHtml = '';
+                if (canManage) {
+                    actionButtonsHtml = `
                         <div class="flex gap-2 pt-2 border-t border-slate-800/60">
                             <button onclick="openEditBasecampModal(${index})" class="flex-1 py-1.5 px-3 bg-gold-500/10 text-gold-400 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-pen-to-square"></i> Edit
@@ -1454,7 +1466,18 @@
                             <button onclick="deleteBasecamp(${index})" class="flex-1 py-1.5 px-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-trash"></i> Hapus
                             </button>
+                        </div>`;
+                }
+                // Supervisor Field can add, but not edit/delete. Admin and Karyawan / Field are view only.
+
+                container.innerHTML += `
+                    <div class="glass-card p-4 rounded-2xl space-y-3 border border-slate-800 flex flex-col justify-between">
+                        <div>
+                            <h5 class="font-bold text-white text-sm">${bc.name}</h5>
+                            <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${bc.lat}, Lng: ${bc.lng}</p>
+                            <p class="text-xs text-slate-400">Radius Aman: ${bc.radius}m</p>
                         </div>
+                        ${actionButtonsHtml}
                     </div>`;
             });
 
@@ -1489,8 +1512,9 @@
         }
 
         function openAddBasecampModal() {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menambah basecamp.', 'error');
+            const role = activeEmployeeSession.role;
+            if (role !== 'Master Admin' && role !== 'Supervisor Field' && !isMasterAdmin()) {
+                showToast('Akses Ditolak! Role Anda tidak diizinkan menambah basecamp.', 'error');
                 return;
             }
             document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
@@ -1503,8 +1527,13 @@
         }
 
         function openEditBasecampModal(index) {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat mengedit basecamp.', 'error');
+            const role = activeEmployeeSession.role;
+            if (role === 'Supervisor Field') {
+                showToast('Akses Ditolak! Supervisor Field tidak diizinkan mengedit basecamp.', 'error');
+                return;
+            }
+            if (!isMasterAdmin() && role !== 'Master Admin') {
+                showToast('Akses Ditolak! Anda tidak diizinkan mengedit basecamp.', 'error');
                 return;
             }
             const bc = basecamps[index];
@@ -1522,11 +1551,14 @@
         }
 
         async function saveBasecamp() {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menyimpan perubahan basecamp.', 'error');
+            const role = activeEmployeeSession.role;
+            const index = parseInt(document.getElementById('bc-edit-index').value);
+            
+            if (index !== -1 && role === 'Supervisor Field') {
+                showToast('Akses Ditolak! Supervisor Field tidak diizinkan mengedit basecamp.', 'error');
                 return;
             }
-            const index = parseInt(document.getElementById('bc-edit-index').value);
+
             const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
             const lng = parseFloat(document.getElementById('bc-inp-lng').value);
@@ -1558,8 +1590,9 @@
         }
 
         function deleteBasecamp(index) {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menghapus basecamp.', 'error');
+            const role = activeEmployeeSession.role;
+            if (role === 'Supervisor Field' || role === 'Admin' || role === 'Karyawan / Field') {
+                showToast('Akses Ditolak! Role Anda tidak diizinkan menghapus basecamp.', 'error');
                 return;
             }
             showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
@@ -1624,6 +1657,7 @@
                     if (bcMap) bcMap.invalidateSize();
                 }, 200);
             }
+            if (tab === 'rekap') { renderRekap(); }
             if (tab === 'izin') { renderAdminIzin(); }
         }
 
@@ -1645,9 +1679,27 @@
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
-            (data || rekapList).forEach(item => {
+            let list = data || rekapList;
+
+            // Karyawan / Field only sees their own history in Rekap Absensi
+            if (activeEmployeeSession.role === 'Karyawan / Field') {
+                list = list.filter(item => item.name === activeEmployeeSession.name);
+            }
+
+            list.forEach(item => {
                 tbody.innerHTML += `<tr><td class="p-3">${item.date}</td><td class="p-3">${item.name}</td><td class="p-3">${item.basecamp}</td><td class="p-3">${item.time}</td><td class="p-3">${item.status}</td><td class="p-3">${item.late}</td></tr>`;
             });
+
+            // Control Reset Data button visibility
+            const resetBtn = document.getElementById('btn-reset-rekap');
+            if (resetBtn) {
+                const role = activeEmployeeSession.role;
+                if (role === 'Master Admin' || isMasterAdmin()) {
+                    resetBtn.classList.remove('hidden');
+                } else {
+                    resetBtn.classList.add('hidden');
+                }
+            }
         }
 
         setInterval(() => {
