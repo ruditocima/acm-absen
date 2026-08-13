@@ -410,6 +410,7 @@
                                     <tr>
                                         <th class="p-3">ID User</th>
                                         <th class="p-3">Nama Karyawan</th>
+                                        <th class="p-3">Posisi</th>
                                         <th class="p-3">WhatsApp</th>
                                         <th class="p-3">Role</th>
                                         <th class="p-3">Atasan Langsung</th>
@@ -487,6 +488,10 @@
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Nama Karyawan</label>
                 <input type="text" id="inp-name" placeholder="Nama lengkap..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Posisi</label>
+                <input type="text" id="inp-position" placeholder="Contoh: Staff IT / Field Engineer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">WhatsApp</label>
@@ -668,6 +673,7 @@
                     employees = eData.map(e => ({
                         id: e.id,
                         name: e.name,
+                        position: e.position || '-',
                         whatsapp: e.whatsapp,
                         role: e.role,
                         atasan: e.atasan,
@@ -802,6 +808,7 @@
             const newEmp = {
                 id: tempRegData.email,
                 name: tempRegData.nama,
+                position: 'Staff',
                 whatsapp: tempRegData.wa,
                 role: 'Karyawan / Field (Pending Role)',
                 atasan: 'Budi Santoso',
@@ -1094,6 +1101,7 @@
                             ${emp.name}
                             <div class="text-[9px] mt-0.5 font-mono text-slate-500">${displayDevice}</div>
                         </td>
+                        <td class="p-3 text-slate-300 font-medium">${emp.position || '-'}</td>
                         <td class="p-3 text-gold-400 font-mono">${emp.whatsapp}</td>
                         <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
                         <td class="p-3 text-slate-300">${emp.atasan || '-'}</td>
@@ -1115,6 +1123,7 @@
             document.getElementById('edit-index').value = '-1';
             document.getElementById('inp-id').value = 'karyawan' + (employees.length + 1) + '@gmail.com';
             document.getElementById('inp-name').value = '';
+            document.getElementById('inp-position').value = '';
             document.getElementById('inp-wa').value = '';
             document.getElementById('inp-password').value = 'password123';
             document.getElementById('employee-modal').classList.remove('hidden');
@@ -1128,6 +1137,7 @@
             document.getElementById('edit-index').value = index;
             document.getElementById('inp-id').value = emp.id;
             document.getElementById('inp-name').value = emp.name;
+            document.getElementById('inp-position').value = emp.position || '';
             document.getElementById('inp-wa').value = emp.whatsapp;
             document.getElementById('inp-password').value = '••••••••'; 
             document.getElementById('employee-modal').classList.remove('hidden');
@@ -1139,6 +1149,7 @@
             const index = parseInt(document.getElementById('edit-index').value);
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
+            const position = document.getElementById('inp-position').value.trim();
             const whatsapp = document.getElementById('inp-wa').value.trim();
             const role = document.getElementById('inp-role').value.trim();
             const atasan = document.getElementById('inp-atasan').value;
@@ -1152,12 +1163,11 @@
             const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
 
             if (index === -1) {
-                const newEmp = { id, name, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
+                const newEmp = { id, name, position, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
                 await supabaseClient.from('employees').insert([newEmp]);
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                const currentDeviceId = employees[index].deviceId; 
-                await supabaseClient.from('employees').update({ name, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
+                await supabaseClient.from('employees').update({ name, position, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
