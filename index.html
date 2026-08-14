@@ -506,6 +506,16 @@
         </div>
     </div>
 
+    <!-- MODAL ZOOM PHOTO / LIGHTBOX (FITUR BARU) -->
+    <div id="zoom-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-4 cursor-pointer" onclick="closeZoomModal()">
+        <div class="relative max-w-lg w-full p-4 flex flex-col items-center" onclick="event.stopPropagation()">
+            <img id="zoom-image" src="" class="max-h-[80vh] max-w-full rounded-2xl border-2 border-gold-500/50 shadow-2xl object-contain">
+            <button onclick="closeZoomModal()" class="mt-4 px-5 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700 transition border border-slate-700">
+                Tutup / Close
+            </button>
+        </div>
+    </div>
+
     <!-- MODAL ROLE -->
     <div id="role-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
@@ -1810,6 +1820,23 @@
             }
         }
 
+        // FUNGSI ZOOM FOTO SELFIE (FITUR BARU)
+        function openZoomModal(imgSrc) {
+            const modal = document.getElementById('zoom-modal');
+            const img = document.getElementById('zoom-image');
+            if (modal && img) {
+                img.src = imgSrc;
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeZoomModal() {
+            const modal = document.getElementById('zoom-modal');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
+        }
+
         function renderRekap(data = null) {
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
@@ -1822,7 +1849,11 @@
             }
 
             list.forEach(item => {
-                const imgThumb = item.selfie ? `<img src="${item.selfie}" class="w-8 h-8 rounded-lg object-cover border border-gold-500/30" />` : `<span class="text-slate-600 text-[10px]">-</span>`;
+                // Diperbarui: Menambahkan event onclick, kursor pointer, dan efek hover pada tag img thumbnail
+                const imgThumb = item.selfie 
+                    ? `<img src="${item.selfie}" class="w-8 h-8 rounded-lg object-cover border border-gold-500/30 cursor-pointer hover:scale-110 transition-transform" title="Klik untuk memperbesar foto" onclick="openZoomModal('${item.selfie}')" />` 
+                    : `<span class="text-slate-600 text-[10px]">-</span>`;
+
                 tbody.innerHTML += `<tr>
                     <td class="p-3">${item.date}</td>
                     <td class="p-3 font-semibold text-white">${item.name}</td>
@@ -1955,7 +1986,6 @@
             }
         }
 
-        // FUNGSI UTAMA AMBIL FOTO & ABSEN (Diperbarui dengan batas jam masuk 09.40 WIB)
         async function captureSelfieAndAbsen() {
             if (!pendingAbsenData) {
                 showToast('Data lokasi atau basecamp belum divalidasi.', 'error');
@@ -2001,18 +2031,18 @@
             const totalStandardMinutes = standardHour * 60 + standardMinute;
 
             if (totalCurrentMinutes > totalStandardMinutes) {
-                const diff = totalCurrentMinutes - totalStandardMinutes;
-                const hoursLate = Math.floor(diff / 60);
-                const minsLate = diff % 60;
                 status = 'Terlambat';
-                lateText = hoursLate > 0 ? `${hoursLate} jam ${minsLate} menit` : `${minsLate} menit`;
+                const diffMin = totalCurrentMinutes - totalStandardMinutes;
+                const hoursLate = Math.floor(diffMin / 60);
+                const minsLate = diffMin % 60;
+                lateText = hoursLate > 0 ? `${hoursLate}j ${minsLate}m` : `${minsLate}m`;
             }
 
             const newRekap = {
                 name: activeEmployeeSession.name,
+                basecamp: pendingAbsenData.validBasecamp.name,
                 date: dateStr,
                 time: timeStr,
-                basecamp: pendingAbsenData.validBasecamp.name,
                 status: status,
                 selfie: selfieDataUrl,
                 late: lateText
@@ -2030,10 +2060,9 @@
             renderRekap();
             updateDashboardStats();
             checkTodayAttendance();
-            renderMobileMyHistory();
 
-            showToast(`Absensi berhasil! Status: ${status}`, 'success');
             closeCameraModal();
+            showToast(`Absensi Berhasil! Status: ${status} (${pendingAbsenData.validBasecamp.name})`, 'success');
             pendingAbsenData = null;
         }
     </script>
