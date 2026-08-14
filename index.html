@@ -994,95 +994,113 @@
             switchMobileTab('absen');
         }
 
-        function requestOTP() {
-            const email = document.getElementById('reg-email').value.trim();
-            const nama = document.getElementById('reg-nama').value.trim();
-            const wa = document.getElementById('reg-wa').value.trim();
-            const pass = document.getElementById('reg-pass').value.trim();
+        // ============================================================
+// SUPABASE AUTH EMAIL OTP INTEGRATION
+// ============================================================
 
-            if (!email || !nama || !wa || !pass || !email.includes('@gmail.com')) {
-                showToast('Harap isi semua kolom dengan benar dan gunakan Gmail yang valid!', 'error');
-                return;
+/**
+ * Meminta OTP aman langsung dari server Supabase ke Email pengguna
+ */
+async function requestOTP() {
+    // Mengambil elemen input email yang sudah ada di template Anda
+    const emailInput = document.getElementById('email') || document.getElementById('userEmail');
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    if (!email) {
+        alert('Silakan masukkan alamat email yang valid terlebih dahulu.');
+        return;
+    }
+
+    try {
+        // Tampilkan indikator loading sederhana (jika diperlukan)
+        console.log('Mengirim kode OTP ke:', email);
+
+        // Memanggil API Supabase Auth untuk membuat dan mengirim OTP
+        const { data, error } = await supabase.auth.signInWithOtp({
+            email: email,
+            options: {
+                // Set true jika ingin otomatis membuat akun baru jika email belum terdaftar
+                shouldCreateUser: true 
             }
+        });
 
-            tempRegData = { email, nama, wa, pass };
-            
-            generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-            otpExpiryTime = Date.now() + (3 * 60 * 1000); 
-
-            const instElem = document.getElementById('otp-instruction-text');
-            if (instElem) {
-                instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
-            }
-
-            let formattedWa = wa.trim();
-            if (formattedWa.startsWith('0')) {
-                formattedWa = '62' + formattedWa.substring(1);
-            } else if (formattedWa.startsWith('+')) {
-                formattedWa = formattedWa.substring(1);
-            }
-
-            const waMessage = `Halo ${nama},\n\nKode OTP verifikasi pendaftaran akun Sistem Absensi Enterprise Anda adalah: *${generatedOTP}*.\n\nBerlaku selama 3 menit. Jangan berikan kode ini kepada siapapun.`;
-            const waUrl = `https://wa.me/${formattedWa}?text=${encodeURIComponent(waMessage)}`;
-            window.open(waUrl, '_blank');
-
-            const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent('Kode OTP Verifikasi Pendaftaran Akun Enterprise')}&body=${encodeURIComponent(`Halo ${nama},\n\nKode OTP verifikasi pendaftaran akun Sistem Absensi Enterprise Anda adalah: ${generatedOTP}\n\nBerlaku selama 3 menit.`)}`;
-            setTimeout(() => {
-                const mailLink = document.createElement('a');
-                mailLink.href = mailtoUrl;
-                mailLink.click();
-            }, 500);
-
-            showToast(`Kode OTP terkirim otomatis ke WhatsApp & Email! (OTP: ${generatedOTP})`, 'success');
-            
-            document.getElementById('reg-step-1').classList.add('hidden');
-            document.getElementById('reg-step-2').classList.remove('hidden');
+        if (error) {
+            console.error('Gagal mengirim OTP via Supabase:', error.message);
+            alert('Gagal mengirim OTP: ' + error.message);
+            return;
         }
 
-        function backToRegStep1() {
-            document.getElementById('reg-step-2').classList.add('hidden');
-            document.getElementById('reg-step-1').classList.remove('hidden');
+        alert(`Kode OTP telah dikirimkan ke email ${email}.\nSilakan periksa kotak masuk atau folder spam Anda.`);
+
+        // Menampilkan blok input OTP di UI jika sebelumnya tersembunyi
+        const otpSection = document.getElementById('otpSection') || document.getElementById('otpContainer');
+        if (otpSection) {
+            otpSection.style.display = 'block';
         }
 
-        async function verifyOTP() {
-            const otp = document.getElementById('reg-otp-input').value.trim();
-            
-            if (!generatedOTP) { return showToast('Sesi OTP tidak valid.', 'error'); }
-            if (Date.now() > otpExpiryTime) { return showToast('Kode OTP sudah kedaluwarsa!', 'error'); }
-            if (otp !== generatedOTP) { return showToast('Kode OTP salah!', 'error'); }
+    } catch (err) {
+        console.error('Terjadi kesalahan pada requestOTP:', err);
+        alert('Terjadi kesalahan koneksi saat meminta OTP.');
+    }
+}
 
-            const hashedPassword = await hashPassword(tempRegData.pass);
+/**
+ * Memverifikasi kode OTP yang diinputkan pengguna ke server Supabase
+ */
+async function verifyOTP() {
+    const emailInput = document.getElementById('email') || document.getElementById('userEmail');
+    const otpInput = document.getElementById('otpCode') || document.getElementById('otpInput') || document.getElementById('otp');
 
-            const newEmp = {
-                id: tempRegData.email,
-                name: tempRegData.nama,
-                position: 'Staff',
-                whatsapp: tempRegData.wa,
-                role: 'Karyawan / Field',
-                atasan: 'Budi Santoso',
-                password: hashedPassword,
-                status: 'Pending',
-                device_id: 'Unbound' 
-            };
+    const email = emailInput ? emailInput.value.trim() : '';
+    const token = otpInput ? otpInput.value.trim() : '';
 
-            const { error } = await supabaseClient.from('employees').insert([newEmp]);
-            if (error) {
-                showToast('Gagal mendaftarkan akun ke database: ' + error.message, 'error');
-                return;
-            }
+    if (!email || !token) {
+        alert('Email dan Kode OTP wajib diisi!');
+        return;
+    }
 
-            employees.push({ ...newEmp, deviceId: 'Unbound' });
-            renderEmployees();
-            updateDashboardStats();
+    try {
+        // Verifikasi token OTP ke Supabase Auth
+        const { data, error } = await supabase.auth.verifyOtp({
+            email: email,
+            token: token,
+            type: 'email'
+        });
 
-            showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
-            
-            generatedOTP = null;
-            otpExpiryTime = null;
-            document.getElementById('reg-otp-input').value = '';
-            toggleAuthMode('login');
+        if (error) {
+            console.error('Verifikasi OTP Gagal:', error.message);
+            alert('Kode OTP salah atau sudah kadaluarsa. Silakan coba lagi.');
+            return;
         }
 
+        // Verifikasi Berhasil
+        alert('Verifikasi OTP Berhasil! Anda berhasil masuk.');
+
+        // Sesi & Data Pengguna terautentikasi dari Supabase
+        const session = data.session;
+        const user = data.user;
+
+        // Menyimpan token akses jika dibutuhkan oleh fitur lain
+        if (session) {
+            localStorage.setItem('supabase_session', JSON.stringify(session));
+        }
+
+        // Menjalankan fungsi paska-login bawaan aplikasi Anda tanpa merusak alur UI
+        if (typeof handlePostLogin === 'function') {
+            handlePostLogin(user);
+        } else if (typeof showDashboard === 'function') {
+            showDashboard();
+        } else {
+            // Fallback default: reload atau arahkan tampilan UI
+            const loginModal = document.getElementById('loginModal');
+            if (loginModal) loginModal.style.display = 'none';
+        }
+
+    } catch (err) {
+        console.error('Terjadi kesalahan pada verifyOTP:', err);
+        alert('Terjadi kesalahan sistem saat memverifikasi OTP.');
+    }
+}
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
