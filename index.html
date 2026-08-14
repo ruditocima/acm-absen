@@ -1901,59 +1901,68 @@
             }
         }
 
-        async function captureSelfieAndAbsen() {
-            const video = document.getElementById('webcam-feed');
-            const canvas = document.getElementById('webcam-canvas');
-            const context = canvas.getContext('2d');
+// 1. Fungsi Pembantu: Konversi Base64 ke Blob (File)
+function dataURItoBlob(dataURI) {
+    const byteString = atob(dataURI.split(',')[1]);
+    const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+}
 
-            canvas.width = 320;
-            canvas.height = 240;
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const selfieBase64 = canvas.toDataURL('image/jpeg', 0.7);
+// 2. Modifikasi fungsi utama (Ganti fungsi lama Anda dengan ini)
+async function captureSelfieAndAbsen() {
+    // Ambil canvas (asumsi elemen canvas Anda bernama 'canvas')
+    const canvas = document.getElementById('canvas'); 
+    
+    // Optimasi: Kompresi kualitas 0.5 (setara 15-25kb)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.5); 
+    const blob = dataURItoBlob(dataUrl);
 
-            closeCameraModal();
+    // Buat nama file unik: ID-karyawan_timestamp.jpg
+    const employeeId = document.getElementById('employee_id').value; // Sesuaikan ID input Anda
+    const fileName = `selfie_${employeeId}_${Date.now()}.jpg`;
 
-            if (!pendingAbsenData) return;
+    try {
+        // A. Upload ke Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('selfie-absen')
+            .upload(fileName, blob, {
+                cacheControl: '3600',
+                upsert: false
+            });
 
-            const { userLat, userLng, validBasecamp, minDistance } = pendingAbsenData;
+        if (uploadError) throw uploadError;
 
-            const coordDisplay = document.querySelector('#m-tab-absen .text-gold-400.font-medium');
-            if (coordDisplay) {
-                coordDisplay.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(6)}° N, ${userLng.toFixed(6)}° E`;
-            }
+        // B. Dapatkan Public URL
+        const { data: urlData } = supabase.storage
+            .from('selfie-absen')
+            .getPublicUrl(fileName);
 
-            const badgeEl = document.getElementById('mobile-badge-status');
-            if (badgeEl) {
-                badgeEl.innerText = `Basecamp: ${validBasecamp.name}`;
-            }
+        const publicUrl = urlData.publicUrl;
 
-            const newRekap = {
-                date: new Date().toISOString().split('T')[0],
-                name: activeEmployeeSession.name,
-                basecamp: validBasecamp.name,
-                time: new Date().toTimeString().split(' ')[0] + ' WIB',
-                status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
-                late: '-',
-                selfie: selfieBase64
-            };
+        // C. Simpan ke Database (Kolom 'selfie' sekarang berisi URL, bukan Base64)
+        const newRekap = {
+            employee_id: employeeId,
+            selfie: publicUrl, // <-- Simpan URL
+            // ... field lainnya ...
+        };
 
-            const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
-            if (error) { 
-                showToast('Gagal simpan ke server: ' + error.message, 'error'); 
-                return;
-            }
-            
-            rekapList.push(newRekap);
-            renderRekap();
-            updateDashboardStats();
+        const { data, error } = await supabase
+            .from('rekap_list')
+            .insert([newRekap]);
 
-            showToast(`Absensi Berhasil + Foto Selfie! Terverifikasi di ${validBasecamp.name}`, 'success');
-            
-            const jamMasukEl = document.getElementById('mobile-jam-masuk');
-            if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
+        if (error) throw error;
 
-            pendingAbsenData = null;
-        }
+        alert('Absensi berhasil disimpan!');
+    } catch (error) {
+        console.error('Error saat menyimpan:', error);
+        alert('Gagal menyimpan absensi: ' + error.message);
+    }
+}
     </script>
 </body>
 </html>
