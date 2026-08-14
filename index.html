@@ -1527,7 +1527,7 @@
         }
 
         function openAddBasecampModal() {
-            const role = activeEmployeeSession.role;
+            const role = activeEmployeeSession ? activeEmployeeSession.role : null;
             if (role !== 'Master Admin' && role !== 'Supervisor Field' && !isMasterAdmin()) {
                 showToast('Akses Ditolak! Role Anda tidak diizinkan menambah basecamp.', 'error');
                 return;
@@ -1542,7 +1542,7 @@
         }
 
         function openEditBasecampModal(index) {
-            const role = activeEmployeeSession.role;
+            const role = activeEmployeeSession ? activeEmployeeSession.role : null;
             if (role === 'Supervisor Field') {
                 showToast('Akses Ditolak! Supervisor Field tidak diizinkan mengedit basecamp.', 'error');
                 return;
@@ -1566,64 +1566,81 @@
         }
 
         async function saveBasecamp() {
-            const role = activeEmployeeSession.role;
-            const index = parseInt(document.getElementById('bc-edit-index').value);
-            
-            if (index !== -1 && role === 'Supervisor Field') {
-                showToast('Akses Ditolak! Supervisor Field tidak diizinkan mengedit basecamp.', 'error');
-                return;
-            }
-
-            const name = document.getElementById('bc-inp-name').value.trim();
-            const lat = parseFloat(document.getElementById('bc-inp-lat').value);
-            const lng = parseFloat(document.getElementById('bc-inp-lng').value);
-            const radius = parseInt(document.getElementById('bc-inp-radius').value);
-
-            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                showToast('Semua field basecamp wajib diisi dengan format yang benar!', 'error');
-                return;
-            }
-
-            if (index === -1) {
-                // Hapus penempatan ID manual menggunakan Date.now()
-                // Biarkan Supabase otomatis membuat ID-nya dan kita ambil kembali datanya menggunakan .select()
-                const newBc = { name, lat, lng, radius };
-                const { data, error } = await supabaseClient.from('basecamps').insert([newBc]).select();
+            try {
+                const role = activeEmployeeSession ? activeEmployeeSession.role : null;
+                const index = parseInt(document.getElementById('bc-edit-index').value, 10);
                 
-                if (error) {
-                    showToast('Gagal menambah ke database: ' + error.message, 'error');
-                    return;
-                }
-                
-                // Gunakan data balikan langsung dari Supabase yang memiliki ID aslinya
-                const insertedData = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newBc };
-                basecamps.push(insertedData); 
-                showToast('Basecamp baru berhasil ditambahkan!', 'success');
-            } else {
-                const bcId = basecamps[index].id;
-                const { error } = await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
-                
-                if (error) {
-                    showToast('Gagal merubah database: ' + error.message, 'error');
+                if (index !== -1 && role === 'Supervisor Field') {
+                    showToast('Akses Ditolak! Supervisor Field tidak diizinkan mengedit basecamp.', 'error');
                     return;
                 }
 
-                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
-                showToast('Basecamp berhasil diperbarui!', 'success');
-            }
+                const nameInput = document.getElementById('bc-inp-name').value.trim();
+                const latInput = document.getElementById('bc-inp-lat').value.trim().replace(',', '.');
+                const lngInput = document.getElementById('bc-inp-lng').value.trim().replace(',', '.');
+                const radiusInput = document.getElementById('bc-inp-radius').value.trim();
 
-            closeBasecampModal();
-            renderBasecamps();
-            
-            if (bcMap) {
-                setTimeout(() => {
-                    bcMap.invalidateSize();
-                }, 200);
+                const lat = parseFloat(latInput);
+                const lng = parseFloat(lngInput);
+                const radius = parseInt(radiusInput, 10);
+
+                if (!nameInput || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
+                    showToast('Semua field basecamp wajib diisi dengan format angka yang benar!', 'error');
+                    return;
+                }
+
+                if (index === -1) {
+                    // Tambah Basecamp Baru
+                    let newBc = { name: nameInput, lat: lat, lng: lng, radius: radius };
+                    let { data, error } = await supabaseClient.from('basecamps').insert([newBc]).select();
+                    
+                    // Fallback jika database Supabase membutuhkan ID eksplisit
+                    if (error) {
+                        const fallbackId = Date.now();
+                        const newBcWithId = { id: fallbackId, name: nameInput, lat: lat, lng: lng, radius: radius };
+                        const retry = await supabaseClient.from('basecamps').insert([newBcWithId]).select();
+                        if (retry.error) {
+                            showToast('Gagal menambah ke database: ' + (error.message || retry.error.message), 'error');
+                            return;
+                        }
+                        data = retry.data;
+                        newBc = newBcWithId;
+                    }
+                    
+                    const insertedData = (data && data.length > 0) ? data[0] : newBc;
+                    basecamps.push(insertedData); 
+                    showToast('Basecamp baru berhasil ditambahkan!', 'success');
+                } else {
+                    // Edit Basecamp
+                    const bcId = basecamps[index].id;
+                    const updatePayload = { name: nameInput, lat: lat, lng: lng, radius: radius };
+                    const { error } = await supabaseClient.from('basecamps').update(updatePayload).eq('id', bcId);
+                    
+                    if (error) {
+                        showToast('Gagal merubah database: ' + error.message, 'error');
+                        return;
+                    }
+
+                    basecamps[index] = { ...basecamps[index], ...updatePayload };
+                    showToast('Basecamp berhasil diperbarui!', 'success');
+                }
+
+                closeBasecampModal();
+                renderBasecamps();
+                
+                if (bcMap) {
+                    setTimeout(() => {
+                        bcMap.invalidateSize();
+                    }, 200);
+                }
+            } catch (err) {
+                console.error("Gagal menyimpan basecamp:", err);
+                showToast("Terjadi kesalahan sistem saat menyimpan basecamp: " + err.message, "error");
             }
         }
 
         function deleteBasecamp(index) {
-            const role = activeEmployeeSession.role;
+            const role = activeEmployeeSession ? activeEmployeeSession.role : null;
             if (role === 'Supervisor Field' || role === 'Admin' || role === 'Karyawan / Field') {
                 showToast('Akses Ditolak! Role Anda tidak diizinkan menghapus basecamp.', 'error');
                 return;
