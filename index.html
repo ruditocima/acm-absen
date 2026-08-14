@@ -145,7 +145,7 @@
                     <!-- VERIFIKASI OTP -->
                     <div id="reg-step-2" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verifikasi Kode OTP 6 Digit</h3>
-                        <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email dan WhatsApp terdaftar Anda.</p>
+                        <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email terdaftar Anda.</p>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Masukkan 6 Digit OTP</label>
                             <input type="text" id="reg-otp-input" maxlength="6" placeholder="------" class="w-full text-center tracking-widest font-mono text-lg bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500">
@@ -506,7 +506,7 @@
         </div>
     </div>
 
-    <!-- MODAL ZOOM PHOTO / LIGHTBOX (FITUR BARU) -->
+    <!-- MODAL ZOOM PHOTO / LIGHTBOX -->
     <div id="zoom-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex flex-col items-center justify-center p-4 cursor-pointer" onclick="closeZoomModal()">
         <div class="relative max-w-lg w-full p-4 flex flex-col items-center" onclick="event.stopPropagation()">
             <img id="zoom-image" src="" class="max-h-[80vh] max-w-full rounded-2xl border-2 border-gold-500/50 shadow-2xl object-contain">
@@ -696,9 +696,6 @@
             return "sha256$" + hashHex; 
         }
 
-        let generatedOTP = null;
-        let otpExpiryTime = null;
-
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             if (!container) return;
@@ -802,7 +799,6 @@
             return (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin');
         }
 
-        // Helper to check and display today's jam masuk on mobile view
         function checkTodayAttendance() {
             if (!activeEmployeeSession || activeEmployeeSession.name === 'Tamu') return;
             const now = new Date();
@@ -995,112 +991,126 @@
         }
 
         // ============================================================
-// SUPABASE AUTH EMAIL OTP INTEGRATION
-// ============================================================
+        // SUPABASE AUTH EMAIL OTP INTEGRATION (FIXED)
+        // ============================================================
 
-/**
- * Meminta OTP aman langsung dari server Supabase ke Email pengguna
- */
-async function requestOTP() {
-    // Mengambil elemen input email yang sudah ada di template Anda
-    const emailInput = document.getElementById('email') || document.getElementById('userEmail');
-    const email = emailInput ? emailInput.value.trim() : '';
+        function backToRegStep1() {
+            document.getElementById('reg-step-1').classList.remove('hidden');
+            document.getElementById('reg-step-2').classList.add('hidden');
+        }
 
-    if (!email) {
-        alert('Silakan masukkan alamat email yang valid terlebih dahulu.');
-        return;
-    }
+        async function requestOTP() {
+            const email = document.getElementById('reg-email') ? document.getElementById('reg-email').value.trim() : '';
+            const nama = document.getElementById('reg-nama') ? document.getElementById('reg-nama').value.trim() : '';
+            const wa = document.getElementById('reg-wa') ? document.getElementById('reg-wa').value.trim() : '';
+            const pass = document.getElementById('reg-pass') ? document.getElementById('reg-pass').value.trim() : '';
 
-    try {
-        // Tampilkan indikator loading sederhana (jika diperlukan)
-        console.log('Mengirim kode OTP ke:', email);
-
-        // Memanggil API Supabase Auth untuk membuat dan mengirim OTP
-        const { data, error } = await supabase.auth.signInWithOtp({
-            email: email,
-            options: {
-                // Set true jika ingin otomatis membuat akun baru jika email belum terdaftar
-                shouldCreateUser: true 
+            if (!email || !email.includes('@')) {
+                showToast('Silakan masukkan alamat email (Gmail) yang valid terlebih dahulu.', 'error');
+                return;
             }
-        });
 
-        if (error) {
-            console.error('Gagal mengirim OTP via Supabase:', error.message);
-            alert('Gagal mengirim OTP: ' + error.message);
-            return;
+            if (!nama || !wa || !pass) {
+                showToast('Harap lengkapi semua data pendaftaran (Nama, WA, Password)!', 'warning');
+                return;
+            }
+
+            try {
+                showToast(`Mengirim kode OTP ke ${email}...`, 'warning');
+
+                const { data, error } = await supabaseClient.auth.signInWithOtp({
+                    email: email,
+                    options: {
+                        shouldCreateUser: true 
+                    }
+                });
+
+                if (error) {
+                    console.error('Gagal mengirim OTP via Supabase:', error.message);
+                    showToast('Gagal mengirim OTP: ' + error.message, 'error');
+                    return;
+                }
+
+                tempRegData = { email, nama, wa, pass };
+
+                showToast(`Kode OTP telah dikirimkan ke email ${email}. Cek Inbox atau Spam Anda.`, 'success');
+
+                document.getElementById('reg-step-1').classList.add('hidden');
+                document.getElementById('reg-step-2').classList.remove('hidden');
+                const instructionText = document.getElementById('otp-instruction-text');
+                if (instructionText) {
+                    instructionText.innerText = `Kode OTP 6 digit telah dikirimkan ke ${email}.`;
+                }
+
+            } catch (err) {
+                console.error('Terjadi kesalahan pada requestOTP:', err);
+                showToast('Terjadi kesalahan koneksi saat meminta OTP.', 'error');
+            }
         }
 
-        alert(`Kode OTP telah dikirimkan ke email ${email}.\nSilakan periksa kotak masuk atau folder spam Anda.`);
+        async function verifyOTP() {
+            const email = tempRegData ? tempRegData.email : (document.getElementById('reg-email') ? document.getElementById('reg-email').value.trim() : '');
+            const otpInput = document.getElementById('reg-otp-input');
+            const token = otpInput ? otpInput.value.trim() : '';
 
-        // Menampilkan blok input OTP di UI jika sebelumnya tersembunyi
-        const otpSection = document.getElementById('otpSection') || document.getElementById('otpContainer');
-        if (otpSection) {
-            otpSection.style.display = 'block';
+            if (!email || !token) {
+                showToast('Email dan Kode OTP 6 digit wajib diisi!', 'error');
+                return;
+            }
+
+            try {
+                showToast('Memverifikasi kode OTP...', 'warning');
+
+                const { data, error } = await supabaseClient.auth.verifyOtp({
+                    email: email,
+                    token: token,
+                    type: 'email'
+                });
+
+                if (error) {
+                    console.error('Verifikasi OTP Gagal:', error.message);
+                    showToast('Kode OTP salah atau sudah kadaluarsa. Silakan coba lagi.', 'error');
+                    return;
+                }
+
+                const finalPass = tempRegData ? await hashPassword(tempRegData.pass) : await hashPassword('123456');
+                const newEmp = {
+                    id: email,
+                    name: tempRegData ? tempRegData.nama : 'Karyawan Baru',
+                    position: 'Staff Field',
+                    whatsapp: tempRegData ? tempRegData.wa : '08123456789',
+                    role: 'Karyawan / Field',
+                    atasan: 'Budi Santoso',
+                    password: finalPass,
+                    status: 'Pending',
+                    device_id: currentDeviceUUID
+                };
+
+                const { error: dbError } = await supabaseClient.from('employees').insert([newEmp]);
+                if (dbError) {
+                    console.warn('DB Insert Notice:', dbError.message);
+                } else {
+                    employees.push({ ...newEmp, deviceId: currentDeviceUUID });
+                }
+
+                showToast('Verifikasi OTP Berhasil! Akun Anda telah terdaftar (Menunggu Approval Admin).', 'success');
+
+                if (otpInput) otpInput.value = '';
+                document.getElementById('reg-email').value = '';
+                document.getElementById('reg-nama').value = '';
+                document.getElementById('reg-wa').value = '';
+                document.getElementById('reg-pass').value = '';
+
+                toggleAuthMode('login');
+                renderEmployees();
+                updateDashboardStats();
+
+            } catch (err) {
+                console.error('Terjadi kesalahan pada verifyOTP:', err);
+                showToast('Terjadi kesalahan sistem saat memverifikasi OTP.', 'error');
+            }
         }
 
-    } catch (err) {
-        console.error('Terjadi kesalahan pada requestOTP:', err);
-        alert('Terjadi kesalahan koneksi saat meminta OTP.');
-    }
-}
-
-/**
- * Memverifikasi kode OTP yang diinputkan pengguna ke server Supabase
- */
-async function verifyOTP() {
-    const emailInput = document.getElementById('email') || document.getElementById('userEmail');
-    const otpInput = document.getElementById('otpCode') || document.getElementById('otpInput') || document.getElementById('otp');
-
-    const email = emailInput ? emailInput.value.trim() : '';
-    const token = otpInput ? otpInput.value.trim() : '';
-
-    if (!email || !token) {
-        alert('Email dan Kode OTP wajib diisi!');
-        return;
-    }
-
-    try {
-        // Verifikasi token OTP ke Supabase Auth
-        const { data, error } = await supabase.auth.verifyOtp({
-            email: email,
-            token: token,
-            type: 'email'
-        });
-
-        if (error) {
-            console.error('Verifikasi OTP Gagal:', error.message);
-            alert('Kode OTP salah atau sudah kadaluarsa. Silakan coba lagi.');
-            return;
-        }
-
-        // Verifikasi Berhasil
-        alert('Verifikasi OTP Berhasil! Anda berhasil masuk.');
-
-        // Sesi & Data Pengguna terautentikasi dari Supabase
-        const session = data.session;
-        const user = data.user;
-
-        // Menyimpan token akses jika dibutuhkan oleh fitur lain
-        if (session) {
-            localStorage.setItem('supabase_session', JSON.stringify(session));
-        }
-
-        // Menjalankan fungsi paska-login bawaan aplikasi Anda tanpa merusak alur UI
-        if (typeof handlePostLogin === 'function') {
-            handlePostLogin(user);
-        } else if (typeof showDashboard === 'function') {
-            showDashboard();
-        } else {
-            // Fallback default: reload atau arahkan tampilan UI
-            const loginModal = document.getElementById('loginModal');
-            if (loginModal) loginModal.style.display = 'none';
-        }
-
-    } catch (err) {
-        console.error('Terjadi kesalahan pada verifyOTP:', err);
-        alert('Terjadi kesalahan sistem saat memverifikasi OTP.');
-    }
-}
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
@@ -1838,7 +1848,6 @@ async function verifyOTP() {
             }
         }
 
-        // FUNGSI ZOOM FOTO SELFIE (FITUR BARU)
         function openZoomModal(imgSrc) {
             const modal = document.getElementById('zoom-modal');
             const img = document.getElementById('zoom-image');
@@ -1867,7 +1876,6 @@ async function verifyOTP() {
             }
 
             list.forEach(item => {
-                // Diperbarui: Menambahkan event onclick, kursor pointer, dan efek hover pada tag img thumbnail
                 const imgThumb = item.selfie 
                     ? `<img src="${item.selfie}" class="w-8 h-8 rounded-lg object-cover border border-gold-500/30 cursor-pointer hover:scale-110 transition-transform" title="Klik untuk memperbesar foto" onclick="openZoomModal('${item.selfie}')" />` 
                     : `<span class="text-slate-600 text-[10px]">-</span>`;
@@ -2039,49 +2047,42 @@ async function verifyOTP() {
             }
 
             const [currentHours, currentMinutes] = timeStr.split(':').map(Number);
-            const standardHour = 9;
-            const standardMinute = 40;
+            let statusStr = "Hadir Tepat Waktu";
+            let lateStr = "0 Menit";
 
-            let status = 'Tepat Waktu';
-            let lateText = '-';
-
-            const totalCurrentMinutes = currentHours * 60 + currentMinutes;
-            const totalStandardMinutes = standardHour * 60 + standardMinute;
-
-            if (totalCurrentMinutes > totalStandardMinutes) {
-                status = 'Terlambat';
-                const diffMin = totalCurrentMinutes - totalStandardMinutes;
-                const hoursLate = Math.floor(diffMin / 60);
-                const minsLate = diffMin % 60;
-                lateText = hoursLate > 0 ? `${hoursLate}j ${minsLate}m` : `${minsLate}m`;
+            // Batas Toleransi Jam Masuk 08:00 WIB
+            if (currentHours > 8 || (currentHours === 8 && currentMinutes > 0)) {
+                statusStr = "Terlambat";
+                const totalLateMin = ((currentHours - 8) * 60) + currentMinutes;
+                lateStr = `${totalLateMin} Menit`;
             }
 
-            const newRekap = {
-                name: activeEmployeeSession.name,
-                basecamp: pendingAbsenData.validBasecamp.name,
+            const newRecord = {
                 date: dateStr,
                 time: timeStr,
-                status: status,
-                selfie: selfieDataUrl,
-                late: lateText
+                name: activeEmployeeSession.name,
+                basecamp: pendingAbsenData.validBasecamp.name,
+                status: statusStr,
+                late: lateStr,
+                selfie: selfieDataUrl
             };
 
-            const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
+            const { data, error } = await supabaseClient.from('rekap_list').insert([newRecord]).select();
             if (error) {
-                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
+                showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
                 closeCameraModal();
                 return;
             }
 
-            const insertedRekap = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newRekap };
-            rekapList.push(insertedRekap);
-            renderRekap();
-            updateDashboardStats();
-            checkTodayAttendance();
+            const inserted = (data && data.length > 0) ? data[0] : newRecord;
+            rekapList.push(inserted);
 
+            showToast(`Absensi Masuk Berhasil! (${statusStr})`, 'success');
             closeCameraModal();
-            showToast(`Absensi Berhasil! Status: ${status} (${pendingAbsenData.validBasecamp.name})`, 'success');
-            pendingAbsenData = null;
+            checkTodayAttendance();
+            renderRekap();
+            renderMobileMyHistory();
+            updateDashboardStats();
         }
     </script>
 </body>
