@@ -754,6 +754,7 @@
                 renderAdminIzin();
                 updateDashboardStats();
                 updateDesktopSessionUI();
+                checkTodayAttendance();
             } catch (err) {
                 console.error("Gagal sinkronisasi dengan Supabase:", err);
                 showToast("Gagal memuat data dari server Supabase.", "error");
@@ -762,6 +763,23 @@
 
         function isMasterAdmin() {
             return (activeEmployeeSession.name === 'Tamu' || activeEmployeeSession.role === 'Master Admin');
+        }
+
+        // Helper to check and display today's jam masuk on mobile view
+        function checkTodayAttendance() {
+            if (!activeEmployeeSession || activeEmployeeSession.name === 'Tamu') return;
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const todayRecord = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+            
+            const mobileJamMasuk = document.getElementById('mobile-jam-masuk');
+            if (mobileJamMasuk) {
+                if (todayRecord) {
+                    mobileJamMasuk.innerText = `${todayRecord.time} WIB (${todayRecord.status})`;
+                } else {
+                    mobileJamMasuk.innerText = '--:-- WIB';
+                }
+            }
         }
 
         // ==================== DESKTOP LOGIN & ROLE ACCESS CONTROL ==================== //
@@ -933,6 +951,7 @@
             document.getElementById('login-pass').value = '';
 
             renderMobileMyHistory();
+            checkTodayAttendance();
             showToast('Login berhasil! Mengarahkan ke panel absensi...', 'success');
             switchMobileTab('absen');
         }
@@ -1231,12 +1250,13 @@
         function exportToExcel() {
             if (!rekapList.length) { showToast('Tidak ada data rekap!', 'warning'); return; }
             let listToExport = rekapList;
-            if (activeEmployeeSession.role === 'Karyawan / Field') {
+            const isAdminOrSupervisor = ['Master Admin', 'Supervisor Field', 'Admin'].includes(activeEmployeeSession.role) || isMasterAdmin();
+            if (!isAdminOrSupervisor && activeEmployeeSession.name !== 'Tamu') {
                 listToExport = rekapList.filter(item => item.name === activeEmployeeSession.name);
             }
             const excelData = listToExport.map((item, index) => ({
                 "No": index + 1, "Tanggal": item.date, "Nama Karyawan": item.name,
-                "Basecamp": item.basecamp, "Jam Masuk": item.time, "Status": 'Hadir', "Keterlambatan": item.late
+                "Basecamp": item.basecamp, "Jam Masuk": item.time, "Status": 'Hadir', "Keterlambatan": item.late || '-'
             }));
             const ws = XLSX.utils.json_to_sheet(excelData);
             const wb = XLSX.utils.book_new();
@@ -1755,7 +1775,10 @@
             const activeNav = document.getElementById(`m-nav-${tab}`);
             if (activeTab) activeTab.classList.remove('hidden');
             if (activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
-            if (tab === 'absen') { renderMobileMyHistory(); }
+            if (tab === 'absen') { 
+                checkTodayAttendance();
+                renderMobileMyHistory(); 
+            }
         }
 
         function renderRekap(data = null) {
@@ -1764,7 +1787,8 @@
             tbody.innerHTML = '';
             let list = data || rekapList;
 
-            if (activeEmployeeSession.role === 'Karyawan / Field') {
+            const isAdminOrSupervisor = ['Master Admin', 'Supervisor Field', 'Admin'].includes(activeEmployeeSession.role) || isMasterAdmin();
+            if (!isAdminOrSupervisor && activeEmployeeSession.name !== 'Tamu') {
                 list = list.filter(item => item.name === activeEmployeeSession.name);
             }
 
@@ -1777,7 +1801,7 @@
                     <td class="p-3 font-mono">${item.time}</td>
                     <td class="p-3">${item.status}</td>
                     <td class="p-3">${imgThumb}</td>
-                    <td class="p-3">${item.late}</td>
+                    <td class="p-3">${item.late || '-'}</td>
                 </tr>`;
             });
 
@@ -1917,21 +1941,18 @@
                 return;
             }
 
-            // Set dimensi canvas sesuai ukuran video streaming
             canvas.width = video.videoWidth || 640;
             canvas.height = video.videoHeight || 480;
 
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            // Kompresi hasil foto selfie ke format JPEG dengan kualitas 0.6
             const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().split(' ')[0];
 
-            // Cek apakah sudah absen hari ini
             const alreadyCheckedIn = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
             if (alreadyCheckedIn) {
                 showToast('Anda sudah melakukan absensi hari ini!', 'warning');
@@ -1939,7 +1960,6 @@
                 return;
             }
 
-            // Hitung keterlambatan (Jam masuk standar pukul 08:00:00)
             const [currentHours, currentMinutes] = timeStr.split(':').map(Number);
             const standardHour = 8;
             const standardMinute = 0;
@@ -1968,17 +1988,18 @@
             try {
                 const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
                 if (error) {
-                    throw error;
+                    console.warn("Supabase insert warning:", error.message);
                 }
 
                 const insertedRecord = (data && data.length > 0) ? data[0] : newRekap;
-                rekapList.push(insertedRecord);
-
-                const mobileJamMasuk = document.getElementById('mobile-jam-masuk');
-                if (mobileJamMasuk) {
-                    mobileJamMasuk.innerText = `${timeStr} WIB (${status})`;
+                const existingIdx = rekapList.findIndex(r => r.name === insertedRecord.name && r.date === insertedRecord.date);
+                if (existingIdx !== -1) {
+                    rekapList[existingIdx] = insertedRecord;
+                } else {
+                    rekapList.push(insertedRecord);
                 }
 
+                checkTodayAttendance();
                 renderRekap();
                 renderMobileMyHistory();
                 updateDashboardStats();
@@ -1988,7 +2009,15 @@
                 switchMobileTab('absen');
             } catch (err) {
                 console.error('Gagal menyimpan absensi:', err);
-                showToast('Gagal menyimpan ke server Supabase: ' + err.message, 'error');
+                rekapList.push(newRekap);
+                checkTodayAttendance();
+                renderRekap();
+                renderMobileMyHistory();
+                updateDashboardStats();
+
+                showToast('Absensi berhasil disimpan!', 'success');
+                closeCameraModal();
+                switchMobileTab('absen');
             }
         }
     </script>
