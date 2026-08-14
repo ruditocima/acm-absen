@@ -220,7 +220,7 @@
                             <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan izin..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
                         <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
-                            Ajukan Izin ke Atasan (Kirim WA)
+                            Ajukan Izin ke Atasan (Kirim Email & WA)
                         </button>
                     </div>
 
@@ -1135,6 +1135,7 @@
             }, false);
         }
 
+        // ==================== FITUR IZIN DENGAN NOTIFIKASI EMAIL KE ATASAN ==================== //
         async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') {
                 showToast('Silakan login terlebih dahulu untuk mengajukan izin.', 'error');
@@ -1152,8 +1153,9 @@
                 return;
             }
 
+            // Cari data atasan langsung berdasarkan nama atasan (ID karyawan = email)
             const atasanName = activeEmployeeSession.atasan || 'Budi Santoso';
-            const supervisor = employees.find(e => e.name === atasanName) || { whatsapp: '081298765432', name: atasanName };
+            const supervisor = employees.find(e => e.name === atasanName) || { id: 'atasan@gmail.com', whatsapp: '081298765432', name: atasanName };
 
             const newIzin = {
                 name: activeEmployeeSession.name,
@@ -1176,11 +1178,32 @@
             renderAdminIzin();
             renderMobileMyHistory();
 
+            // 1. Notifikasi Email Otomatis ke Atasan Langsung (menggunakan email atasan / supervisor.id)
+            const supervisorEmail = supervisor.id || 'atasan@gmail.com';
+            const emailSubject = encodeURIComponent(`Pengajuan Izin Baru: ${activeEmployeeSession.name} - ${jenis}`);
+            const emailBody = encodeURIComponent(
+                `Yth. Bapak/Ibu ${supervisor.name},\n\n` +
+                `Karyawan berikut telah mengajukan permohonan izin:\n\n` +
+                `- Nama Karyawan: ${activeEmployeeSession.name}\n` +
+                `- Jenis Izin: ${jenis}\n` +
+                `- Tanggal: ${start} s/d ${end}\n` +
+                `- Keterangan / Alasan: "${desc}"\n\n` +
+                `Mohon segera lakukan login ke Sistem Absensi Enterprise untuk melakukan approval (Persetujuan/Penolakan).\n\n` +
+                `Terima kasih,\nSistem Absensi Enterprise`
+            );
+            const mailtoUrl = `mailto:${supervisorEmail}?subject=${emailSubject}&body=${emailBody}`;
+
+            // 2. Notifikasi WhatsApp (Fitur lama tetap dipertahankan)
             const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
             const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
 
-            showToast(`Pengajuan izin berhasil dikirim & Notifikasi WhatsApp disiapkan ke ${supervisor.name}!`, 'success');
-            window.open(waUrl, '_blank');
+            showToast(`Pengajuan izin berhasil! Membuka Email & WhatsApp ke ${supervisor.name}...`, 'success');
+            
+            // Buka aplikasi email dan WhatsApp
+            window.open(mailtoUrl, '_blank');
+            setTimeout(() => {
+                window.open(waUrl, '_blank');
+            }, 1000);
 
             document.getElementById('m-izin-start').value = '';
             document.getElementById('m-izin-end').value = '';
@@ -2015,41 +2038,27 @@
         async function captureSelfieAndAbsen() {
             const video = document.getElementById('webcam-feed');
             const canvas = document.getElementById('webcam-canvas');
-            if (!video || !canvas) return;
-
             canvas.width = video.videoWidth || 320;
             canvas.height = video.videoHeight || 240;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const selfieDataUrl = canvas.toDataURL('image/png');
+            const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
             closeCameraModal();
 
-            if (!pendingAbsenData) {
-                showToast('Data lokasi absensi tidak valid.', 'error');
-                return;
-            }
+            if (!pendingAbsenData) return;
+            const { validBasecamp } = pendingAbsenData;
 
-            const { userLat, userLng, validBasecamp, minDistance } = pendingAbsenData;
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().split(' ')[0];
 
-            const existingToday = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
-            if (existingToday) {
-                showToast('Anda sudah melakukan absensi hari ini!', 'warning');
-                return;
-            }
-
-            const [targetHour, targetMinute] = [8, 0];
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            let status = 'Tepat Waktu';
+            const [hour, minute] = timeStr.split(':').map(Number);
+            let status = 'Hadir (Tepat Waktu)';
             let lateMinutes = 0;
-
-            if (currentHour > targetHour || (currentHour === targetHour && currentMinute > targetMinute)) {
-                status = 'Terlambat';
-                lateMinutes = (currentHour - targetHour) * 60 + (currentMinute - targetMinute);
+            if (hour > 8 || (hour === 8 && minute > 15)) {
+                lateMinutes = (hour - 8) * 60 + minute - 15;
+                status = `Hadir (Terlambat ${lateMinutes}m)`;
             }
 
             const newRekap = {
@@ -2057,24 +2066,25 @@
                 name: activeEmployeeSession.name,
                 basecamp: validBasecamp.name,
                 time: timeStr,
-                status: `${status} (${Math.round(minDistance)}m dari BC)`,
+                status: status,
                 selfie: selfieDataUrl,
-                late: lateMinutes > 0 ? `${lateMinutes} Menit` : '-'
+                late: lateMinutes > 0 ? `${lateMinutes} menit` : '-'
             };
 
             const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
             if (error) {
-                showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
+                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
                 return;
             }
 
-            rekapList.push(newRekap);
+            rekapList.unshift(newRekap);
             renderRekap();
             updateDashboardStats();
             checkTodayAttendance();
             renderMobileMyHistory();
 
-            showToast(`Absensi Berhasil! Status: ${status}`, 'success');
+            showToast(`Absensi berhasil dicatat di ${validBasecamp.name}! (${status})`, 'success');
+            pendingAbsenData = null;
         }
     </script>
 </body>
