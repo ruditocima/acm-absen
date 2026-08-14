@@ -991,7 +991,7 @@
         }
 
         // ============================================================
-        // SUPABASE AUTH EMAIL OTP INTEGRATION (FIXED)
+        // SUPABASE AUTH EMAIL OTP INTEGRATION
         // ============================================================
 
         function backToRegStep1() {
@@ -1998,86 +1998,83 @@
                 activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
                 video.srcObject = activeMediaStream;
             } catch (err) {
-                showToast('Gagal mengakses kamera perangkat: ' + err.message, 'error');
+                showToast('Gagal mengakses kamera depan perangkat.', 'error');
                 closeCameraModal();
             }
         }
 
         function closeCameraModal() {
             const modal = document.getElementById('camera-modal');
-            if (modal) {
-                modal.classList.add('hidden');
-            }
+            modal.classList.add('hidden');
             if (activeMediaStream) {
                 activeMediaStream.getTracks().forEach(track => track.stop());
                 activeMediaStream = null;
             }
-            pendingAbsenData = null;
         }
 
         async function captureSelfieAndAbsen() {
-            if (!pendingAbsenData) {
-                showToast('Data absensi tidak valid.', 'error');
-                closeCameraModal();
-                return;
-            }
-
             const video = document.getElementById('webcam-feed');
             const canvas = document.getElementById('webcam-canvas');
+            if (!video || !canvas) return;
+
             canvas.width = video.videoWidth || 320;
             canvas.height = video.videoHeight || 240;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            const selfieDataUrl = canvas.toDataURL('image/png');
 
             closeCameraModal();
 
+            if (!pendingAbsenData) {
+                showToast('Data lokasi absensi tidak valid.', 'error');
+                return;
+            }
+
+            const { userLat, userLng, validBasecamp, minDistance } = pendingAbsenData;
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().split(' ')[0];
 
-            const existing = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
-            if (existing) {
+            const existingToday = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+            if (existingToday) {
                 showToast('Anda sudah melakukan absensi hari ini!', 'warning');
                 return;
             }
 
-            const targetHour = 8;
+            const [targetHour, targetMinute] = [8, 0];
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
             let status = 'Tepat Waktu';
-            let lateDiff = '-';
+            let lateMinutes = 0;
 
-            if (currentHour > targetHour || (currentHour === targetHour && currentMinute > 0)) {
+            if (currentHour > targetHour || (currentHour === targetHour && currentMinute > targetMinute)) {
                 status = 'Terlambat';
-                const diffMins = (currentHour - targetHour) * 60 + currentMinute;
-                lateDiff = `${diffMins} Menit`;
+                lateMinutes = (currentHour - targetHour) * 60 + (currentMinute - targetMinute);
             }
 
             const newRekap = {
-                name: activeEmployeeSession.name,
-                basecamp: pendingAbsenData.validBasecamp.name,
                 date: dateStr,
+                name: activeEmployeeSession.name,
+                basecamp: validBasecamp.name,
                 time: timeStr,
-                status: status,
+                status: `${status} (${Math.round(minDistance)}m dari BC)`,
                 selfie: selfieDataUrl,
-                late: lateDiff
+                late: lateMinutes > 0 ? `${lateMinutes} Menit` : '-'
             };
 
-            const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
+            const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
             if (error) {
-                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
+                showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
                 return;
             }
 
-            const inserted = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newRekap };
-            rekapList.push(inserted);
+            rekapList.push(newRekap);
             renderRekap();
             updateDashboardStats();
             checkTodayAttendance();
             renderMobileMyHistory();
 
-            showToast(`Absensi Berhasil (${status}) di ${pendingAbsenData.validBasecamp.name}!`, 'success');
+            showToast(`Absensi Berhasil! Status: ${status}`, 'success');
         }
     </script>
 </body>
