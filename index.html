@@ -996,7 +996,8 @@
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
-            await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
+            const { error } = await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
+            if(error) { showToast('Gagal memproses ke database', 'error'); return; }
             renderEmployees();
             updateDashboardStats();
             showToast(`Akun disetujui!`, 'success');
@@ -1008,8 +1009,9 @@
                 return;
             }
             showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, async () => {
+                const { error } = await supabaseClient.from('employees').update({ device_id: 'Unbound' }).eq('id', employees[index].id);
+                if(error) { showToast('Gagal reset dari database', 'error'); return; }
                 employees[index].deviceId = 'Unbound';
-                await supabaseClient.from('employees').update({ device_id: 'Unbound' }).eq('id', employees[index].id);
                 renderEmployees();
                 showToast(`Perangkat ${employees[index].name} berhasil di-reset menjadi Unbound.`, 'success');
             }, false);
@@ -1036,7 +1038,6 @@
             const supervisor = employees.find(e => e.name === atasanName) || { whatsapp: '081298765432', name: atasanName };
 
             const newIzin = {
-                id: Date.now(),
                 name: activeEmployeeSession.name,
                 jenis: jenis,
                 start: start,
@@ -1046,13 +1047,14 @@
                 status: 'Pending'
             };
 
-            const { error } = await supabaseClient.from('izin_list').insert([newIzin]);
+            const { data, error } = await supabaseClient.from('izin_list').insert([newIzin]).select();
             if (error) {
                 showToast('Gagal mengirim izin ke database: ' + error.message, 'error');
                 return;
             }
 
-            izinList.push(newIzin);
+            const insertedData = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newIzin };
+            izinList.push(insertedData);
             renderAdminIzin();
             renderMobileMyHistory();
 
@@ -1137,8 +1139,9 @@
         }
 
         async function handleIzinAction(index, action) {
+            const { error } = await supabaseClient.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
+            if(error){ showToast('Gagal memproses aksi', 'error'); return; }
             izinList[index].status = action;
-            await supabaseClient.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
             renderAdminIzin();
             renderMobileMyHistory();
             showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
@@ -1183,7 +1186,8 @@
                 return;
             }
             showConfirm('Reset Rekap Data', 'Hapus seluruh riwayat rekap absensi?', async () => {
-                await supabaseClient.from('rekap_list').delete().neq('id', 0);
+                const { error } = await supabaseClient.from('rekap_list').delete().neq('id', 0); // asumsi menghapus seluruh isi
+                if(error) { showToast('Gagal reset dari database', 'error'); return; }
                 rekapList = [];
                 renderRekap();
                 updateDashboardStats();
@@ -1334,13 +1338,15 @@
 
             if (index === -1) {
                 const newEmp = { id, name, position, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
-                await supabaseClient.from('employees').insert([newEmp]);
-                // Optimistic Update
+                const { error } = await supabaseClient.from('employees').insert([newEmp]);
+                if (error) { showToast('Gagal mendaftarkan karyawan: ' + error.message, 'error'); return; }
+                
                 employees.push({ ...newEmp, deviceId: 'Unbound' });
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                await supabaseClient.from('employees').update({ name, position, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
-                // Optimistic Update
+                const { error } = await supabaseClient.from('employees').update({ name, position, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
+                if (error) { showToast('Gagal merubah data karyawan: ' + error.message, 'error'); return; }
+
                 employees[index] = { ...employees[index], name, position, whatsapp, role, atasan, password: finalPassword };
                 showToast('Data karyawan diperbarui!', 'success');
             }
@@ -1352,8 +1358,8 @@
 
         function deleteEmployee(index) {
             showConfirm('Hapus Karyawan', `Hapus ${employees[index].name}?`, async () => {
-                await supabaseClient.from('employees').delete().eq('id', employees[index].id);
-                // Optimistic Update
+                const { error } = await supabaseClient.from('employees').delete().eq('id', employees[index].id);
+                if (error) { showToast('Gagal menghapus: ' + error.message, 'error'); return; }
                 employees.splice(index, 1);
                 renderEmployees();
                 updateDashboardStats();
@@ -1399,14 +1405,16 @@
 
             if (index === -1) {
                 const newRole = { id: roleId, name, access };
-                await supabaseClient.from('roles').insert([newRole]);
-                // Optimistic Update
+                const { error } = await supabaseClient.from('roles').insert([newRole]);
+                if (error) { showToast('Gagal mendaftarkan Role: ' + error.message, 'error'); return; }
+
                 roles.push(newRole);
                 showToast('Role berhasil ditambahkan', 'success');
             } else {
                 const targetRole = roles[index];
-                await supabaseClient.from('roles').update({ name, access }).eq('id', targetRole.id);
-                // Optimistic Update
+                const { error } = await supabaseClient.from('roles').update({ name, access }).eq('id', targetRole.id);
+                if (error) { showToast('Gagal mengubah Role: ' + error.message, 'error'); return; }
+
                 roles[index] = { ...targetRole, name, access };
                 showToast('Role berhasil diperbarui', 'success');
             }
@@ -1416,8 +1424,8 @@
         }
 
         async function deleteRole(idx) { 
-            await supabaseClient.from('roles').delete().eq('id', roles[idx].id);
-            // Optimistic Update
+            const { error } = await supabaseClient.from('roles').delete().eq('id', roles[idx].id);
+            if(error) { showToast('Gagal menghapus dari database: ' + error.message, 'error'); return; }
             roles.splice(idx, 1);
             renderRoles();
             showToast('Role dihapus', 'success'); 
@@ -1577,24 +1585,34 @@
             }
 
             if (index === -1) {
-                const newBc = { id: Date.now(), name, lat, lng, radius };
-                await supabaseClient.from('basecamps').insert([newBc]);
+                // Hapus penempatan ID manual menggunakan Date.now()
+                // Biarkan Supabase otomatis membuat ID-nya dan kita ambil kembali datanya menggunakan .select()
+                const newBc = { name, lat, lng, radius };
+                const { data, error } = await supabaseClient.from('basecamps').insert([newBc]).select();
                 
-                // Optimistic Update: Langsung masukkan data ke state lokal
-                basecamps.push(newBc); 
+                if (error) {
+                    showToast('Gagal menambah ke database: ' + error.message, 'error');
+                    return;
+                }
+                
+                // Gunakan data balikan langsung dari Supabase yang memiliki ID aslinya
+                const insertedData = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newBc };
+                basecamps.push(insertedData); 
                 showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
                 const bcId = basecamps[index].id;
-                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
+                const { error } = await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
                 
-                // Optimistic Update: Update data di state lokal
+                if (error) {
+                    showToast('Gagal merubah database: ' + error.message, 'error');
+                    return;
+                }
+
                 basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
                 showToast('Basecamp berhasil diperbarui!', 'success');
             }
 
             closeBasecampModal();
-            
-            // Langsung panggil render, hilangkan await fetchAllDataFromSupabase agar tidak tertimpa
             renderBasecamps();
             
             if (bcMap) {
@@ -1611,9 +1629,9 @@
                 return;
             }
             showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
-                await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
-                
-                // Optimistic Update: Langsung hapus dari state lokal
+                const { error } = await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
+                if (error) { showToast('Gagal menghapus dari database: ' + error.message, 'error'); return; }
+
                 basecamps.splice(index, 1);
                 renderBasecamps();
                 
@@ -1808,7 +1826,8 @@
                         late: '-'
                     };
 
-                    await supabaseClient.from('rekap_list').insert([newRekap]);
+                    const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
+                    if (error) { showToast('Gagal absen di server: ' + error.message, 'error'); return; }
                     
                     // Optimistic update untuk absensi
                     rekapList.push(newRekap);
