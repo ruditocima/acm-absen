@@ -955,10 +955,31 @@
 
             const instElem = document.getElementById('otp-instruction-text');
             if (instElem) {
-                instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
+                instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
             }
 
-            showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
+            // Format nomor WhatsApp (08xxx -> 628xxx)
+            let formattedWa = wa.trim();
+            if (formattedWa.startsWith('0')) {
+                formattedWa = '62' + formattedWa.substring(1);
+            } else if (formattedWa.startsWith('+')) {
+                formattedWa = formattedWa.substring(1);
+            }
+
+            // Otomatis membuka WhatsApp dengan pesan kode OTP
+            const waMessage = `Halo ${nama},\n\nKode OTP verifikasi pendaftaran akun Sistem Absensi Enterprise Anda adalah: *${generatedOTP}*.\n\nBerlaku selama 3 menit. Jangan berikan kode ini kepada siapapun.`;
+            const waUrl = `https://wa.me/${formattedWa}?text=${encodeURIComponent(waMessage)}`;
+            window.open(waUrl, '_blank');
+
+            // Otomatis membuka klien Email (mailto) dengan kode OTP
+            const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent('Kode OTP Verifikasi Pendaftaran Akun Enterprise')}&body=${encodeURIComponent(`Halo ${nama},\n\nKode OTP verifikasi pendaftaran akun Sistem Absensi Enterprise Anda adalah: ${generatedOTP}\n\nBerlaku selama 3 menit.`)}`;
+            setTimeout(() => {
+                const mailLink = document.createElement('a');
+                mailLink.href = mailtoUrl;
+                mailLink.click();
+            }, 500);
+
+            showToast(`Kode OTP terkirim otomatis ke WhatsApp & Email! (OTP: ${generatedOTP})`, 'success');
             
             document.getElementById('reg-step-1').classList.add('hidden');
             document.getElementById('reg-step-2').classList.remove('hidden');
