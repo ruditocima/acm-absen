@@ -1135,7 +1135,7 @@
             }, false);
         }
 
-        // ==================== FITUR IZIN DENGAN NOTIFIKASI EMAIL KE ATASAN ==================== //
+        // ==================== FITUR 1: NOTIFIKASI KE ATASAN SAAT IZIN ==================== //
         async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') {
                 showToast('Silakan login terlebih dahulu untuk mengajukan izin.', 'error');
@@ -1153,7 +1153,7 @@
                 return;
             }
 
-            // Cari data atasan langsung berdasarkan nama atasan (ID karyawan = email)
+            // Cari data atasan langsung berdasarkan nama atasan
             const atasanName = activeEmployeeSession.atasan || 'Budi Santoso';
             const supervisor = employees.find(e => e.name === atasanName) || { id: 'atasan@gmail.com', whatsapp: '081298765432', name: atasanName };
 
@@ -1178,7 +1178,7 @@
             renderAdminIzin();
             renderMobileMyHistory();
 
-            // 1. Notifikasi Email Otomatis ke Atasan Langsung (menggunakan email atasan / supervisor.id)
+            // Notifikasi Email Otomatis ke Atasan Langsung
             const supervisorEmail = supervisor.id || 'atasan@gmail.com';
             const emailSubject = encodeURIComponent(`Pengajuan Izin Baru: ${activeEmployeeSession.name} - ${jenis}`);
             const emailBody = encodeURIComponent(
@@ -1193,13 +1193,12 @@
             );
             const mailtoUrl = `mailto:${supervisorEmail}?subject=${emailSubject}&body=${emailBody}`;
 
-            // 2. Notifikasi WhatsApp (Fitur lama tetap dipertahankan)
+            // Notifikasi WhatsApp ke Atasan Langsung
             const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
             const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
 
-            showToast(`Pengajuan izin berhasil! Membuka Email & WhatsApp ke ${supervisor.name}...`, 'success');
+            showToast(`Pengajuan izin berhasil! Mengirim notifikasi email & WhatsApp ke atasan (${supervisor.name})...`, 'success');
             
-            // Buka aplikasi email dan WhatsApp
             window.open(mailtoUrl, '_blank');
             setTimeout(() => {
                 window.open(waUrl, '_blank');
@@ -1208,6 +1207,46 @@
             document.getElementById('m-izin-start').value = '';
             document.getElementById('m-izin-end').value = '';
             document.getElementById('m-izin-desc').value = '';
+        }
+
+        // ==================== FITUR 2: NOTIFIKASI KE KARYAWAN SAAT DISETUJUI/DITOLAK ==================== //
+        async function handleIzinAction(index, action) {
+            const izin = izinList[index];
+            const { error } = await supabaseClient.from('izin_list').update({ status: action }).eq('id', izin.id);
+            if(error){ showToast('Gagal memproses aksi', 'error'); return; }
+            
+            izinList[index].status = action;
+            renderAdminIzin();
+            renderMobileMyHistory();
+
+            // Cari data karyawan yang mengajukan izin untuk mengirim notifikasi
+            const employee = employees.find(e => e.name === izin.name) || { id: 'karyawan@gmail.com', whatsapp: '08123456789', name: izin.name };
+            const employeeEmail = employee.id;
+            const statusText = action === 'Approved' ? 'DISETUJUI' : 'DITOLAK';
+
+            // Notifikasi Email ke Karyawan
+            const emailSubject = encodeURIComponent(`Pemberitahuan Status Izin: ${izin.jenis} - ${statusText}`);
+            const emailBody = encodeURIComponent(
+                `Halo ${izin.name},\n\n` +
+                `Pengajuan izin Anda dengan detail berikut:\n` +
+                `- Jenis Izin: ${izin.jenis}\n` +
+                `- Tanggal: ${izin.start} s/d ${izin.end}\n` +
+                `- Alasan: "${izin.desc}"\n\n` +
+                `Telah *${statusText}* oleh Atasan/Admin.\n\n` +
+                `Terima kasih,\nSistem Absensi Enterprise`
+            );
+            const mailtoUrl = `mailto:${employeeEmail}?subject=${emailSubject}&body=${emailBody}`;
+
+            // Notifikasi WhatsApp ke Karyawan
+            const waMessage = `Halo ${izin.name},\n\nPengajuan izin Anda (${izin.jenis} tanggal ${izin.start} s/d ${izin.end}) telah *${statusText}* oleh Atasan.\n\nTerima kasih.`;
+            const waUrl = `https://wa.me/${employee.whatsapp}?text=${encodeURIComponent(waMessage)}`;
+
+            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}. Mengirim notifikasi ke karyawan...`, 'success');
+
+            window.open(mailtoUrl, '_blank');
+            setTimeout(() => {
+                window.open(waUrl, '_blank');
+            }, 1000);
         }
 
         function renderMobileMyHistory() {
@@ -1277,15 +1316,6 @@
                 `;
                 container.appendChild(div);
             });
-        }
-
-        async function handleIzinAction(index, action) {
-            const { error } = await supabaseClient.from('izin_list').update({ status: action }).eq('id', izinList[index].id);
-            if(error){ showToast('Gagal memproses aksi', 'error'); return; }
-            izinList[index].status = action;
-            renderAdminIzin();
-            renderMobileMyHistory();
-            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}.`, 'success');
         }
 
         function updateDashboardStats() {
@@ -1573,7 +1603,7 @@
             showToast('Role dihapus', 'success'); 
         }
 
-        // ==================== FITUR MAP LEAFLET ==================== //
+        // ==================== MAP LEAFLET ==================== //
         let bcMap = null, bcLayerGroup = null;
 
         function initMap() {
@@ -1952,7 +1982,6 @@
             return R * c; 
         }
 
-        // ==================== FITUR VERIFIKASI KAMERA (SELFIE ABSENSI) ==================== //
         let pendingAbsenData = null;
 
         function triggerAbsenProcess() {
@@ -1985,28 +2014,27 @@
 
                     for (let bc of basecamps) {
                         const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
-                        if (distance <= bc.radius) {
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                validBasecamp = bc;
-                            }
+                        if (distance <= bc.radius && distance < minDistance) {
+                            minDistance = distance;
+                            validBasecamp = bc;
                         }
                     }
 
                     if (!validBasecamp) {
-                        showToast(`Absensi Ditolak! Anda berada di luar radius basecamp manapun (Jarak terdekat: ${Math.round(minDistance)}m).`, 'error');
+                        showToast(`Absensi Ditolak! Anda berada di luar radius aman basecamp (Jarak terdekat: ${Math.round(minDistance)}m).`, 'error');
                         return;
                     }
 
-                    pendingAbsenData = { userLat, userLng, validBasecamp, minDistance };
+                    pendingAbsenData = {
+                        basecamp: validBasecamp.name,
+                        lat: userLat,
+                        lng: userLng
+                    };
+
                     openCameraModal();
                 },
                 (error) => {
-                    let errMessage = 'Gagal mengambil data lokasi GPS.';
-                    if (error.code === error.PERMISSION_DENIED) errMessage = 'Izin akses lokasi ditolak oleh pengguna.';
-                    else if (error.code === error.POSITION_UNAVAILABLE) errMessage = 'Informasi sinyal GPS tidak tersedia.';
-                    else if (error.code === error.TIMEOUT) errMessage = 'Waktu permintaan GPS habis (Timeout).';
-                    showToast(errMessage, 'error');
+                    showToast('Gagal Mendapatkan Lokasi GPS: ' + error.message, 'error');
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
@@ -2016,13 +2044,12 @@
             const modal = document.getElementById('camera-modal');
             const video = document.getElementById('webcam-feed');
             modal.classList.remove('hidden');
-
             try {
                 activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
                 video.srcObject = activeMediaStream;
             } catch (err) {
-                showToast('Gagal mengakses kamera depan perangkat.', 'error');
-                closeCameraModal();
+                showToast('Gagal mengakses kamera: ' + err.message, 'error');
+                modal.classList.add('hidden');
             }
         }
 
@@ -2036,6 +2063,7 @@
         }
 
         async function captureSelfieAndAbsen() {
+            if (!pendingAbsenData) return;
             const video = document.getElementById('webcam-feed');
             const canvas = document.getElementById('webcam-canvas');
             canvas.width = video.videoWidth || 320;
@@ -2046,44 +2074,40 @@
 
             closeCameraModal();
 
-            if (!pendingAbsenData) return;
-            const { validBasecamp } = pendingAbsenData;
-
             const now = new Date();
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().split(' ')[0];
 
-            const [hour, minute] = timeStr.split(':').map(Number);
-            let status = 'Hadir (Tepat Waktu)';
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            let status = 'Tepat Waktu';
             let lateMinutes = 0;
-            if (hour > 8 || (hour === 8 && minute > 15)) {
-                lateMinutes = (hour - 8) * 60 + minute - 15;
-                status = `Hadir (Terlambat ${lateMinutes}m)`;
+            if (hours > 8 || (hours === 8 && minutes > 0)) {
+                lateMinutes = (hours - 8) * 60 + minutes;
+                status = `Terlambat (${lateMinutes} mnt)`;
             }
 
-            const newRekap = {
-                date: dateStr,
+            const newRecord = {
                 name: activeEmployeeSession.name,
-                basecamp: validBasecamp.name,
+                basecamp: pendingAbsenData.basecamp,
+                date: dateStr,
                 time: timeStr,
                 status: status,
                 selfie: selfieDataUrl,
-                late: lateMinutes > 0 ? `${lateMinutes} menit` : '-'
+                late: lateMinutes > 0 ? `${lateMinutes} mnt` : '-'
             };
 
-            const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
+            const { error } = await supabaseClient.from('rekap_list').insert([newRecord]);
             if (error) {
-                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
+                showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
                 return;
             }
 
-            rekapList.unshift(newRekap);
+            rekapList.push(newRecord);
             renderRekap();
             updateDashboardStats();
             checkTodayAttendance();
             renderMobileMyHistory();
-
-            showToast(`Absensi berhasil dicatat di ${validBasecamp.name}! (${status})`, 'success');
+            showToast('Absensi berhasil dicatat!', 'success');
             pendingAbsenData = null;
         }
     </script>
