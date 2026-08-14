@@ -892,9 +892,7 @@
             }
         }
 
-        // --- UPDATE PENGAMANAN RBAC PADA TAB DESKTOP ---
         function switchDesktopTab(tab) {
-            // Validasi Keamanan: Tolak jika Role tidak mengizinkan akses ke tab ini
             if (!userHasAccessToDesktopTab(tab)) {
                 showToast('Akses Ditolak: Anda tidak memiliki izin untuk membuka menu ini.', 'error');
                 return;
@@ -938,7 +936,6 @@
             }
         }
 
-        // Live GPS Tracking for Mobile
         let watchId = null;
         function startLiveGPSWatch() {
             if (navigator.geolocation) {
@@ -962,7 +959,6 @@
             }
         }
 
-        // Standardized Safe SHA-256 Hashing Process
         async function hashPassword(message) {
             if (message === '••••••••') return message;
             const msgBuffer = new TextEncoder().encode(message);
@@ -1016,7 +1012,7 @@
             closeConfirmModal();
         });
 
-        // ----------------- DATA STATE ----------------- //
+        // ----------------- DATA STATE & SUPABASE SYNC ----------------- //
         let roles = [];
         let employees = [];
         let basecamps = [];
@@ -1095,7 +1091,216 @@
             }
         }
 
-        // ==================== FITUR EMAIL & BROADCAST ENTERPRISE LOGIC ==================== //
+        // ==================== RENDER & UI FUNCTIONS ==================== //
+        function renderRoles() {
+            const tbody = document.getElementById('role-tbody');
+            const select = document.getElementById('inp-role');
+            if (tbody) {
+                tbody.innerHTML = roles.length === 0 ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada data role.</td></tr>` : '';
+                roles.forEach((r, idx) => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-900/50">
+                            <td class="p-3 font-mono text-gold-400">${r.id || r.code || '-'}</td>
+                            <td class="p-3 font-bold text-white">${r.name}</td>
+                            <td class="p-3 text-slate-400">${r.access || '-'}</td>
+                            <td class="p-3 flex gap-2">
+                                <button onclick="editRole(${idx})" class="px-2 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30">Edit</button>
+                                <button onclick="deleteRole(${idx})" class="px-2 py-1 bg-rose-500/20 text-rose-400 rounded hover:bg-rose-500/30">Hapus</button>
+                            </td>
+                        </tr>`;
+                });
+            }
+            if (select) {
+                select.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+            }
+        }
+
+        function renderEmployees() {
+            const tbody = document.getElementById('karyawan-tbody');
+            const atasanSelect = document.getElementById('inp-atasan');
+            if (tbody) {
+                tbody.innerHTML = employees.length === 0 ? `<tr><td colspan="9" class="p-4 text-center text-slate-500">Belum ada data karyawan.</td></tr>` : '';
+                employees.forEach((e, idx) => {
+                    const statusBadge = e.status === 'Approved' 
+                        ? `<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">Approved</span>`
+                        : `<span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold">Pending</span>`;
+                    
+                    const actionBtn = e.status !== 'Approved' 
+                        ? `<button onclick="approveEmployeeAccount(${idx})" class="px-2.5 py-1 bg-emerald-500 text-slate-950 font-bold rounded hover:opacity-9">Setujui</button>`
+                        : `<button onclick="resetEmployeeDevice(${idx})" class="px-2.5 py-1 bg-amber-500/20 text-amber-400 rounded hover:bg-amber-500/30" title="Reset Device UUID">Reset Device</button>`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-900/50">
+                            <td class="p-3 font-mono text-slate-400">${e.id}</td>
+                            <td class="p-3 font-bold text-white">${e.name}</td>
+                            <td class="p-3 text-slate-300">${e.position}</td>
+                            <td class="p-3 text-slate-400">${e.whatsapp}</td>
+                            <td class="p-3 text-gold-400">${e.role}</td>
+                            <td class="p-3 text-slate-300">${e.atasan || '-'}</td>
+                            <td class="p-3 font-mono text-slate-500 truncate max-w-[100px]">${e.password}</td>
+                            <td class="p-3">${statusBadge}</td>
+                            <td class="p-3 flex gap-2">${actionBtn}</td>
+                        </tr>`;
+                });
+            }
+            if (atasanSelect) {
+                atasanSelect.innerHTML = employees.map(e => `<option value="${e.name}">${e.name} (${e.role})</option>`).join('');
+            }
+        }
+
+        function renderBasecamps() {
+            const container = document.getElementById('basecamp-container');
+            if (container) {
+                container.innerHTML = basecamps.length === 0 ? `<p class="text-slate-500 text-center py-4 col-span-3">Belum ada basecamp terdaftar.</p>` : '';
+                basecamps.forEach((b, idx) => {
+                    container.innerHTML += `
+                        <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                            <h5 class="font-bold text-white text-xs">${b.name}</h5>
+                            <p class="text-[11px] text-slate-400"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${b.lat}, Lng: ${b.lng}</p>
+                            <p class="text-[11px] text-slate-400"><i class="fa-solid fa-circle-nodes text-emerald-400"></i> Radius: ${b.radius} Meter</p>
+                            <div class="flex gap-2 pt-2">
+                                <button onclick="editBasecamp(${idx})" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 rounded text-[11px]">Edit</button>
+                                <button onclick="deleteBasecamp(${idx})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 rounded text-[11px]">Hapus</button>
+                            </div>
+                        </div>`;
+                });
+            }
+        }
+
+        function renderRekap() {
+            const tbody = document.getElementById('rekap-tbody');
+            if (!tbody) return;
+
+            const filtered = rekapList;
+            tbody.innerHTML = filtered.length === 0 ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>` : '';
+            filtered.forEach(r => {
+                const selfieImg = r.selfie ? `<img src="${r.selfie}" onclick="openZoomModal('${r.selfie}')" class="w-10 h-10 object-cover rounded-lg cursor-pointer border border-gold-500/30">` : '-';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/50">
+                        <td class="p-3 text-slate-300">${r.date}</td>
+                        <td class="p-3 font-bold text-white">${r.name}</td>
+                        <td class="p-3 text-slate-300">${r.basecamp || 'Kantor Pusat'}</td>
+                        <td class="p-3 font-mono text-emerald-400">${r.time} WIB</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">${r.status}</span></td>
+                        <td class="p-3">${selfieImg}</td>
+                        <td class="p-3 text-slate-400">${r.lateMinutes || 0} Menit</td>
+                    </tr>`;
+            });
+        }
+
+        function filterRekap() {
+            const start = document.getElementById('rekap-start-date').value;
+            const end = document.getElementById('rekap-end-date').value;
+            const tbody = document.getElementById('rekap-tbody');
+            if (!tbody) return;
+
+            let filtered = rekapList;
+            if (start && end) {
+                filtered = rekapList.filter(r => r.date >= start && r.date <= end);
+            }
+
+            tbody.innerHTML = filtered.length === 0 ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Tidak ada data pada rentang tanggal tersebut.</td></tr>` : '';
+            filtered.forEach(r => {
+                const selfieImg = r.selfie ? `<img src="${r.selfie}" onclick="openZoomModal('${r.selfie}')" class="w-10 h-10 object-cover rounded-lg cursor-pointer border border-gold-500/30">` : '-';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/50">
+                        <td class="p-3 text-slate-300">${r.date}</td>
+                        <td class="p-3 font-bold text-white">${r.name}</td>
+                        <td class="p-3 text-slate-300">${r.basecamp || 'Kantor Pusat'}</td>
+                        <td class="p-3 font-mono text-emerald-400">${r.time} WIB</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">${r.status}</span></td>
+                        <td class="p-3">${selfieImg}</td>
+                        <td class="p-3 text-slate-400">${r.lateMinutes || 0} Menit</td>
+                    </tr>`;
+            });
+            showToast('Filter rekap berhasil diterapkan.', 'success');
+        }
+
+        function renderAdminIzin() {
+            const container = document.getElementById('admin-izin-container');
+            if (!container) return;
+
+            container.innerHTML = izinList.length === 0 ? `<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin.</p>` : '';
+            izinList.forEach((iz, idx) => {
+                const statusColor = iz.status === 'Approved' ? 'text-emerald-400' : iz.status === 'Rejected' ? 'text-rose-400' : 'text-amber-400';
+                container.innerHTML += `
+                    <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                        <div class="space-y-1 text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-white">${iz.name}</span>
+                                <span class="px-2 py-0.5 rounded bg-gold-500/20 text-gold-400 font-semibold text-[10px]">${iz.jenis}</span>
+                            </div>
+                            <p class="text-slate-300">Durasi: ${iz.start} s/d ${iz.end}</p>
+                            <p class="text-slate-400 italic">Alasan: "${iz.desc}"</p>
+                            <p class="text-[10px] text-slate-500">Diajukan ke Atasan: ${iz.atasan}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold ${statusColor}">${iz.status}</span>
+                            ${iz.status === 'Pending' ? `
+                                <button onclick="updateIzinStatus(${idx}, 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs">Setujui</button>
+                                <button onclick="updateIzinStatus(${idx}, 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs">Tolak</button>
+                            ` : ''}
+                        </div>
+                    </div>`;
+            });
+        }
+
+        async function updateIzinStatus(index, newStatus) {
+            izinList[index].status = newStatus;
+            await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', izinList[index].id);
+            renderAdminIzin();
+            renderMobileMyHistory();
+            showToast(`Status izin berhasil diubah menjadi ${newStatus}.`, 'success');
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if (!container || activeEmployeeSession.name === 'Tamu') return;
+
+            const myAbsen = rekapList.filter(r => r.name === activeEmployeeSession.name);
+            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
+
+            if (myAbsen.length === 0 && myIzin.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2 text-xs">Belum ada riwayat tercatat.</p>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            myAbsen.forEach(a => {
+                container.innerHTML += `
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                        <div>
+                            <div class="font-bold text-white">Absen Masuk (${a.date})</div>
+                            <div class="text-[10px] text-emerald-400">${a.time} WIB - ${a.status}</div>
+                        </div>
+                        <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-bold">Hadir</span>
+                    </div>`;
+            });
+
+            myIzin.forEach(i => {
+                container.innerHTML += `
+                    <div class="bg-slate-950/70 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                        <div>
+                            <div class="font-bold text-white">Izin: ${i.jenis} (${i.start})</div>
+                            <div class="text-[10px] text-slate-400">Alasan: ${i.desc}</div>
+                        </div>
+                        <span class="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[10px] font-bold">${i.status}</span>
+                    </div>`;
+            });
+        }
+
+        function updateDashboardStats() {
+            document.getElementById('stat-total-karyawan').innerText = `${employees.length} Orang`;
+            const tepatWaktu = rekapList.filter(r => r.status === 'Tepat Waktu' || r.status === 'Hadir').length;
+            const terlambat = rekapList.filter(r => r.status === 'Terlambat').length;
+            const izinAlpha = izinList.filter(i => i.status === 'Approved').length;
+
+            document.getElementById('stat-tepat-waktu').innerText = `${tepatWaktu} Orang`;
+            document.getElementById('stat-terlambat').innerText = `${terlambat} Orang`;
+            document.getElementById('stat-izin-alpha').innerText = `${izinAlpha} Orang`;
+        }
+
+        // ==================== EMAIL & BROADCAST ENTERPRISE LOGIC ==================== //
         function populateEmailReceivers() {
             const mSelect = document.getElementById('m-email-receiver');
             const dSelect = document.getElementById('d-email-receiver');
@@ -1225,7 +1430,6 @@
             switchMobileEmailSub('inbox');
         }
 
-        // DESKTOP EMAIL SUB TAB SWITCHING
         function switchDesktopEmailSub(subTab) {
             ['inbox', 'sent', 'compose', 'broadcast'].forEach(t => {
                 const viewEl = document.getElementById(`d-email-view-${t}`);
@@ -1452,56 +1656,27 @@
             showToast('Berhasil keluar dari sesi desktop.', 'success');
         }
 
-        // --- UPDATE PENGAMANAN RBAC ---
-        // CONTROL HAK AKSES PER TAB SESUAI ATURAN ROLE
         function userHasAccessToDesktopTab(tabName) {
             if (activeEmployeeSession.name === 'Tamu') return false;
             
             const role = activeEmployeeSession.role;
 
-            // [RESTRIKSI MUTLAK SESUAI PERMINTAAN]
-            // Memastikan role di bawah ini dilarang keras membuka menu 'Kelola Role' dan 'Data Karyawan'
             if (['Karyawan / Field', 'Supervisor Field', 'Admin'].includes(role)) {
                 if (tabName === 'role' || tabName === 'karyawan') {
                     return false;
                 }
             }
 
-            // 4. Master Admin: Memiliki akses penuh ke seluruh modul
             if (role === 'Master Admin' || isMasterAdmin()) {
                 return ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'pesan'].includes(tabName);
             }
 
-            // 1. Supervisor Field: Dashboard, Rekap Absensi, Basecamp, Persetujuan Izin, serta Email & Broadcast
             if (role === 'Supervisor Field') {
                 return ['dashboard', 'rekap', 'basecamp', 'izin', 'pesan'].includes(tabName);
             }
 
-            // 2. Admin: Dashboard, Rekap Absensi, Basecamp, serta Email & Broadcast
-            if (role === 'Admin') {
+            if (role === 'Admin' || role === 'Karyawan / Field') {
                 return ['dashboard', 'rekap', 'basecamp', 'pesan'].includes(tabName);
-            }
-
-            // 3. Karyawan / Field: Dashboard, Rekap Absensi, Basecamp, serta Email & Broadcast
-            if (role === 'Karyawan / Field') {
-                return ['dashboard', 'rekap', 'basecamp', 'pesan'].includes(tabName);
-            }
-
-            // Custom Role Dynamic Fallback
-            const currentRoleObj = roles.find(r => r.name === role);
-            if (currentRoleObj && currentRoleObj.access) {
-                const accessLower = currentRoleObj.access.toLowerCase();
-                const mapTabToKeyword = {
-                    'dashboard': ['dashboard', 'utama'],
-                    'rekap': ['rekap', 'absensi'],
-                    'role': ['role', 'hak akses'],
-                    'karyawan': ['karyawan', 'employee', 'user'],
-                    'basecamp': ['basecamp', 'lokasi', 'gps'],
-                    'izin': ['izin', 'persetujuan', 'approval'],
-                    'pesan': ['pesan', 'email', 'broadcast']
-                };
-                const keywords = mapTabToKeyword[tabName] || [tabName];
-                return keywords.some(kw => accessLower.includes(kw));
             }
 
             return ['dashboard', 'pesan'].includes(tabName);
@@ -1737,7 +1912,6 @@
             }, false);
         }
 
-        // ==================== PENGAJUAN IZIN & NOTIFIKASI EMAIL INTERNAL ==================== //
         async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') {
                 showToast('Silakan login terlebih dahulu untuk mengajukan izin.', 'error');
@@ -1777,9 +1951,6 @@
             const insertedData = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newIzin };
             izinList.push(insertedData);
             
-            // --- MELENGKAPI KODE YANG TERPOTONG ---
-            
-            // KIRIM NOTIFIKASI
             showToast('Pengajuan izin berhasil dikirim ke atasan.', 'success');
             document.getElementById('m-izin-jenis').value = 'Cuti Tahunan';
             document.getElementById('m-izin-start').value = '';
@@ -1791,39 +1962,120 @@
             switchMobileTab('absen');
         }
 
-        // --- MOCKUP FUNGSI DUMMY UNTUK MENGHINDARI ERROR PADA BUTTON CALLS ---
-        // Karena kode terpotong, fungsi-fungsi ini diinisiasi agar aplikasi tidak macet saat UI di-klik.
-        function renderAdminIzin() { /* Render Izin Logic */ }
-        function renderMobileMyHistory() { /* Render History Logic */ }
-        function renderRekap() { /* Render Rekap Logic */ }
-        function filterRekap() { /* Filter Logic */ }
-        function resetRekapData() { /* Reset Rekap Logic */ }
-        function exportToExcel() { /* Export Excel Logic */ }
-        function renderRoles() { /* Render Roles Table Logic */ }
-        function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
-        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
-        function saveRole() { closeRoleModal(); }
-        function renderEmployees() { /* Render Employees Logic */ }
-        function openAddEmployeeModal() { document.getElementById('employee-modal').classList.remove('hidden'); }
-        function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
-        function saveEmployee() { closeEmployeeModal(); }
-        function renderBasecamps() { /* Render Basecamps Logic */ }
-        function openAddBasecampModal() { document.getElementById('basecamp-modal').classList.remove('hidden'); }
-        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
-        function saveBasecamp() { closeBasecampModal(); }
-        function initMap() { /* Map Initialize Logic */ }
-        function triggerAbsenProcess() { document.getElementById('camera-modal').classList.remove('hidden'); }
-        function captureSelfieAndAbsen() { closeCameraModal(); showToast('Absen Berhasil!', 'success'); }
-        function closeCameraModal() { document.getElementById('camera-modal').classList.add('hidden'); }
-        function closeZoomModal() { document.getElementById('zoom-modal').classList.add('hidden'); }
-        function updateDashboardStats() { /* Update Dashboard Data */ }
+        // ABSENSI & SELFIE TRIGGER
+        let activeStream = null;
+        function triggerAbsenProcess() {
+            if (activeEmployeeSession.name === 'Tamu') {
+                showToast('Harap login terlebih dahulu sebelum melakukan absensi.', 'error');
+                switchMobileTab('daftar');
+                return;
+            }
+            document.getElementById('camera-modal').classList.remove('hidden');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                .then(stream => {
+                    activeStream = stream;
+                    document.getElementById('webcam-feed').srcObject = stream;
+                })
+                .catch(err => {
+                    showToast('Gagal mengakses kamera: ' + err.message, 'error');
+                    closeCameraModal();
+                });
+        }
 
-        // MENGINISIALISASI APLIKASI KETIKA DIMUAT
-        window.onload = () => {
-            initializeDeviceBinding();
-            fetchAllDataFromSupabase();
-        };
+        function closeCameraModal() {
+            document.getElementById('camera-modal').classList.add('hidden');
+            if (activeStream) {
+                activeStream.getTracks().forEach(track => track.stop());
+                activeStream = null;
+            }
+        }
 
+        async function captureSelfieAndAbsen() {
+            const video = document.getElementById('webcam-feed');
+            const canvas = document.getElementById('webcam-canvas');
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 240;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+            closeCameraModal();
+
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0].substring(0, 5);
+
+            const newAbsen = {
+                name: activeEmployeeSession.name,
+                date: dateStr,
+                time: timeStr,
+                basecamp: 'Basecamp Utama',
+                status: 'Tepat Waktu',
+                selfie: selfieDataUrl,
+                lateMinutes: 0
+            };
+
+            const { data, error } = await supabaseClient.from('rekap_list').insert([newAbsen]).select();
+            if (error) {
+                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
+                return;
+            }
+
+            const inserted = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newAbsen };
+            rekapList.unshift(inserted);
+
+            showToast('Absensi berhasil terekam!', 'success');
+            checkTodayAttendance();
+            renderMobileMyHistory();
+            renderRekap();
+            updateDashboardStats();
+        }
+
+        function openZoomModal(imgSrc) {
+            document.getElementById('zoom-image').src = imgSrc;
+            document.getElementById('zoom-modal').classList.remove('hidden');
+        }
+
+        function closeZoomModal() {
+            document.getElementById('zoom-modal').classList.add('hidden');
+        }
+
+        function resetRekapData() {
+            showConfirm('Reset Data Rekap', 'Hapus seluruh data rekap absensi?', async () => {
+                await supabaseClient.from('rekap_list').delete().neq('id', 0);
+                rekapList = [];
+                renderRekap();
+                updateDashboardStats();
+                showToast('Data rekap berhasil direset.', 'success');
+            });
+        }
+
+        function exportToExcel() {
+            if (rekapList.length === 0) {
+                showToast('Tidak ada data rekap untuk diexport.', 'warning');
+                return;
+            }
+            const worksheet = XLSX.utils.json_to_sheet(rekapList);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
+            XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
+            showToast('File Excel berhasil di-download.', 'success');
+        }
+
+        function initMap() {
+            if (!bcMap) {
+                bcMap = L.map('basecamp-map').setView([0.5071, 101.4478], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
+            }
+            setTimeout(() => bcMap.invalidateSize(), 200);
+        }
+
+        // ==================== AUTO INITIALIZE ON LOAD ==================== //
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initializeDeviceBinding();
+            await fetchAllDataFromSupabase();
+            startLiveGPSWatch();
+        });
     </script>
 </body>
 </html>
