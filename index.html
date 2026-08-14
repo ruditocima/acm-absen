@@ -220,7 +220,7 @@
                             <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan izin..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
                         <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
-                            Ajukan Izin ke Atasan (Kirim Email & WA)
+                            Ajukan Izin ke Atasan (Kirim Email)
                         </button>
                     </div>
 
@@ -1193,16 +1193,9 @@
             );
             const mailtoUrl = `mailto:${supervisorEmail}?subject=${emailSubject}&body=${emailBody}`;
 
-            // Notifikasi WhatsApp ke Atasan Langsung
-            const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
-            const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
-
-            showToast(`Pengajuan izin berhasil! Mengirim notifikasi email & WhatsApp ke atasan (${supervisor.name})...`, 'success');
+            showToast(`Pengajuan izin berhasil! Mengirim notifikasi email ke atasan (${supervisor.name})...`, 'success');
             
             window.open(mailtoUrl, '_blank');
-            setTimeout(() => {
-                window.open(waUrl, '_blank');
-            }, 1000);
 
             document.getElementById('m-izin-start').value = '';
             document.getElementById('m-izin-end').value = '';
@@ -1237,16 +1230,9 @@
             );
             const mailtoUrl = `mailto:${employeeEmail}?subject=${emailSubject}&body=${emailBody}`;
 
-            // Notifikasi WhatsApp ke Karyawan
-            const waMessage = `Halo ${izin.name},\n\nPengajuan izin Anda (${izin.jenis} tanggal ${izin.start} s/d ${izin.end}) telah *${statusText}* oleh Atasan.\n\nTerima kasih.`;
-            const waUrl = `https://wa.me/${employee.whatsapp}?text=${encodeURIComponent(waMessage)}`;
-
-            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}. Mengirim notifikasi ke karyawan...`, 'success');
+            showToast(`Pengajuan izin berhasil ${action === 'Approved' ? 'disetujui' : 'ditolak'}. Mengirim notifikasi email ke karyawan...`, 'success');
 
             window.open(mailtoUrl, '_blank');
-            setTimeout(() => {
-                window.open(waUrl, '_blank');
-            }, 1000);
         }
 
         function renderMobileMyHistory() {
@@ -2005,57 +1991,46 @@
                     const accuracy = position.coords.accuracy;
 
                     if (accuracy > 5000) {
-                        showToast('Peringatan: Akurasi GPS terlalu rendah atau terindikasi Fake GPS!', 'error');
-                        return;
-                    }
-
-                    let validBasecamp = null;
-                    let minDistance = Infinity;
-
-                    for (let bc of basecamps) {
-                        const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
-                        if (distance <= bc.radius && distance < minDistance) {
-                            minDistance = distance;
-                            validBasecamp = bc;
-                        }
-                    }
-
-                    if (!validBasecamp) {
-                        showToast(`Absensi Ditolak! Anda berada di luar radius aman basecamp (Jarak terdekat: ${Math.round(minDistance)}m).`, 'error');
+                        showToast('Peringatan: Akurasi GPS Anda terlalu rendah. Pastikan Anda berada di lokasi terbuka.', 'error');
                         return;
                     }
 
                     pendingAbsenData = {
-                        basecamp: validBasecamp.name,
                         lat: userLat,
-                        lng: userLng
+                        lng: userLng,
+                        time: new Date().toTimeString().split(' ')[0],
+                        date: new Date().toISOString().split('T')[0]
                     };
 
                     openCameraModal();
                 },
                 (error) => {
-                    showToast('Gagal Mendapatkan Lokasi GPS: ' + error.message, 'error');
+                    showToast('Gagal mengambil lokasi GPS: ' + error.message, 'error');
                 },
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
             );
         }
 
-        async function openCameraModal() {
+        function openCameraModal() {
             const modal = document.getElementById('camera-modal');
             const video = document.getElementById('webcam-feed');
-            modal.classList.remove('hidden');
-            try {
-                activeMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-                video.srcObject = activeMediaStream;
-            } catch (err) {
-                showToast('Gagal mengakses kamera: ' + err.message, 'error');
-                modal.classList.add('hidden');
+            if (modal) modal.classList.remove('hidden');
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                    .then((stream) => {
+                        activeMediaStream = stream;
+                        if (video) video.srcObject = stream;
+                    })
+                    .catch((err) => {
+                        showToast('Gagal mengakses kamera: ' + err.message, 'error');
+                    });
             }
         }
 
         function closeCameraModal() {
             const modal = document.getElementById('camera-modal');
-            modal.classList.add('hidden');
+            if (modal) modal.classList.add('hidden');
             if (activeMediaStream) {
                 activeMediaStream.getTracks().forEach(track => track.stop());
                 activeMediaStream = null;
@@ -2063,52 +2038,64 @@
         }
 
         async function captureSelfieAndAbsen() {
-            if (!pendingAbsenData) return;
             const video = document.getElementById('webcam-feed');
             const canvas = document.getElementById('webcam-canvas');
+            if (!video || !canvas) return;
+
+            const context = canvas.getContext('2d');
             canvas.width = video.videoWidth || 320;
             canvas.height = video.videoHeight || 240;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const selfieDataUrl = canvas.toDataURL('image/jpeg');
 
             closeCameraModal();
 
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
-            const timeStr = now.toTimeString().split(' ')[0];
-
-            const [hours, minutes] = timeStr.split(':').map(Number);
-            let status = 'Tepat Waktu';
-            let lateMinutes = 0;
-            if (hours > 8 || (hours === 8 && minutes > 0)) {
-                lateMinutes = (hours - 8) * 60 + minutes;
-                status = `Terlambat (${lateMinutes} mnt)`;
-            }
-
-            const newRecord = {
-                name: activeEmployeeSession.name,
-                basecamp: pendingAbsenData.basecamp,
-                date: dateStr,
-                time: timeStr,
-                status: status,
-                selfie: selfieDataUrl,
-                late: lateMinutes > 0 ? `${lateMinutes} mnt` : '-'
-            };
-
-            const { error } = await supabaseClient.from('rekap_list').insert([newRecord]);
-            if (error) {
-                showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
+            if (!pendingAbsenData) {
+                showToast('Data absensi tidak ditemukan.', 'error');
                 return;
             }
 
-            rekapList.push(newRecord);
+            let matchedBasecamp = 'Luar Area / Remote';
+            let status = 'Hadir Tepat Waktu';
+
+            for (const bc of basecamps) {
+                const dist = calculateDistance(pendingAbsenData.lat, pendingAbsenData.lng, parseFloat(bc.lat), parseFloat(bc.lng));
+                if (dist <= bc.radius) {
+                    matchedBasecamp = bc.name;
+                    break;
+                }
+            }
+
+            const now = new Date();
+            const jam = now.getHours();
+            if (jam >= 9) {
+                status = 'Terlambat';
+            }
+
+            const newRekap = {
+                name: activeEmployeeSession.name,
+                date: pendingAbsenData.date,
+                time: pendingAbsenData.time,
+                basecamp: matchedBasecamp,
+                status: status,
+                selfie: selfieDataUrl,
+                late: status === 'Terlambat' ? `${jam - 8} jam` : '-'
+            };
+
+            const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
+            if (error) {
+                showToast('Gagal menyimpan absensi: ' + error.message, 'error');
+                return;
+            }
+
+            rekapList.push(newRekap);
             renderRekap();
             updateDashboardStats();
             checkTodayAttendance();
             renderMobileMyHistory();
+
             showToast('Absensi berhasil dicatat!', 'success');
-            pendingAbsenData = null;
         }
     </script>
 </body>
