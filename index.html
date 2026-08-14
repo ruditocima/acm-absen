@@ -1955,7 +1955,7 @@
             }
         }
 
-        // FUNGSI UTAMA AMBIL FOTO & ABSEN (Diperbaiki & Terintegrasi)
+        // FUNGSI UTAMA AMBIL FOTO & ABSEN (Diperbarui dengan batas jam masuk 09.40 WIB)
         async function captureSelfieAndAbsen() {
             if (!pendingAbsenData) {
                 showToast('Data lokasi atau basecamp belum divalidasi.', 'error');
@@ -1991,55 +1991,50 @@
             }
 
             const [currentHours, currentMinutes] = timeStr.split(':').map(Number);
-            const standardHour = 8;
-            const standardMinute = 0;
+            const standardHour = 9;
+            const standardMinute = 40;
 
             let status = 'Tepat Waktu';
-            let lateMinutes = 0;
+            let lateText = '-';
 
             const totalCurrentMinutes = currentHours * 60 + currentMinutes;
             const totalStandardMinutes = standardHour * 60 + standardMinute;
 
             if (totalCurrentMinutes > totalStandardMinutes) {
-                lateMinutes = totalCurrentMinutes - totalStandardMinutes;
-                status = `Terlambat (${lateMinutes} mnt)`;
+                const diff = totalCurrentMinutes - totalStandardMinutes;
+                const hoursLate = Math.floor(diff / 60);
+                const minsLate = diff % 60;
+                status = 'Terlambat';
+                lateText = hoursLate > 0 ? `${hoursLate} jam ${minsLate} menit` : `${minsLate} menit`;
             }
 
             const newRekap = {
                 name: activeEmployeeSession.name,
-                basecamp: pendingAbsenData.validBasecamp.name,
                 date: dateStr,
                 time: timeStr,
+                basecamp: pendingAbsenData.validBasecamp.name,
                 status: status,
                 selfie: selfieDataUrl,
-                late: `${lateMinutes} Menit`
+                late: lateText
             };
 
-            try {
-                const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
-                if (error) {
-                    console.warn("Supabase insert warning:", error.message);
-                }
-
-                const insertedRecord = (data && data.length > 0) ? data[0] : newRekap;
-                const existingIdx = rekapList.findIndex(r => r.name === newRekap.name && r.date === newRekap.date);
-                if (existingIdx !== -1) {
-                    rekapList[existingIdx] = insertedRecord;
-                } else {
-                    rekapList.push(insertedRecord);
-                }
-                renderRekap();
-                updateDashboardStats();
-                checkTodayAttendance();
-                renderMobileMyHistory();
+            const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
+            if (error) {
+                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
                 closeCameraModal();
-                showToast('Absensi berhasil disimpan!', 'success');
-                switchMobileTab('absen');
-            } catch (err) {
-                console.error("Absen error:", err);
-                showToast("Gagal menyimpan absensi ke database.", "error");
-                closeCameraModal();
+                return;
             }
+
+            const insertedRekap = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newRekap };
+            rekapList.push(insertedRekap);
+            renderRekap();
+            updateDashboardStats();
+            checkTodayAttendance();
+            renderMobileMyHistory();
+
+            showToast(`Absensi berhasil! Status: ${status}`, 'success');
+            closeCameraModal();
+            pendingAbsenData = null;
         }
     </script>
 </body>
