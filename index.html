@@ -133,8 +133,8 @@
                             <label class="block text-[11px] text-slate-400 mb-1">Password</label>
                             <input type="password" id="reg-pass" placeholder="Buat password..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                         </div>
-                        <button onclick="requestOTP()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-envelope"></i> Kirim Kode OTP via Gmail
+                        <button onclick="requestOTP()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2">
+                            Kirim Kode OTP
                         </button>
                         <div class="text-center pt-3 border-t border-slate-800 mt-4">
                             <p class="text-[11px] text-slate-400">Sudah punya akun?</p>
@@ -991,7 +991,7 @@
         }
 
         // ============================================================
-        // SUPABASE AUTH EMAIL OTP INTEGRATION (GMAIL ONLY)
+        // SUPABASE AUTH EMAIL OTP INTEGRATION (FIXED)
         // ============================================================
 
         function backToRegStep1() {
@@ -1016,7 +1016,7 @@
             }
 
             try {
-                showToast(`Mengirim kode OTP ke Gmail ${email}...`, 'warning');
+                showToast(`Mengirim kode OTP ke ${email}...`, 'warning');
 
                 const { data, error } = await supabaseClient.auth.signInWithOtp({
                     email: email,
@@ -1027,24 +1027,24 @@
 
                 if (error) {
                     console.error('Gagal mengirim OTP via Supabase:', error.message);
-                    showToast('Gagal mengirim OTP via Gmail: ' + error.message, 'error');
+                    showToast('Gagal mengirim OTP: ' + error.message, 'error');
                     return;
                 }
 
                 tempRegData = { email, nama, wa, pass };
 
-                showToast(`Kode OTP telah dikirimkan ke email ${email}. Silakan cek Inbox atau folder Spam Gmail Anda.`, 'success');
+                showToast(`Kode OTP telah dikirimkan ke email ${email}. Cek Inbox atau Spam Anda.`, 'success');
 
                 document.getElementById('reg-step-1').classList.add('hidden');
                 document.getElementById('reg-step-2').classList.remove('hidden');
                 const instructionText = document.getElementById('otp-instruction-text');
                 if (instructionText) {
-                    instructionText.innerText = `Kode OTP 6 digit telah dikirimkan ke Gmail: ${email}.`;
+                    instructionText.innerText = `Kode OTP 6 digit telah dikirimkan ke ${email}.`;
                 }
 
             } catch (err) {
                 console.error('Terjadi kesalahan pada requestOTP:', err);
-                showToast('Terjadi kesalahan koneksi saat meminta OTP via Gmail.', 'error');
+                showToast('Terjadi kesalahan koneksi saat meminta OTP.', 'error');
             }
         }
 
@@ -1059,7 +1059,7 @@
             }
 
             try {
-                showToast('Memverifikasi kode OTP Email...', 'warning');
+                showToast('Memverifikasi kode OTP...', 'warning');
 
                 const { data, error } = await supabaseClient.auth.verifyOtp({
                     email: email,
@@ -1069,7 +1069,7 @@
 
                 if (error) {
                     console.error('Verifikasi OTP Gagal:', error.message);
-                    showToast('Kode OTP salah atau sudah kadaluarsa. Silakan periksa kembali Gmail Anda.', 'error');
+                    showToast('Kode OTP salah atau sudah kadaluarsa. Silakan coba lagi.', 'error');
                     return;
                 }
 
@@ -1093,7 +1093,7 @@
                     employees.push({ ...newEmp, deviceId: currentDeviceUUID });
                 }
 
-                showToast('Verifikasi OTP Gmail Berhasil! Akun Anda telah terdaftar (Menunggu Approval Admin).', 'success');
+                showToast('Verifikasi OTP Berhasil! Akun Anda telah terdaftar (Menunggu Approval Admin).', 'success');
 
                 if (otpInput) otpInput.value = '';
                 document.getElementById('reg-email').value = '';
@@ -2005,34 +2005,30 @@
 
         function closeCameraModal() {
             const modal = document.getElementById('camera-modal');
-            modal.classList.add('hidden');
+            if (modal) {
+                modal.classList.add('hidden');
+            }
             if (activeMediaStream) {
                 activeMediaStream.getTracks().forEach(track => track.stop());
                 activeMediaStream = null;
             }
+            pendingAbsenData = null;
         }
 
         async function captureSelfieAndAbsen() {
             if (!pendingAbsenData) {
-                showToast('Data lokasi atau basecamp belum divalidasi.', 'error');
+                showToast('Data absensi tidak valid.', 'error');
                 closeCameraModal();
                 return;
             }
 
             const video = document.getElementById('webcam-feed');
             const canvas = document.getElementById('webcam-canvas');
-
-            if (!video || !canvas) {
-                showToast('Komponen kamera tidak ditemukan.', 'error');
-                return;
-            }
-
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-
+            canvas.width = video.videoWidth || 320;
+            canvas.height = video.videoHeight || 240;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const photoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            const selfieDataUrl = canvas.toDataURL('image/jpeg', 0.7);
 
             closeCameraModal();
 
@@ -2040,43 +2036,48 @@
             const dateStr = now.toISOString().split('T')[0];
             const timeStr = now.toTimeString().split(' ')[0];
 
-            let statusAbsen = "Tepat Waktu";
-            let lateMinutes = 0;
-
-            if (now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 0)) {
-                statusAbsen = "Terlambat";
-                lateMinutes = (now.getHours() - 8) * 60 + now.getMinutes();
+            const existing = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+            if (existing) {
+                showToast('Anda sudah melakukan absensi hari ini!', 'warning');
+                return;
             }
 
-            const record = {
+            const targetHour = 8;
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
+            let status = 'Tepat Waktu';
+            let lateDiff = '-';
+
+            if (currentHour > targetHour || (currentHour === targetHour && currentMinute > 0)) {
+                status = 'Terlambat';
+                const diffMins = (currentHour - targetHour) * 60 + currentMinute;
+                lateDiff = `${diffMins} Menit`;
+            }
+
+            const newRekap = {
                 name: activeEmployeeSession.name,
                 basecamp: pendingAbsenData.validBasecamp.name,
                 date: dateStr,
                 time: timeStr,
-                status: statusAbsen,
-                selfie: photoBase64,
-                late: lateMinutes > 0 ? `${lateMinutes} menit` : '-'
+                status: status,
+                selfie: selfieDataUrl,
+                late: lateDiff
             };
 
-            showToast('Menyimpan absensi ke database...', 'warning');
-
-            const { data, error } = await supabaseClient.from('rekap_list').insert([record]).select();
-
+            const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
             if (error) {
-                showToast('Gagal menyimpan absensi: ' + error.message, 'error');
+                showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
                 return;
             }
 
-            const insertedData = (data && data.length > 0) ? data[0] : record;
-            rekapList.push(insertedData);
-
-            checkTodayAttendance();
-            renderMobileMyHistory();
+            const inserted = (data && data.length > 0) ? data[0] : { id: Date.now(), ...newRekap };
+            rekapList.push(inserted);
             renderRekap();
             updateDashboardStats();
+            checkTodayAttendance();
+            renderMobileMyHistory();
 
-            showToast(`Absensi Masuk Berhasil! Status: ${statusAbsen}`, 'success');
-            pendingAbsenData = null;
+            showToast(`Absensi Berhasil (${status}) di ${pendingAbsenData.validBasecamp.name}!`, 'success');
         }
     </script>
 </body>
