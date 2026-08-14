@@ -701,11 +701,11 @@
             try {
                 // Fetch Roles
                 const { data: rData } = await supabaseClient.from('roles').select('*');
-                if (rData && rData.length > 0) roles = rData;
+                if (rData) roles = rData;
 
                 // Fetch Employees
                 const { data: eData } = await supabaseClient.from('employees').select('*');
-                if (eData && eData.length > 0) {
+                if (eData) {
                     employees = eData.map(e => ({
                         id: e.id,
                         name: e.name,
@@ -721,7 +721,7 @@
 
                 // Fetch Basecamps
                 const { data: bData } = await supabaseClient.from('basecamps').select('*');
-                if (bData && bData.length > 0) basecamps = bData;
+                if (bData) basecamps = bData;
 
                 // Fetch Rekap
                 const { data: rkData } = await supabaseClient.from('rekap_list').select('*');
@@ -981,7 +981,9 @@
                 return;
             }
 
-            await fetchAllDataFromSupabase();
+            employees.push({ ...newEmp, deviceId: 'Unbound' });
+            renderEmployees();
+            updateDashboardStats();
 
             showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
             
@@ -1333,20 +1335,28 @@
             if (index === -1) {
                 const newEmp = { id, name, position, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
                 await supabaseClient.from('employees').insert([newEmp]);
+                // Optimistic Update
+                employees.push({ ...newEmp, deviceId: 'Unbound' });
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
                 await supabaseClient.from('employees').update({ name, position, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
+                // Optimistic Update
+                employees[index] = { ...employees[index], name, position, whatsapp, role, atasan, password: finalPassword };
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
             closeEmployeeModal();
-            await fetchAllDataFromSupabase();
+            renderEmployees();
+            updateDashboardStats();
         }
 
         function deleteEmployee(index) {
             showConfirm('Hapus Karyawan', `Hapus ${employees[index].name}?`, async () => {
                 await supabaseClient.from('employees').delete().eq('id', employees[index].id);
-                await fetchAllDataFromSupabase();
+                // Optimistic Update
+                employees.splice(index, 1);
+                renderEmployees();
+                updateDashboardStats();
                 showToast('Karyawan dihapus.', 'success');
             }, true);
         }
@@ -1389,29 +1399,27 @@
 
             if (index === -1) {
                 const newRole = { id: roleId, name, access };
-                const { error } = await supabaseClient.from('roles').insert([newRole]);
-                if (error) {
-                    showToast('Gagal menambahkan role: ' + error.message, 'error');
-                    return;
-                }
+                await supabaseClient.from('roles').insert([newRole]);
+                // Optimistic Update
+                roles.push(newRole);
                 showToast('Role berhasil ditambahkan', 'success');
             } else {
                 const targetRole = roles[index];
-                const { error } = await supabaseClient.from('roles').update({ name, access }).eq('id', targetRole.id);
-                if (error) {
-                    showToast('Gagal memperbarui role: ' + error.message, 'error');
-                    return;
-                }
+                await supabaseClient.from('roles').update({ name, access }).eq('id', targetRole.id);
+                // Optimistic Update
+                roles[index] = { ...targetRole, name, access };
                 showToast('Role berhasil diperbarui', 'success');
             }
 
             closeRoleModal();
-            await fetchAllDataFromSupabase();
+            renderRoles();
         }
 
         async function deleteRole(idx) { 
             await supabaseClient.from('roles').delete().eq('id', roles[idx].id);
-            await fetchAllDataFromSupabase(); 
+            // Optimistic Update
+            roles.splice(idx, 1);
+            renderRoles();
             showToast('Role dihapus', 'success'); 
         }
 
@@ -1468,7 +1476,6 @@
                             </button>
                         </div>`;
                 }
-                // Supervisor Field can add, but not edit/delete. Admin and Karyawan / Field are view only.
 
                 container.innerHTML += `
                     <div class="glass-card p-4 rounded-2xl space-y-3 border border-slate-800 flex flex-col justify-between">
@@ -1572,19 +1579,27 @@
             if (index === -1) {
                 const newBc = { id: Date.now(), name, lat, lng, radius };
                 await supabaseClient.from('basecamps').insert([newBc]);
+                
+                // Optimistic Update: Langsung masukkan data ke state lokal
+                basecamps.push(newBc); 
                 showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
                 const bcId = basecamps[index].id;
                 await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
+                
+                // Optimistic Update: Update data di state lokal
+                basecamps[index] = { ...basecamps[index], name, lat, lng, radius };
                 showToast('Basecamp berhasil diperbarui!', 'success');
             }
 
             closeBasecampModal();
-            await fetchAllDataFromSupabase();
+            
+            // Langsung panggil render, hilangkan await fetchAllDataFromSupabase agar tidak tertimpa
+            renderBasecamps();
+            
             if (bcMap) {
                 setTimeout(() => {
                     bcMap.invalidateSize();
-                    renderBasecamps();
                 }, 200);
             }
         }
@@ -1597,11 +1612,14 @@
             }
             showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
                 await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
-                await fetchAllDataFromSupabase();
+                
+                // Optimistic Update: Langsung hapus dari state lokal
+                basecamps.splice(index, 1);
+                renderBasecamps();
+                
                 if (bcMap) {
                     setTimeout(() => {
                         bcMap.invalidateSize();
-                        renderBasecamps();
                     }, 200);
                 }
                 showToast('Basecamp berhasil dihapus.', 'success');
@@ -1791,7 +1809,11 @@
                     };
 
                     await supabaseClient.from('rekap_list').insert([newRekap]);
-                    await fetchAllDataFromSupabase();
+                    
+                    // Optimistic update untuk absensi
+                    rekapList.push(newRekap);
+                    renderRekap();
+                    updateDashboardStats();
 
                     showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
                     
