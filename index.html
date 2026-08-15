@@ -286,7 +286,7 @@
 
             </div>
 
-            <!-- Mobile Bottom Navigation -->
+            <!-- Mobile Bottom Navigation (Dengan Penambahan Badge Unread Email) -->
             <div class="absolute bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 px-6 py-3 flex justify-around items-center z-20 shadow-2xl">
                 <button onclick="switchMobileTab('daftar')" id="m-nav-daftar" class="text-gold-400 flex flex-col items-center text-xs space-y-1 transition">
                     <i class="fa-solid fa-user-shield text-base"></i>
@@ -296,9 +296,11 @@
                     <i class="fa-solid fa-fingerprint text-base"></i>
                     <span>Absen & Izin</span>
                 </button>
-                <button onclick="switchMobileTab('email')" id="m-nav-email" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition">
+                <button onclick="switchMobileTab('email')" id="m-nav-email" class="text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition relative">
                     <i class="fa-solid fa-envelope text-base"></i>
                     <span>Email</span>
+                    <!-- Badge Unread Mobile -->
+                    <span id="mobile-email-badge" class="absolute -top-1.5 right-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
                 </button>
             </div>
         </div>
@@ -363,13 +365,15 @@
                         <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
                             <i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp
                         </button>
-                        <!-- MODIFIKASI: Penambahan Badge Counter pada Tombol Menu Persetujuan Izin -->
+                        <!-- Persetujuan Izin Badge -->
                         <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
                             <i class="fa-solid fa-envelope-open-text w-5"></i> <span class="flex-1 text-left">Persetujuan Izin</span> 
                             <span id="sidebar-izin-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
                         </button>
+                        <!-- Pesan & Broadcast Badge Desktop Sidebar -->
                         <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-envelope w-5"></i> Pesan & Broadcast
+                            <i class="fa-solid fa-envelope w-5"></i> <span class="flex-1 text-left">Pesan & Broadcast</span>
+                            <span id="sidebar-email-badge" class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
                         </button>
                     </nav>
                     <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">
@@ -525,7 +529,7 @@
                             <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"></div>
                         </div>
 
-                        <!-- TAB PENGAJUAN IZIN (MODIFIKASI: Ditambahkan Badge Counter Header) -->
+                        <!-- TAB PENGAJUAN IZIN -->
                         <div id="d-tab-izin" class="space-y-4 hidden">
                             <div class="flex justify-between items-center">
                                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan oleh Atasan Langsung</h4>
@@ -941,6 +945,9 @@
                 activeBtn.classList.remove('text-slate-400');
                 activeBtn.classList.add('text-gold-400');
             }
+            if (tab === 'email') {
+                switchMobileEmailSub('inbox');
+            }
         }
 
         function switchDesktopTab(tab) {
@@ -956,6 +963,9 @@
             if(activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
             
             if(tab === 'basecamp') setTimeout(() => { if(bcMap) bcMap.invalidateSize(); }, 200);
+            if(tab === 'email') {
+                switchDesktopEmailSub('inbox');
+            }
         }
 
         function applyRolePermissions() {
@@ -1499,7 +1509,6 @@
             });
         }
 
-        // ==================== RENDER PERSETUJUAN IZIN DENGAN COUNTER BADGE ==================== //
         function renderAdminIzin() {
             const container = document.getElementById('admin-izin-container');
             if(!container) return;
@@ -1511,7 +1520,6 @@
                 pendingList = izinList.filter(i => i.status === 'Pending' && i.atasan === activeEmployeeSession.name);
             }
 
-            // MODIFIKASI: Perbarui indikator badge / counter jumlah pengajuan pending
             const count = pendingList.length;
             const sidebarBadge = document.getElementById('sidebar-izin-badge');
             const tabBadge = document.getElementById('tab-izin-counter-badge');
@@ -1603,114 +1611,169 @@
         }
 
         function populateEmailRecipients() {
-            ['m-email-recipient', 'd-email-recipient'].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) {
-                    el.innerHTML = `<option value="BROADCAST">📢 BROADCAST (Seluruh Karyawan)</option>` + 
-                    employees.map(e => `<option value="${e.id}">${e.name} (${e.id})</option>`).join('');
+            const selectIds = ['m-email-recipient', 'd-email-recipient'];
+            selectIds.forEach(id => {
+                const sel = document.getElementById(id);
+                if (sel) {
+                    let html = '<option value="BROADCAST">📢 BROADCAST (Kirim ke Seluruh Karyawan)</option>';
+                    employees.forEach(emp => {
+                        if (emp.id !== activeEmployeeSession.id) {
+                            html += `<option value="${emp.id}">${emp.name} (${emp.position})</option>`;
+                        }
+                    });
+                    sel.innerHTML = html;
                 }
             });
         }
 
         function switchMobileEmailSub(sub) {
-            ['inbox','sent','compose'].forEach(s => {
-                const el = document.getElementById(`m-email-${s}-section`);
+            ['inbox', 'sent', 'compose'].forEach(s => {
+                const sec = document.getElementById(`m-email-${s}-section`);
                 const btn = document.getElementById(`m-btn-${s}`);
-                if(el) el.classList.add('hidden');
-                if(btn) btn.className = "px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-400 hover:text-white transition";
+                if (sec) sec.classList.add('hidden');
+                if (btn) {
+                    btn.className = s === sub ? 'px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition' : 'px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-400 hover:text-white transition';
+                }
             });
-            const targetSec = document.getElementById(`m-email-${sub}-section`);
-            const targetBtn = document.getElementById(`m-btn-${sub}`);
-            if(targetSec) targetSec.classList.remove('hidden');
-            if(targetBtn) targetBtn.className = sub === 'compose' ? "px-3 py-1.5 text-xs font-semibold rounded-xl text-gold-400 border border-gold-500/30 hover:bg-gold-500/10 transition" : "px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition";
+            const activeSec = document.getElementById(`m-email-${sub}-section`);
+            if (activeSec) activeSec.classList.remove('hidden');
+            if (sub === 'inbox') markEmailsAsRead();
         }
 
         function switchDesktopEmailSub(sub) {
-            ['inbox','sent','compose'].forEach(s => {
-                const el = document.getElementById(`d-email-${s}-section`);
+            ['inbox', 'sent', 'compose'].forEach(s => {
+                const sec = document.getElementById(`d-email-${s}-section`);
                 const btn = document.getElementById(`d-btn-${s}`);
-                if(el) el.classList.add('hidden');
-                if(btn) btn.className = "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-slate-300 border border-slate-800";
+                if (sec) sec.classList.add('hidden');
+                if (btn) {
+                    btn.className = s === sub ? 'px-4 py-2 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 shadow' : 'px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-slate-300 border border-slate-800';
+                }
             });
-            const targetSec = document.getElementById(`d-email-${sub}-section`);
-            const targetBtn = document.getElementById(`d-btn-${sub}`);
-            if(targetSec) targetSec.classList.remove('hidden');
-            if(targetBtn) targetBtn.className = sub === 'compose' ? "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-gold-400 border border-gold-500/30" : "px-4 py-2 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 shadow";
+            const activeSec = document.getElementById(`d-email-${sub}-section`);
+            if (activeSec) activeSec.classList.remove('hidden');
+            if (sub === 'inbox') markEmailsAsRead();
         }
 
         function renderEmails() {
             const myEmail = activeEmployeeSession.id;
+            const inboxList = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
+            const sentList = emailsList.filter(e => e.sender === myEmail);
+
+            // Render Mobile Inbox
+            const mInbox = document.getElementById('mobile-inbox-list');
+            if (mInbox) {
+                mInbox.innerHTML = inboxList.length === 0 ? '<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>' :
+                inboxList.map(e => `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Dari: <strong class="text-white">${e.sender}</strong></span>
+                            <span>${new Date(e.created_at || Date.now()).toLocaleDateString('id-ID')}</span>
+                        </div>
+                        <h5 class="text-xs font-bold text-gold-400">${e.subject}</h5>
+                        <p class="text-slate-300 whitespace-pre-line text-[11px]">${e.message}</p>
+                    </div>
+                `).join('');
+            }
+
+            // Render Mobile Sent
+            const mSent = document.getElementById('mobile-sent-list');
+            if (mSent) {
+                mSent.innerHTML = sentList.length === 0 ? '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>' :
+                sentList.map(e => `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Ke: <strong class="text-white">${e.receiver}</strong></span>
+                            <span>${new Date(e.created_at || Date.now()).toLocaleDateString('id-ID')}</span>
+                        </div>
+                        <h5 class="text-xs font-bold text-gold-400">${e.subject}</h5>
+                        <p class="text-slate-300 whitespace-pre-line text-[11px]">${e.message}</p>
+                    </div>
+                `).join('');
+            }
+
+            // Render Desktop Inbox
+            const dInboxTbody = document.getElementById('desktop-inbox-tbody');
+            if (dInboxTbody) {
+                dInboxTbody.innerHTML = inboxList.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>` :
+                inboxList.map(e => `
+                    <tr>
+                        <td class="p-3 text-slate-400">${new Date(e.created_at || Date.now()).toLocaleString('id-ID')}</td>
+                        <td class="p-3 font-bold text-white">${e.sender}</td>
+                        <td class="p-3 text-gold-400 font-semibold">${e.subject}</td>
+                        <td class="p-3 max-w-xs truncate">${e.message}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${e.receiver === 'BROADCAST' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}">${e.receiver === 'BROADCAST' ? 'Broadcast' : 'Pribadi'}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            // Render Desktop Sent
+            const dSentTbody = document.getElementById('desktop-sent-tbody');
+            if (dSentTbody) {
+                dSentTbody.innerHTML = sentList.length === 0 ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>` :
+                sentList.map(e => `
+                    <tr>
+                        <td class="p-3 text-slate-400">${new Date(e.created_at || Date.now()).toLocaleString('id-ID')}</td>
+                        <td class="p-3 font-bold text-white">${e.receiver}</td>
+                        <td class="p-3 text-gold-400 font-semibold">${e.subject}</td>
+                        <td class="p-3 max-w-xs truncate">${e.message}</td>
+                    </tr>
+                `).join('');
+            }
+
+            updateEmailBadges();
+        }
+
+        function updateEmailBadges() {
+            const myEmail = activeEmployeeSession.id;
+            const inboxList = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
             
-            const mobileInbox = document.getElementById('mobile-inbox-list');
-            const mobileSent = document.getElementById('mobile-sent-list');
-            const desktopInbox = document.getElementById('desktop-inbox-tbody');
-            const desktopSent = document.getElementById('desktop-sent-tbody');
+            let readIds = [];
+            try {
+                readIds = JSON.parse(localStorage.getItem(`read_emails_${myEmail}`) || '[]');
+            } catch(e) { readIds = []; }
 
-            const inboxMsgs = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
-            const sentMsgs = emailsList.filter(e => e.sender === myEmail);
+            const unreadCount = inboxList.filter(e => !readIds.includes(e.id)).length;
 
-            if(mobileInbox) {
-                mobileInbox.innerHTML = inboxMsgs.length === 0 ? '<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>' :
-                inboxMsgs.map(m => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
-                        <div class="flex justify-between items-center text-[10px] text-slate-400">
-                            <span>Dari: ${m.sender}</span>
-                            <span>${new Date(m.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h5 class="text-white font-bold">${m.subject}</h5>
-                        <p class="text-slate-300 whitespace-pre-line">${m.message}</p>
-                    </div>
-                `).join('');
+            const mobileBadge = document.getElementById('mobile-email-badge');
+            if (mobileBadge) {
+                if (unreadCount > 0) {
+                    mobileBadge.innerText = unreadCount;
+                    mobileBadge.classList.remove('hidden');
+                } else {
+                    mobileBadge.classList.add('hidden');
+                }
             }
 
-            if(mobileSent) {
-                mobileSent.innerHTML = sentMsgs.length === 0 ? '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>' :
-                sentMsgs.map(m => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
-                        <div class="flex justify-between items-center text-[10px] text-slate-400">
-                            <span>Ke: ${m.receiver}</span>
-                            <span>${new Date(m.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h5 class="text-white font-bold">${m.subject}</h5>
-                        <p class="text-slate-300 whitespace-pre-line">${m.message}</p>
-                    </div>
-                `).join('');
-            }
-
-            if(desktopInbox) {
-                desktopInbox.innerHTML = inboxMsgs.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>` :
-                inboxMsgs.map(m => `
-                    <tr>
-                        <td class="p-3 font-mono text-[10px]">${new Date(m.created_at).toLocaleString('id-ID')}</td>
-                        <td class="p-3 text-gold-400 font-bold">${m.sender}</td>
-                        <td class="p-3 text-white font-semibold">${m.subject}</td>
-                        <td class="p-3 truncate max-w-xs">${m.message}</td>
-                        <td class="p-3">${m.receiver === 'BROADCAST' ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-[10px]">Broadcast</span>' : '<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px]">Personal</span>'}</td>
-                    </tr>
-                `).join('');
-            }
-
-            if(desktopSent) {
-                desktopSent.innerHTML = sentMsgs.length === 0 ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>` :
-                sentMsgs.map(m => `
-                    <tr>
-                        <td class="p-3 font-mono text-[10px]">${new Date(m.created_at).toLocaleString('id-ID')}</td>
-                        <td class="p-3 text-gold-400 font-bold">${m.receiver}</td>
-                        <td class="p-3 text-white font-semibold">${m.subject}</td>
-                        <td class="p-3 truncate max-w-xs">${m.message}</td>
-                    </tr>
-                `).join('');
+            const sidebarBadge = document.getElementById('sidebar-email-badge');
+            if (sidebarBadge) {
+                if (unreadCount > 0) {
+                    sidebarBadge.innerText = unreadCount;
+                    sidebarBadge.classList.add('flex');
+                    sidebarBadge.classList.remove('hidden');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                }
             }
         }
 
+        function markEmailsAsRead() {
+            const myEmail = activeEmployeeSession.id;
+            const inboxList = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
+            const allIds = inboxList.map(e => e.id);
+            localStorage.setItem(`read_emails_${myEmail}`, JSON.stringify(allIds));
+            updateEmailBadges();
+        }
+
         async function sendAppEmail(mode) {
-            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
+            const isMob = mode === 'mobile';
+            const recipient = document.getElementById(isMob ? 'm-email-recipient' : 'd-email-recipient').value;
+            const subject = document.getElementById(isMob ? 'm-email-subject' : 'd-email-subject').value.trim();
+            const message = document.getElementById(isMob ? 'm-email-message' : 'd-email-message').value.trim();
 
-            const recipient = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-recipient`).value;
-            const subject = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value.trim();
-            const message = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value.trim();
-
-            if (!subject || !message) { showToast('Subjek dan isi pesan wajib diisi!', 'error'); return; }
+            if (!subject || !message) {
+                showToast('Subjek dan isi pesan tidak boleh kosong!', 'error');
+                return;
+            }
 
             const newEmail = {
                 id: Date.now(),
@@ -1722,15 +1785,17 @@
             };
 
             emailsList.unshift(newEmail);
-            supabaseClient.from('emails').insert([newEmail]).then();
+            supabaseClient.from('emails').insert([newEmail]).then(({error}) => {
+                if(error) console.log("Gagal kirim email ke DB:", error);
+            });
 
-            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value = '';
-            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value = '';
+            document.getElementById(isMob ? 'm-email-subject' : 'd-email-subject').value = '';
+            document.getElementById(isMob ? 'm-email-message' : 'd-email-message').value = '';
 
             renderEmails();
             showToast('Pesan / Broadcast berhasil dikirim!', 'success');
-            if(mode === 'mobile') switchMobileEmailSub('sent');
-            else switchDesktopEmailSub('sent');
+            if (isMob) switchMobileEmailSub('inbox');
+            else switchDesktopEmailSub('inbox');
         }
     </script>
 </body>
