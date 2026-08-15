@@ -863,7 +863,10 @@
 
             if (emp.password !== '••••••••') {
                 const hashedInput = await hashPassword(pass);
-                if (hashedInput !== emp.password) return showToast('Kombinasi Email dan Password salah!', 'error');
+                // Mendukung password Hash maupun Plain Text dari database Supabase
+                if (hashedInput !== emp.password && pass !== emp.password) {
+                    return showToast('Kombinasi Email dan Password salah!', 'error');
+                }
             }
 
             if (emp.deviceId === 'Unbound') {
@@ -1735,26 +1738,26 @@
                 }
 
                 if (!validBasecamp) {
-                    validBasecamp = basecamps[0] || { name: 'Basecamp Pusat', lat: userLat, lng: userLng, radius: 15000 };
+                    showToast('ABSEN DITOLAK: Anda berada di luar radius aman basecamp manapun!', 'error');
+                    return;
                 }
 
                 const now = new Date();
                 const dateStr = now.toISOString().split('T')[0];
                 const timeStr = now.toTimeString().split(' ')[0];
 
-                const existing = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
-                if (existing) {
-                    showToast('Anda sudah melakukan absensi masuk hari ini!', 'warning');
+                const existingAbsen = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+                if (existingAbsen) {
+                    showToast('Anda sudah melakukan absensi hari ini!', 'warning');
                     return;
                 }
 
-                const hour = now.getHours();
-                const minute = now.getMinutes();
-                let status = 'Tepat Waktu';
+                const [hour, minute] = timeStr.split(':').map(Number);
+                let status = 'Hadir (Tepat Waktu)';
                 let lateMinutes = 0;
-                if (hour > 8 || (hour === 8 && minute > 30)) {
-                    status = 'Terlambat';
-                    lateMinutes = (hour - 8) * 60 + minute - 30;
+                if (hour > 8 || (hour === 8 && minute > 15)) {
+                    status = 'Hadir (Terlambat)';
+                    lateMinutes = (hour - 8) * 60 + minute - 15;
                 }
 
                 const newRekap = {
@@ -1769,7 +1772,7 @@
 
                 const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
                 if (error) {
-                    showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
+                    showToast('Gagal menyimpan absensi ke database: ' + error.message, 'error');
                     return;
                 }
 
@@ -1778,24 +1781,17 @@
                 renderMobileMyHistory();
                 updateDashboardStats();
 
-                const jamMasukEl = document.getElementById('mobile-jam-masuk');
-                if (jamMasukEl) jamMasukEl.innerText = `${timeStr} WIB (${status})`;
+                document.getElementById('mobile-jam-masuk').innerText = `${timeStr} WIB (${validBasecamp.name})`;
+                showToast(`Absensi Berhasil! Status: ${status}`, 'success');
 
-                showToast(`Absensi Berhasil! Status: ${status} di ${validBasecamp.name}`, 'success');
             }, (error) => {
-                showToast('Gagal mendeteksi GPS: ' + error.message, 'error');
+                showToast('Gagal Mendapatkan Lokasi GPS: ' + error.message, 'error');
             }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         }
 
-        setInterval(() => {
-            const now = new Date();
-            const clockEl = document.getElementById('live-clock');
-            if(clockEl) clockEl.innerText = now.toTimeString().split(' ')[0];
-        }, 1000);
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initializeDeviceBinding(); 
-            await fetchAllDataFromSupabase();
+        window.addEventListener('DOMContentLoaded', () => {
+            initializeDeviceBinding();
+            fetchAllDataFromSupabase();
         });
     </script>
 </body>
