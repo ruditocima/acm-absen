@@ -420,6 +420,7 @@
                                         <th class="p-3">Jam Masuk</th>
                                         <th class="p-3">Status</th>
                                         <th class="p-3">Jml Terlambat</th>
+                                        <th class="p-3">Selfie</th>
                                     </tr>
                                 </thead>
                                 <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
@@ -684,6 +685,35 @@
         </div>
     </div>
 
+    <!-- MODAL SELFIE ABSENSI -->
+    <div id="selfie-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
+            <h3 class="text-sm font-bold text-gold-400 uppercase tracking-wider">Verifikasi Wajah (Selfie Absen)</h3>
+            <p class="text-xs text-slate-400">Posisikan wajah Anda di dalam frame kamera sebelum melakukan absensi.</p>
+            
+            <div class="relative w-full h-64 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                <video id="selfie-video" autoplay playsinline class="w-full h-full object-cover"></video>
+                <canvas id="selfie-canvas" class="hidden"></canvas>
+                <img id="selfie-preview" class="w-full h-full object-cover hidden" alt="Preview Selfie">
+            </div>
+
+            <div class="flex gap-2 pt-2">
+                <button id="btn-capture" onclick="captureSelfie()" class="flex-1 py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-camera"></i> Ambil Foto
+                </button>
+                <button id="btn-retake" onclick="retakeSelfie()" class="flex-1 py-3 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold hidden flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> Foto Ulang
+                </button>
+                <button id="btn-submit-absen" onclick="submitAbsenWithSelfie()" class="flex-1 py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-md hidden flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check"></i> Konfirmasi Absen
+                </button>
+                <button onclick="closeSelfieModal()" class="py-3 px-4 rounded-xl bg-slate-800 text-slate-400 hover:text-white text-xs">
+                    Batal
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC WITH SUPABASE INTEGRATION -->
     <script>
         // ----------------- SUPABASE CONFIGURATION ----------------- //
@@ -784,6 +814,9 @@
 
         let activeEmployeeSession = { name: 'Tamu', id: 'tamu@gmail.com' };
         let tempRegData = null;
+        let pendingAbsenData = null;
+        let mediaStream = null;
+        let capturedBlob = null;
 
         async function fetchAllDataFromSupabase() {
             try {
@@ -1034,6 +1067,190 @@
             document.getElementById('m-izin-desc').value = '';
         }
 
+        // ==================== LOGIKA FITUR ABSEN & SELFIE ==================== //
+        async function handleAbsen() {
+            if (activeEmployeeSession.name === 'Tamu') {
+                showToast('Silakan login terlebih dahulu untuk melakukan absensi.', 'error');
+                switchMobileTab('daftar');
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                showToast('Browser Anda tidak mendukung Geolocation GPS.', 'error');
+                return;
+            }
+
+            showToast('Mendeteksi lokasi GPS real-time...', 'warning');
+
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
+
+                let validBasecamp = null;
+                for (let bc of basecamps) {
+                    const dist = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                    if (dist <= bc.radius) {
+                        validBasecamp = bc;
+                        break;
+                    }
+                }
+
+                if (!validBasecamp && basecamps.length > 0) {
+                    showToast('Anda berada di luar radius basecamp manapun!', 'error');
+                    return;
+                }
+
+                const basecampName = validBasecamp ? validBasecamp.name : (basecamps[0] ? basecamps[0].name : 'Pekanbaru Pusat');
+                
+                pendingAbsenData = {
+                    lat: userLat,
+                    lng: userLng,
+                    basecamp: basecampName
+                };
+
+                openSelfieModal();
+            }, (error) => {
+                showToast('Gagal mendeteksi lokasi GPS: ' + error.message, 'error');
+            }, { enableHighAccuracy: true, timeout: 10000 });
+        }
+
+        async function openSelfieModal() {
+            document.getElementById('selfie-modal').classList.remove('hidden');
+            document.getElementById('selfie-video').classList.remove('hidden');
+            document.getElementById('selfie-preview').classList.add('hidden');
+            document.getElementById('btn-capture').classList.remove('hidden');
+            document.getElementById('btn-retake').classList.add('hidden');
+            document.getElementById('btn-submit-absen').classList.add('hidden');
+
+            try {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+                const videoEl = document.getElementById('selfie-video');
+                videoEl.srcObject = mediaStream;
+            } catch (err) {
+                console.error("Gagal mengakses kamera:", err);
+                showToast('Tidak dapat mengakses kamera perangkat. Pastikan izin kamera diberikan.', 'warning');
+            }
+        }
+
+        function closeSelfieModal() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById('selfie-modal').classList.add('hidden');
+            capturedBlob = null;
+            pendingAbsenData = null;
+        }
+
+        function captureSelfie() {
+            const video = document.getElementById('selfie-video');
+            const canvas = document.getElementById('selfie-canvas');
+            const preview = document.getElementById('selfie-preview');
+
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob((blob) => {
+                capturedBlob = blob;
+                const imageUrl = URL.createObjectURL(blob);
+                preview.src = imageUrl;
+                
+                video.classList.add('hidden');
+                preview.classList.remove('hidden');
+
+                document.getElementById('btn-capture').classList.add('hidden');
+                document.getElementById('btn-retake').classList.remove('hidden');
+                document.getElementById('btn-submit-absen').classList.remove('hidden');
+
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+            }, 'image/jpeg', 0.85);
+        }
+
+        function retakeSelfie() {
+            capturedBlob = null;
+            openSelfieModal();
+        }
+
+        async function submitAbsenWithSelfie() {
+            if (!capturedBlob || !pendingAbsenData) {
+                showToast('Foto selfie belum diambil!', 'error');
+                return;
+            }
+
+            showToast('Mengunggah foto selfie ke Supabase storage (selfie-absen)...', 'warning');
+
+            const fileName = `selfie_${activeEmployeeSession.id.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.jpg`;
+            
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('selfie-absen')
+                .upload(fileName, capturedBlob, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                showToast('Gagal mengunggah foto ke storage: ' + uploadError.message, 'error');
+                closeSelfieModal();
+                return;
+            }
+
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from('selfie-absen')
+                .getPublicUrl(fileName);
+
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            const timeStr = now.toTimeString().split(' ')[0];
+
+            const alreadyCheckedIn = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+            if (alreadyCheckedIn) {
+                showToast('Anda sudah melakukan absensi hari ini!', 'warning');
+                closeSelfieModal();
+                return;
+            }
+
+            const hours = now.getHours();
+            const minutes = now.getMinutes();
+            let status = 'Hadir (Tepat Waktu)';
+            let lateMinutes = 0;
+            if (hours > 8 || (hours === 8 && minutes > 0)) {
+                lateMinutes = (hours - 8) * 60 + minutes;
+                status = `Terlambat (${lateMinutes} mnt)`;
+            }
+
+            const newRekap = {
+                id: Date.now(),
+                date: dateStr,
+                time: timeStr,
+                name: activeEmployeeSession.name,
+                basecamp: pendingAbsenData.basecamp,
+                status: status,
+                late: lateMinutes > 0 ? `${lateMinutes} Menit` : '0 Menit',
+                selfie_url: publicUrl
+            };
+
+            const { error: insertError } = await supabaseClient.from('rekap_list').insert([newRekap]);
+            if (insertError) {
+                showToast('Gagal menyimpan data absensi: ' + insertError.message, 'error');
+                closeSelfieModal();
+                return;
+            }
+
+            rekapList.push(newRekap);
+            renderRekap();
+            renderMobileMyHistory();
+            updateDashboardStats();
+
+            closeSelfieModal();
+            showToast('Absensi berhasil dicatat dengan foto selfie!', 'success');
+            document.getElementById('mobile-jam-masuk').innerText = `${timeStr} WIB`;
+        }
+
         // ==================== LOGIKA FITUR EMAIL & BROADCAST ==================== //
         function populateEmailRecipients() {
             const mSelect = document.getElementById('m-email-recipient');
@@ -1196,7 +1413,7 @@
                             <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-fingerprint"></i> Hadir (${r.basecamp})</span>
                             <div class="text-slate-400">${r.date} - ${r.time}</div>
                         </div>
-                        <span class="text-emerald-400 font-bold">Sukses</span>
+                        ${r.selfie_url ? `<a href="${r.selfie_url}" target="_blank"><img src="${r.selfie_url}" class="w-8 h-8 rounded object-cover border border-gold-500/30"></a>` : ''}
                     </div>`;
             });
 
@@ -1299,7 +1516,7 @@
             if (!rekapList.length) { showToast('Tidak ada data rekap!', 'warning'); return; }
             const excelData = rekapList.map((item, index) => ({
                 "No": index + 1, "Tanggal": item.date, "Nama Karyawan": item.name,
-                "Basecamp": item.basecamp, "Jam Masuk": item.time, "Status": 'Hadir', "Keterlambatan": item.late
+                "Basecamp": item.basecamp, "Jam Masuk": item.time, "Status": 'Hadir', "Keterlambatan": item.late, "Selfie URL": item.selfie_url || '-'
             }));
             const ws = XLSX.utils.json_to_sheet(excelData);
             const wb = XLSX.utils.book_new();
@@ -1690,7 +1907,10 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             (data || rekapList).forEach(item => {
-                tbody.innerHTML += `<tr><td class="p-3">${item.date}</td><td class="p-3">${item.name}</td><td class="p-3">${item.basecamp}</td><td class="p-3">${item.time}</td><td class="p-3">${item.status}</td><td class="p-3">${item.late}</td></tr>`;
+                const selfieImg = item.selfie_url 
+                    ? `<a href="${item.selfie_url}" target="_blank" title="Lihat Foto Selfie"><img src="${item.selfie_url}" class="w-8 h-8 object-cover rounded-lg border border-gold-500/30 inline-block"></a>` 
+                    : '<span class="text-slate-500">-</span>';
+                tbody.innerHTML += `<tr><td class="p-3">${item.date}</td><td class="p-3">${item.name}</td><td class="p-3">${item.basecamp}</td><td class="p-3">${item.time}</td><td class="p-3">${item.status}</td><td class="p-3">${item.late}</td><td class="p-3">${selfieImg}</td></tr>`;
             });
         }
 
@@ -1709,102 +1929,14 @@
             return R * c;
         }
 
-        async function handleAbsen() {
-            if (activeEmployeeSession.name === 'Tamu') {
-                showToast('Silakan login terlebih dahulu untuk melakukan absensi.', 'error');
-                switchMobileTab('daftar');
-                return;
-            }
-
-            if (!navigator.geolocation) {
-                showToast('Browser Anda tidak mendukung Geolocation GPS.', 'error');
-                return;
-            }
-
-            showToast('Mendeteksi lokasi GPS real-time...', 'warning');
-
-            navigator.geolocation.getCurrentPosition(async (position) => {
-                const userLat = position.coords.latitude;
-                const userLng = position.coords.longitude;
-
-                let validBasecamp = null;
-                for (let bc of basecamps) {
-                    const dist = calculateDistance(userLat, userLng, bc.lat, bc.lng);
-                    if (dist <= bc.radius) {
-                        validBasecamp = bc;
-                        break;
-                    }
-                }
-
-                if (!validBasecamp) {
-                    showToast('Absensi Ditolak! Anda berada di luar radius basecamp manapun.', 'error');
-                    return;
-                }
-
-                const now = new Date();
-                const timeStr = now.toTimeString().split(' ')[0];
-                const dateStr = now.toISOString().split('T')[0];
-
-                const alreadyAbsen = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
-                if (alreadyAbsen) {
-                    showToast('Anda sudah melakukan absensi hari ini!', 'warning');
-                    return;
-                }
-
-                const targetHour = 8;
-                const targetMinute = 0;
-                const currentHour = now.getHours();
-                const currentMinute = now.getMinutes();
-
-                let status = 'Hadir (Tepat Waktu)';
-                let lateMinutes = 0;
-                if (currentHour > targetHour || (currentHour === targetHour && currentMinute > targetMinute)) {
-                    lateMinutes = (currentHour - targetHour) * 60 + (currentMinute - targetMinute);
-                    status = `Terlambat (${lateMinutes} mnt)`;
-                }
-
-                const newRekap = {
-                    id: Date.now(),
-                    date: dateStr,
-                    name: activeEmployeeSession.name,
-                    basecamp: validBasecamp.name,
-                    time: timeStr,
-                    status: status,
-                    late: lateMinutes > 0 ? `${lateMinutes} Menit` : 'Tepat Waktu'
-                };
-
-                const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
-                if (error) {
-                    showToast('Gagal menyimpan absensi: ' + error.message, 'error');
-                    return;
-                }
-
-                rekapList.push(newRekap);
-                renderRekap();
-                renderMobileMyHistory();
-                updateDashboardStats();
-
-                document.getElementById('mobile-jam-masuk').innerText = `${timeStr} WIB`;
-                showToast(`Absensi berhasil! Hadir di ${validBasecamp.name}`, 'success');
-            }, (error) => {
-                showToast('Gagal mendapatkan lokasi GPS: ' + error.message, 'error');
-            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-        }
-
-        // Live Clock Interval
-        setInterval(() => {
-            const now = new Date();
-            const clockEl = document.getElementById('live-clock');
-            if (clockEl) {
-                clockEl.innerText = now.toTimeString().split(' ')[0];
-            }
-        }, 1000);
-
-        // Initial Load on Window Load
-        window.addEventListener('load', async () => {
+        window.onload = async () => {
             await initializeDeviceBinding();
             await fetchAllDataFromSupabase();
-        });
+            setInterval(() => {
+                const clock = document.getElementById('live-clock');
+                if (clock) clock.innerText = new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' });
+            }, 1000);
+        };
     </script>
 </body>
 </html>
