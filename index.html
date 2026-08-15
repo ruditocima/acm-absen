@@ -961,6 +961,9 @@
             const rData = roles.find(r => r.name === roleName);
             const accessStr = (roleName === 'Master Admin') ? 'dashboard, rekap, role, karyawan, basecamp, izin, email' : (rData ? rData.access.toLowerCase() : '');
 
+            // Cek apakah user adalah atasan/manajer/admin atau memiliki bawahan yang mengarah ke namanya
+            const isAtasanOrManager = isMasterAdmin() || roleName.includes('Admin') || roleName.includes('Manajer') || employees.some(e => e.atasan === activeEmployeeSession.name);
+
             const menuMapping = {
                 'dashboard': 'd-nav-dashboard',
                 'rekap': 'd-nav-rekap',
@@ -974,10 +977,19 @@
             for (const [key, btnId] of Object.entries(menuMapping)) {
                 const btn = document.getElementById(btnId);
                 if (btn) {
-                    if (accessStr.includes(key)) {
-                        btn.classList.remove('hidden');
+                    if (key === 'izin') {
+                        // Menu Persetujuan Izin HANYA muncul untuk atasan/manajer/admin yang bersangkutan
+                        if (isAtasanOrManager && (accessStr.includes('izin') || isMasterAdmin() || roleName.includes('Manajer') || roleName.includes('Admin'))) {
+                            btn.classList.remove('hidden');
+                        } else {
+                            btn.classList.add('hidden');
+                        }
                     } else {
-                        btn.classList.add('hidden');
+                        if (accessStr.includes(key)) {
+                            btn.classList.remove('hidden');
+                        } else {
+                            btn.classList.add('hidden');
+                        }
                     }
                 }
             }
@@ -1039,6 +1051,7 @@
             
             renderMobileMyHistory();
             renderEmails();
+            renderAdminIzin();
             return true;
         }
 
@@ -1107,7 +1120,6 @@
                 password: hashedPassword, status: 'Pending', device_id: 'Unbound' 
             };
 
-            // Optimistic update locally
             employees.push({ ...newEmp, deviceId: newEmp.device_id });
             supabaseClient.from('employees').insert([newEmp]).then(({error}) => {
                 if(error) console.log("Gagal ke DB: ", error);
@@ -1139,6 +1151,7 @@
             }, false);
         }
 
+        // ==================== UPDATE FITUR PENGAJUAN IZIN & EMAIL OTOMATIS ATASAN ==================== //
         async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
 
@@ -1148,15 +1161,50 @@
             const desc = document.getElementById('m-izin-desc').value.trim();
 
             if (!start || !end || !desc) { showToast('Harap lengkapi semua data izin!', 'error'); return; }
+            
+            // Tentukan atasan langsung karyawan
             const atasanName = activeEmployeeSession.atasan || 'Master Admin';
+            
+            // Cari data email atasan berdasarkan namanya untuk pengiriman email otomatis
+            const atasanEmp = employees.find(e => e.name === atasanName);
+            const atasanEmail = atasanEmp ? atasanEmp.id : 'admin@gmail.com';
 
-            const newIzin = { id: Date.now(), name: activeEmployeeSession.name, jenis: jenis, start: start, end: end, desc: desc, atasan: atasanName, status: 'Pending' };
+            const newIzin = { 
+                id: Date.now(), 
+                name: activeEmployeeSession.name, 
+                jenis: jenis, 
+                start: start, 
+                end: end, 
+                desc: desc, 
+                atasan: atasanName, 
+                status: 'Pending' 
+            };
+            
             izinList.push(newIzin);
             supabaseClient.from('izin_list').insert([newIzin]).then();
 
-            renderAdminIzin(); renderMobileMyHistory(); updateDashboardStats();
-            showToast('Pengajuan izin berhasil dikirim ke atasan!', 'success');
-            document.getElementById('m-izin-start').value = ''; document.getElementById('m-izin-end').value = ''; document.getElementById('m-izin-desc').value = '';
+            // OTOMATIS: Kirim pemberitahuan email ke atasan terkait
+            const newEmail = {
+                id: Date.now() + 1,
+                sender: activeEmployeeSession.id,
+                receiver: atasanEmail,
+                subject: `Pemberitahuan: Pengajuan Izin Baru dari ${activeEmployeeSession.name} (${jenis})`,
+                message: `Halo ${atasanName},\n\nKaryawan Anda atas nama ${activeEmployeeSession.name} telah mengajukan izin "${jenis}" mulai tanggal ${start} s/d ${end}.\nAlasan/Keterangan: "${desc}"\n\nSilakan buka aplikasi pada menu Persetujuan Izin untuk menyetujui atau menolak pengajuan ini.`,
+                created_at: new Date().toISOString()
+            };
+            
+            emailsList.unshift(newEmail);
+            supabaseClient.from('emails').insert([newEmail]).then();
+
+            renderAdminIzin(); 
+            renderMobileMyHistory(); 
+            renderEmails();
+            updateDashboardStats();
+            
+            showToast('Pengajuan izin berhasil dikirim dan email notifikasi telah diteruskan ke atasan!', 'success');
+            document.getElementById('m-izin-start').value = ''; 
+            document.getElementById('m-izin-end').value = ''; 
+            document.getElementById('m-izin-desc').value = '';
         }
 
         async function handleAbsen() {
@@ -1304,8 +1352,6 @@
             closeBasecampModal(); showToast('Basecamp baru tersimpan.', 'success');
         }
 
-        // --- REST OF IMPLEMENTED FUNCTIONS --- //
-        
         function renderRekap(data = rekapList) {
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
@@ -1371,7 +1417,7 @@
         function populateAtasanDropdown() {
             const sel = document.getElementById('inp-atasan');
             if(sel) {
-                const admins = employees.filter(e => e.role.includes('Admin') || e.role.includes('Manajer'));
+                const admins = employees.filter(e => e.role.includes('Admin') || e.role.includes('Manajer') || e.role.includes('Atasan'));
                 sel.innerHTML = `<option value="">-- Pilih Atasan --</option>` + admins.map(a => `<option value="${a.name}">${a.name}</option>`).join('');
             }
         }
@@ -1455,11 +1501,21 @@
             });
         }
 
+        // ==================== RENDER PERSETUJUAN IZIN KHUSUS ATASAN ==================== //
         function renderAdminIzin() {
             const container = document.getElementById('admin-izin-container');
             if(!container) return;
-            const pendingList = izinList.filter(i => i.status === 'Pending');
-            container.innerHTML = pendingList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-4">Tidak ada pengajuan izin tertunda.</p>' :
+
+            let pendingList = [];
+            if (isMasterAdmin() || activeEmployeeSession.role.includes('Admin')) {
+                // Master Admin & Admin dapat melihat semua pengajuan izin tertunda
+                pendingList = izinList.filter(i => i.status === 'Pending');
+            } else {
+                // Atasan / Manajer HANYA melihat pengajuan izin yang ditujukan kepada nama mereka
+                pendingList = izinList.filter(i => i.status === 'Pending' && i.atasan === activeEmployeeSession.name);
+            }
+
+            container.innerHTML = pendingList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-4">Tidak ada pengajuan izin tertunda untuk Anda.</p>' :
             pendingList.map((i, idx) => `
                 <div class="bg-slate-900 border border-slate-800 p-3 rounded-xl flex justify-between items-center">
                     <div>
@@ -1478,11 +1534,41 @@
         function handleIzinAction(id, action) {
             const item = izinList.find(i => i.id === id);
             if(item) {
+                // Validasi tambahan agar hanya atasan yang bersangkutan atau admin yang bisa klik
+                if (!isMasterAdmin() && !activeEmployeeSession.role.includes('Admin') && item.atasan !== activeEmployeeSession.name) {
+                    return showToast('Akses Ditolak! Anda bukan atasan langsung dari karyawan ini.', 'error');
+                }
+
                 item.status = action;
                 supabaseClient.from('izin_list').update({status: action}).eq('id', id).then();
                 renderAdminIzin(); renderMobileMyHistory(); updateDashboardStats();
                 showToast(`Izin telah ${action}`, 'success');
             }
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if(!container) return;
+            const myName = activeEmployeeSession.name;
+            const myRekap = rekapList.filter(r => r.name === myName);
+            const myIzin = izinList.filter(i => i.name === myName);
+
+            let html = '';
+            myRekap.forEach(r => {
+                html += `<div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div><span class="text-white font-bold">Absen: ${r.date}</span><span class="block text-[10px] text-slate-400">${r.time} (${r.status})</span></div>
+                    <span class="text-emerald-400 text-[10px]">Hadir</span>
+                </div>`;
+            });
+            myIzin.forEach(i => {
+                const badgeColor = i.status === 'Disetujui' ? 'text-emerald-400' : i.status === 'Ditolak' ? 'text-rose-400' : 'text-amber-400';
+                html += `<div class="bg-slate-950/50 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div><span class="text-white font-bold">Izin (${i.jenis}): ${i.start} s/d ${i.end}</span><span class="block text-[10px] text-slate-400">Atasan: ${i.atasan} | "${i.desc}"</span></div>
+                    <span class="${badgeColor} text-[10px] font-bold">${i.status}</span>
+                </div>`;
+            });
+
+            container.innerHTML = html === '' ? '<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>' : html;
         }
 
         function updateDashboardStats() {
@@ -1598,69 +1684,34 @@
             // Mobile Render
             const mListIn = document.getElementById('mobile-inbox-list');
             if(mListIn) {
-                mListIn.innerHTML = inbox.length === 0 ? `<p class="text-slate-500 text-center py-4">Kotak masuk kosong</p>` :
+                mListIn.innerHTML = inbox.length === 0 ? `<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>` :
                 inbox.map(e => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border ${e.receiver==='BROADCAST' ? 'border-amber-500/30' : 'border-slate-800'}">
-                        <p class="text-[10px] text-slate-400 flex justify-between">
-                            <span><i class="fa-solid fa-user"></i> ${e.sender}</span>
-                            <span>${new Date(e.created_at).toLocaleDateString()}</span>
-                        </p>
-                        <h4 class="font-bold text-white mt-1">${e.receiver==='BROADCAST'?'📢 ':''}${e.subject}</h4>
-                        <p class="text-xs text-slate-300 mt-1">${e.message}</p>
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Dari: <b class="text-white">${e.sender}</b></span>
+                            <span>${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <h5 class="text-xs font-bold text-gold-400">${e.subject}</h5>
+                        <p class="text-xs text-slate-300 whitespace-pre-line">${e.message}</p>
                     </div>
                 `).join('');
             }
 
             const mListSent = document.getElementById('mobile-sent-list');
             if(mListSent) {
-                mListSent.innerHTML = sent.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim</p>` :
+                mListSent.innerHTML = sent.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>` :
                 sent.map(e => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800">
-                        <p class="text-[10px] text-slate-400 flex justify-between">
-                            <span>Ke: ${e.receiver}</span><span>${new Date(e.created_at).toLocaleDateString()}</span>
-                        </p>
-                        <h4 class="font-bold text-white mt-1">${e.subject}</h4>
-                        <p class="text-xs text-slate-300 mt-1 truncate">${e.message}</p>
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Kepada: <b class="text-white">${e.receiver}</b></span>
+                            <span>${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <h5 class="text-xs font-bold text-white">${e.subject}</h5>
+                        <p class="text-xs text-slate-300 whitespace-pre-line">${e.message}</p>
                     </div>
                 `).join('');
             }
         }
-
-        function renderMobileMyHistory() {
-            const container = document.getElementById('mobile-my-history');
-            if(!container) return;
-
-            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name).slice(-5);
-            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
-
-            let html = '';
-            if(myRekap.length === 0 && myIzin.length === 0) {
-                html = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
-            } else {
-                myRekap.forEach(r => {
-                    const isLate = r.status.includes('Terlambat');
-                    html += `
-                        <div class="flex justify-between items-center p-2 border-b border-slate-800">
-                            <div><p class="text-white font-bold">${r.date}</p><p class="text-[10px] text-slate-400">Masuk: ${r.time}</p></div>
-                            <div class="text-right"><span class="font-bold ${isLate ? 'text-amber-400' : 'text-emerald-400'}">${isLate ? 'Terlambat' : 'Tepat Waktu'}</span></div>
-                        </div>
-                    `;
-                });
-                myIzin.forEach(i => {
-                    let cStatus = 'text-amber-400';
-                    if(i.status === 'Disetujui') cStatus = 'text-emerald-400';
-                    if(i.status === 'Ditolak') cStatus = 'text-rose-400';
-                    html += `
-                        <div class="flex justify-between items-center p-2 border-b border-slate-800 bg-slate-900/50">
-                            <div><p class="text-white font-bold">Izin ${i.jenis}</p><p class="text-[10px] text-slate-400">${i.start} s/d ${i.end}</p></div>
-                            <div class="text-right"><span class="font-bold ${cStatus}">${i.status}</span></div>
-                        </div>
-                    `;
-                });
-            }
-            container.innerHTML = html;
-        }
-        
     </script>
 </body>
 </html>
