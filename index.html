@@ -363,8 +363,10 @@
                         <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
                             <i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp
                         </button>
+                        <!-- MODIFIKASI: Penambahan Badge Counter pada Tombol Menu Persetujuan Izin -->
                         <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-envelope-open-text w-5"></i> Persetujuan Izin
+                            <i class="fa-solid fa-envelope-open-text w-5"></i> <span class="flex-1 text-left">Persetujuan Izin</span> 
+                            <span id="sidebar-izin-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
                         </button>
                         <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
                             <i class="fa-solid fa-envelope w-5"></i> Pesan & Broadcast
@@ -523,9 +525,12 @@
                             <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"></div>
                         </div>
 
-                        <!-- TAB PENGAJUAN IZIN -->
+                        <!-- TAB PENGAJUAN IZIN (MODIFIKASI: Ditambahkan Badge Counter Header) -->
                         <div id="d-tab-izin" class="space-y-4 hidden">
-                            <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan oleh Atasan Langsung</h4>
+                            <div class="flex justify-between items-center">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin Karyawan oleh Atasan Langsung</h4>
+                                <span id="tab-izin-counter-badge" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-semibold hidden">0 Pengajuan Pending</span>
+                            </div>
                             <div id="admin-izin-container" class="glass-card p-4 rounded-2xl space-y-3"></div>
                         </div>
 
@@ -961,7 +966,6 @@
             const rData = roles.find(r => r.name === roleName);
             const accessStr = (roleName === 'Master Admin') ? 'dashboard, rekap, role, karyawan, basecamp, izin, email' : (rData ? rData.access.toLowerCase() : '');
 
-            // Cek apakah user adalah atasan/manajer/admin atau memiliki bawahan yang mengarah ke namanya
             const isAtasanOrManager = isMasterAdmin() || roleName.includes('Admin') || roleName.includes('Manajer') || employees.some(e => e.atasan === activeEmployeeSession.name);
 
             const menuMapping = {
@@ -978,7 +982,6 @@
                 const btn = document.getElementById(btnId);
                 if (btn) {
                     if (key === 'izin') {
-                        // Menu Persetujuan Izin HANYA muncul untuk atasan/manajer/admin yang bersangkutan
                         if (isAtasanOrManager && (accessStr.includes('izin') || isMasterAdmin() || roleName.includes('Manajer') || roleName.includes('Admin'))) {
                             btn.classList.remove('hidden');
                         } else {
@@ -1151,7 +1154,6 @@
             }, false);
         }
 
-        // ==================== UPDATE FITUR PENGAJUAN IZIN & EMAIL OTOMATIS ATASAN ==================== //
         async function submitMobileIzin() {
             if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
 
@@ -1162,10 +1164,7 @@
 
             if (!start || !end || !desc) { showToast('Harap lengkapi semua data izin!', 'error'); return; }
             
-            // Tentukan atasan langsung karyawan
             const atasanName = activeEmployeeSession.atasan || 'Master Admin';
-            
-            // Cari data email atasan berdasarkan namanya untuk pengiriman email otomatis
             const atasanEmp = employees.find(e => e.name === atasanName);
             const atasanEmail = atasanEmp ? atasanEmp.id : 'admin@gmail.com';
 
@@ -1183,7 +1182,6 @@
             izinList.push(newIzin);
             supabaseClient.from('izin_list').insert([newIzin]).then();
 
-            // OTOMATIS: Kirim pemberitahuan email ke atasan terkait
             const newEmail = {
                 id: Date.now() + 1,
                 sender: activeEmployeeSession.id,
@@ -1501,18 +1499,39 @@
             });
         }
 
-        // ==================== RENDER PERSETUJUAN IZIN KHUSUS ATASAN ==================== //
+        // ==================== RENDER PERSETUJUAN IZIN DENGAN COUNTER BADGE ==================== //
         function renderAdminIzin() {
             const container = document.getElementById('admin-izin-container');
             if(!container) return;
 
             let pendingList = [];
             if (isMasterAdmin() || activeEmployeeSession.role.includes('Admin')) {
-                // Master Admin & Admin dapat melihat semua pengajuan izin tertunda
                 pendingList = izinList.filter(i => i.status === 'Pending');
             } else {
-                // Atasan / Manajer HANYA melihat pengajuan izin yang ditujukan kepada nama mereka
                 pendingList = izinList.filter(i => i.status === 'Pending' && i.atasan === activeEmployeeSession.name);
+            }
+
+            // MODIFIKASI: Perbarui indikator badge / counter jumlah pengajuan pending
+            const count = pendingList.length;
+            const sidebarBadge = document.getElementById('sidebar-izin-badge');
+            const tabBadge = document.getElementById('tab-izin-counter-badge');
+
+            if (sidebarBadge) {
+                if (count > 0) {
+                    sidebarBadge.innerText = count;
+                    sidebarBadge.classList.remove('hidden');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                }
+            }
+
+            if (tabBadge) {
+                if (count > 0) {
+                    tabBadge.innerText = `${count} Pengajuan Pending`;
+                    tabBadge.classList.remove('hidden');
+                } else {
+                    tabBadge.classList.add('hidden');
+                }
             }
 
             container.innerHTML = pendingList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-4">Tidak ada pengajuan izin tertunda untuk Anda.</p>' :
@@ -1534,7 +1553,6 @@
         function handleIzinAction(id, action) {
             const item = izinList.find(i => i.id === id);
             if(item) {
-                // Validasi tambahan agar hanya atasan yang bersangkutan atau admin yang bisa klik
                 if (!isMasterAdmin() && !activeEmployeeSession.role.includes('Admin') && item.atasan !== activeEmployeeSession.name) {
                     return showToast('Akses Ditolak! Anda bukan atasan langsung dari karyawan ini.', 'error');
                 }
@@ -1596,121 +1614,123 @@
 
         function switchMobileEmailSub(sub) {
             ['inbox','sent','compose'].forEach(s => {
-                document.getElementById(`m-email-${s}-section`).classList.add('hidden');
-                document.getElementById(`m-btn-${s}`).className = "px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-400 hover:text-white transition";
+                const el = document.getElementById(`m-email-${s}-section`);
+                const btn = document.getElementById(`m-btn-${s}`);
+                if(el) el.classList.add('hidden');
+                if(btn) btn.className = "px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-400 hover:text-white transition";
             });
-            document.getElementById(`m-email-${sub}-section`).classList.remove('hidden');
-            if(sub==='compose') {
-                document.getElementById(`m-btn-${sub}`).className = "px-3 py-1.5 text-xs font-semibold rounded-xl text-gold-400 border border-gold-500/30 hover:bg-gold-500/10 transition";
-            } else {
-                document.getElementById(`m-btn-${sub}`).className = "px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition";
-            }
+            const targetSec = document.getElementById(`m-email-${sub}-section`);
+            const targetBtn = document.getElementById(`m-btn-${sub}`);
+            if(targetSec) targetSec.classList.remove('hidden');
+            if(targetBtn) targetBtn.className = sub === 'compose' ? "px-3 py-1.5 text-xs font-semibold rounded-xl text-gold-400 border border-gold-500/30 hover:bg-gold-500/10 transition" : "px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition";
         }
 
         function switchDesktopEmailSub(sub) {
             ['inbox','sent','compose'].forEach(s => {
-                document.getElementById(`d-email-${s}-section`).classList.add('hidden');
-                document.getElementById(`d-btn-${s}`).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-slate-300 border border-slate-800";
+                const el = document.getElementById(`d-email-${s}-section`);
+                const btn = document.getElementById(`d-btn-${s}`);
+                if(el) el.classList.add('hidden');
+                if(btn) btn.className = "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-slate-300 border border-slate-800";
             });
-            document.getElementById(`d-email-${sub}-section`).classList.remove('hidden');
-            if(sub==='compose') {
-                document.getElementById(`d-btn-${sub}`).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-gold-400 border border-gold-500/30";
-            } else {
-                document.getElementById(`d-btn-${sub}`).className = "px-4 py-2 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 shadow";
+            const targetSec = document.getElementById(`d-email-${sub}-section`);
+            const targetBtn = document.getElementById(`d-btn-${sub}`);
+            if(targetSec) targetSec.classList.remove('hidden');
+            if(targetBtn) targetBtn.className = sub === 'compose' ? "px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-gold-400 border border-gold-500/30" : "px-4 py-2 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 shadow";
+        }
+
+        function renderEmails() {
+            const myEmail = activeEmployeeSession.id;
+            
+            const mobileInbox = document.getElementById('mobile-inbox-list');
+            const mobileSent = document.getElementById('mobile-sent-list');
+            const desktopInbox = document.getElementById('desktop-inbox-tbody');
+            const desktopSent = document.getElementById('desktop-sent-tbody');
+
+            const inboxMsgs = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
+            const sentMsgs = emailsList.filter(e => e.sender === myEmail);
+
+            if(mobileInbox) {
+                mobileInbox.innerHTML = inboxMsgs.length === 0 ? '<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>' :
+                inboxMsgs.map(m => `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Dari: ${m.sender}</span>
+                            <span>${new Date(m.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <h5 class="text-white font-bold">${m.subject}</h5>
+                        <p class="text-slate-300 whitespace-pre-line">${m.message}</p>
+                    </div>
+                `).join('');
+            }
+
+            if(mobileSent) {
+                mobileSent.innerHTML = sentMsgs.length === 0 ? '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>' :
+                sentMsgs.map(m => `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center text-[10px] text-slate-400">
+                            <span>Ke: ${m.receiver}</span>
+                            <span>${new Date(m.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                        <h5 class="text-white font-bold">${m.subject}</h5>
+                        <p class="text-slate-300 whitespace-pre-line">${m.message}</p>
+                    </div>
+                `).join('');
+            }
+
+            if(desktopInbox) {
+                desktopInbox.innerHTML = inboxMsgs.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>` :
+                inboxMsgs.map(m => `
+                    <tr>
+                        <td class="p-3 font-mono text-[10px]">${new Date(m.created_at).toLocaleString('id-ID')}</td>
+                        <td class="p-3 text-gold-400 font-bold">${m.sender}</td>
+                        <td class="p-3 text-white font-semibold">${m.subject}</td>
+                        <td class="p-3 truncate max-w-xs">${m.message}</td>
+                        <td class="p-3">${m.receiver === 'BROADCAST' ? '<span class="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-[10px]">Broadcast</span>' : '<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded text-[10px]">Personal</span>'}</td>
+                    </tr>
+                `).join('');
+            }
+
+            if(desktopSent) {
+                desktopSent.innerHTML = sentMsgs.length === 0 ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>` :
+                sentMsgs.map(m => `
+                    <tr>
+                        <td class="p-3 font-mono text-[10px]">${new Date(m.created_at).toLocaleString('id-ID')}</td>
+                        <td class="p-3 text-gold-400 font-bold">${m.receiver}</td>
+                        <td class="p-3 text-white font-semibold">${m.subject}</td>
+                        <td class="p-3 truncate max-w-xs">${m.message}</td>
+                    </tr>
+                `).join('');
             }
         }
 
         async function sendAppEmail(mode) {
-            const prefix = mode === 'mobile' ? 'm-' : 'd-';
-            const to = document.getElementById(`${prefix}email-recipient`).value;
-            const subject = document.getElementById(`${prefix}email-subject`).value;
-            const msg = document.getElementById(`${prefix}email-message`).value;
+            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
 
-            if(!subject || !msg) return showToast('Subjek dan Pesan tidak boleh kosong', 'error');
+            const recipient = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-recipient`).value;
+            const subject = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value.trim();
+            const message = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value.trim();
+
+            if (!subject || !message) { showToast('Subjek dan isi pesan wajib diisi!', 'error'); return; }
 
             const newEmail = {
                 id: Date.now(),
                 sender: activeEmployeeSession.id,
-                receiver: to,
+                receiver: recipient,
                 subject: subject,
-                message: msg,
+                message: message,
                 created_at: new Date().toISOString()
             };
 
             emailsList.unshift(newEmail);
             supabaseClient.from('emails').insert([newEmail]).then();
 
-            document.getElementById(`${prefix}email-subject`).value = '';
-            document.getElementById(`${prefix}email-message`).value = '';
-            
+            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value = '';
+            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value = '';
+
             renderEmails();
-            showToast('Pesan berhasil terkirim', 'success');
-            if(mode === 'mobile') switchMobileEmailSub('sent'); else switchDesktopEmailSub('sent');
-        }
-
-        function renderEmails() {
-            const myId = activeEmployeeSession.id;
-            const inbox = emailsList.filter(e => e.receiver === myId || e.receiver === 'BROADCAST');
-            const sent = emailsList.filter(e => e.sender === myId);
-
-            // Desktop Render
-            const dTbodyIn = document.getElementById('desktop-inbox-tbody');
-            if(dTbodyIn) {
-                dTbodyIn.innerHTML = inbox.length === 0 ? `<tr><td colspan="5" class="p-4 text-center">Tidak ada pesan.</td></tr>` :
-                inbox.map(e => `
-                    <tr>
-                        <td class="p-3 whitespace-nowrap">${new Date(e.created_at).toLocaleString()}</td>
-                        <td class="p-3 text-white font-bold">${e.sender}</td>
-                        <td class="p-3 font-semibold text-gold-400">${e.subject}</td>
-                        <td class="p-3 truncate max-w-xs">${e.message}</td>
-                        <td class="p-3">${e.receiver === 'BROADCAST' ? '<span class="text-amber-500">📢 Broadcast</span>' : 'Personal'}</td>
-                    </tr>
-                `).join('');
-            }
-            
-            const dTbodySent = document.getElementById('desktop-sent-tbody');
-            if(dTbodySent) {
-                dTbodySent.innerHTML = sent.length === 0 ? `<tr><td colspan="4" class="p-4 text-center">Tidak ada pesan terkirim.</td></tr>` :
-                sent.map(e => `
-                    <tr>
-                        <td class="p-3 whitespace-nowrap">${new Date(e.created_at).toLocaleString()}</td>
-                        <td class="p-3 text-white font-bold">${e.receiver}</td>
-                        <td class="p-3 font-semibold">${e.subject}</td>
-                        <td class="p-3 truncate max-w-xs">${e.message}</td>
-                    </tr>
-                `).join('');
-            }
-
-            // Mobile Render
-            const mListIn = document.getElementById('mobile-inbox-list');
-            if(mListIn) {
-                mListIn.innerHTML = inbox.length === 0 ? `<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>` :
-                inbox.map(e => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
-                        <div class="flex justify-between items-center text-[10px] text-slate-400">
-                            <span>Dari: <b class="text-white">${e.sender}</b></span>
-                            <span>${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h5 class="text-xs font-bold text-gold-400">${e.subject}</h5>
-                        <p class="text-xs text-slate-300 whitespace-pre-line">${e.message}</p>
-                    </div>
-                `).join('');
-            }
-
-            const mListSent = document.getElementById('mobile-sent-list');
-            if(mListSent) {
-                mListSent.innerHTML = sent.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>` :
-                sent.map(e => `
-                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
-                        <div class="flex justify-between items-center text-[10px] text-slate-400">
-                            <span>Kepada: <b class="text-white">${e.receiver}</b></span>
-                            <span>${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h5 class="text-xs font-bold text-white">${e.subject}</h5>
-                        <p class="text-xs text-slate-300 whitespace-pre-line">${e.message}</p>
-                    </div>
-                `).join('');
-            }
+            showToast('Pesan / Broadcast berhasil dikirim!', 'success');
+            if(mode === 'mobile') switchMobileEmailSub('sent');
+            else switchDesktopEmailSub('sent');
         }
     </script>
 </body>
