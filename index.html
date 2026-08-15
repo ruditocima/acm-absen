@@ -561,21 +561,6 @@
         // ==================== INISIALISASI DATA & STATE ==================== //
         
         let activeEmployeeSession = { name: 'Tamu' };
-        let employees = []; 
-        
-        // Tetap dipertahankan sebagai fallback saat offline/database kosong
-        async function fetchAllDataFromSupabase() {
-            if(employees.length === 0) {
-                employees = [
-                    { id: 'admin@gmail.com', name: 'Administrator', password: 'admin', status: 'Approved', role: 'Master Admin' },
-                    { id: 'staff@gmail.com', name: 'Staff Field', password: 'staff', status: 'Approved', role: 'Staff' }
-                ];
-            }
-        }
-
-        window.onload = () => {
-            fetchAllDataFromSupabase();
-        };
         
         // ==================== LOGIKA LOGIN UTAMA YANG DIPERBARUI ==================== //
 
@@ -589,46 +574,39 @@
             }
 
             try {
-                // PENTING: Minta ke database Supabase secara real-time
-                // Ganti 'karyawan' dengan nama tabel Anda yang sesungguhnya di Supabase
+                // Mengambil data dari tabel 'employees'
+                // Karena 'id' digunakan sebagai email/username di tabel Anda, maka dicocokkan ke '.eq('id', email)'
                 const { data: user, error } = await supabaseClient
-                    .from('karyawan') // <- UBAH INI JIKA NAMA TABEL BERBEDA
+                    .from('employees') 
                     .select('*')
-                    .eq('email', email) // <- UBAH 'email' JIKA NAMA KOLOM BERBEDA
+                    .eq('id', email) 
                     .single();
 
-                if (user) {
-                    // Cek password. UBAH 'password' sesuai nama kolom password Anda
-                    if (user.password !== pass) { 
-                        showToast('Password salah!', 'error');
-                        return;
-                    }
-
-                    // (Opsional) Jika punya kolom status seperti Approved/Aktif, uncomment ini:
-                    // if (user.status && user.status !== 'Approved') {
-                    //     showToast('Akun belum disetujui!', 'error');
-                    //     return;
-                    // }
-
-                    // Set Sesi Aktif
-                    activeEmployeeSession = {
-                        id: user.email, 
-                        name: user.nama || user.name || 'Karyawan', // UBAH 'nama' SESUAI KOLOM DATABASE
-                        ...user
-                    };
-                } else {
-                    // Fallback jika tidak ada koneksi / data tidak ada di Supabase, cek dummy
-                    const localUser = employees.find(e => e.id === email);
-                    if (!localUser) {
-                        showToast('Akun tidak ditemukan di Database!', 'error');
-                        return;
-                    }
-                    if (localUser.password !== pass) {
-                        showToast('Password salah!', 'error');
-                        return;
-                    }
-                    activeEmployeeSession = localUser;
+                if (error || !user) {
+                    showToast('Akun tidak ditemukan di Database!', 'error');
+                    return;
                 }
+
+                // Cek kesesuaian password dengan kolom 'password'
+                if (user.password !== pass) { 
+                    showToast('Password salah!', 'error');
+                    return;
+                }
+
+                // Cek status persetujuan akun (jika status null akan dilewati, jika ada 'Pending' akan ditolak)
+                // Hapus tanda komentar (//) di bawah jika Anda ingin mengaktifkan fitur ini
+                /*
+                if (user.status && user.status.toLowerCase() !== 'approved' && user.status.toLowerCase() !== 'aktif') {
+                    showToast('Akun Anda belum disetujui atau sedang dinonaktifkan!', 'error');
+                    return;
+                }
+                */
+
+                // Set Sesi Aktif
+                activeEmployeeSession = {
+                    ...user,
+                    name: user.name || 'Karyawan' 
+                };
 
                 showToast(`Login berhasil! Halo, ${activeEmployeeSession.name}`, 'success');
                 
@@ -655,36 +633,28 @@
             }
 
             try {
-                // PENTING: Pengecekan Desktop sama dengan mobile
+                // Pengecekan Desktop sama dengan mobile: Gunakan 'employees' dan cari di kolom 'id'
                 const { data: user, error } = await supabaseClient
-                    .from('karyawan') // <- UBAH INI JIKA NAMA TABEL BERBEDA
+                    .from('employees') 
                     .select('*')
-                    .eq('email', email) // <- UBAH 'email' JIKA NAMA KOLOM BERBEDA
+                    .eq('id', email) 
                     .single();
 
-                if (user) {
-                    if (user.password !== pass) {
-                        showToast('Password salah!', 'error');
-                        return;
-                    }
-                    
-                    activeEmployeeSession = {
-                        id: user.email,
-                        name: user.nama || user.name || 'Karyawan',
-                        ...user
-                    };
-                } else {
-                    const localUser = employees.find(e => e.id === email);
-                    if (!localUser) {
-                        showToast('Akun tidak ditemukan!', 'error');
-                        return;
-                    }
-                    if (localUser.password !== pass) {
-                        showToast('Password salah!', 'error');
-                        return;
-                    }
-                    activeEmployeeSession = localUser;
+                if (error || !user) {
+                    showToast('Akun tidak ditemukan di Database!', 'error');
+                    return;
                 }
+
+                if (user.password !== pass) {
+                    showToast('Password salah!', 'error');
+                    return;
+                }
+                
+                // Set Sesi Aktif Desktop
+                activeEmployeeSession = {
+                    ...user,
+                    name: user.name || 'Karyawan'
+                };
 
                 showToast(`Selamat datang, ${activeEmployeeSession.name}!`, 'success');
                 
@@ -696,7 +666,7 @@
 
             } catch (err) {
                 console.error("Desktop Login Error:", err);
-                showToast('Terjadi kesalahan saat memproses login!', 'error');
+                showToast('Terjadi kesalahan koneksi database!', 'error');
             }
         }
 
