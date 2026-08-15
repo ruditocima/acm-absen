@@ -499,6 +499,7 @@
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
+            if(!container) return;
             const toast = document.createElement('div');
             const bgColor = type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-rose-500' : 'bg-amber-500';
             
@@ -518,9 +519,13 @@
             if (mode === 'mobile') {
                 document.getElementById('view-mobile').classList.remove('hidden');
                 document.getElementById('view-desktop').classList.add('hidden');
+                document.getElementById('btn-mobile').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                document.getElementById('btn-desktop').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             } else {
                 document.getElementById('view-mobile').classList.add('hidden');
                 document.getElementById('view-desktop').classList.remove('hidden');
+                document.getElementById('btn-desktop').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                document.getElementById('btn-mobile').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             }
         }
 
@@ -529,22 +534,29 @@
                 const el = document.getElementById(`m-tab-${tab}`);
                 const nav = document.getElementById(`m-nav-${tab}`);
                 if(el) el.classList.add('hidden');
-                if(nav) nav.classList.replace('text-gold-400', 'text-slate-400');
+                if(nav) nav.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
             });
             const activeEl = document.getElementById(`m-tab-${tabId}`);
             const activeNav = document.getElementById(`m-nav-${tabId}`);
             
             if(activeEl) activeEl.classList.remove('hidden');
-            if(activeNav) activeNav.classList.replace('text-slate-400', 'text-gold-400');
+            if(activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
         }
 
         function switchDesktopTab(tabId) {
             ['dashboard', 'rekap'].forEach(tab => {
                 const el = document.getElementById(`d-tab-${tab}`);
+                const nav = document.getElementById(`d-nav-${tab}`);
                 if(el) el.classList.add('hidden');
+                if(nav) nav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
             });
             const activeEl = document.getElementById(`d-tab-${tabId}`);
+            const activeNav = document.getElementById(`d-nav-${tabId}`);
             if(activeEl) activeEl.classList.remove('hidden');
+            if(activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            
+            if(tabId === 'dashboard') loadDashboardStats();
+            if(tabId === 'rekap') loadRekapData();
         }
 
         function toggleAuthMode(mode) {
@@ -558,10 +570,31 @@
             }
         }
 
-        // ==================== INISIALISASI STATE ==================== //
+        function switchMobileEmailSub(subId) {
+            ['inbox', 'compose', 'broadcast'].forEach(sub => {
+                const view = document.getElementById(`m-email-view-${sub}`);
+                if(view) view.classList.add('hidden');
+            });
+            const target = document.getElementById(`m-email-view-${subId}`);
+            if(target) target.classList.remove('hidden');
+        }
+
+        function backToRegStep1() {
+            document.getElementById('reg-step-2').classList.add('hidden');
+            document.getElementById('reg-step-1').classList.remove('hidden');
+        }
+
+        // ==================== INISIALISASI STATE & JAM LIVE ==================== //
         let activeEmployeeSession = { name: 'Tamu' };
-        
-        // ==================== LOGIKA LOGIN UTAMA (DIPERBAIKI DENGAN TRIM & MAYBESINGLE) ==================== //
+
+        setInterval(() => {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.innerText = timeString;
+        }, 1000);
+
+        // ==================== LOGIKA LOGIN UTAMA ==================== //
 
         async function handleLogin() { 
             const email = document.getElementById('login-email').value.trim();
@@ -573,7 +606,6 @@
             }
 
             try {
-                // Menggunakan .maybeSingle() agar aman dari error pencarian baris tunggal di Supabase
                 const { data: user, error } = await supabaseClient
                     .from('employees') 
                     .select('*')
@@ -591,7 +623,6 @@
                     return;
                 }
 
-                // Pembersihan spasi (trim) pada password database & input untuk menghindari error "password salah"
                 const dbPassword = user.password ? String(user.password).trim() : '';
                 const inputPassword = String(pass).trim();
 
@@ -600,13 +631,6 @@
                     return;
                 }
 
-                // Cek status persetujuan akun jika diperlukan (opsional)
-                if (user.status && user.status.toLowerCase() !== 'approved' && user.status.toLowerCase() !== 'aktif') {
-                    showToast('Akun Anda belum disetujui atau dinonaktifkan!', 'error');
-                    return;
-                }
-
-                // Set Sesi Aktif
                 activeEmployeeSession = {
                     ...user,
                     name: user.name || 'Karyawan' 
@@ -614,12 +638,12 @@
 
                 showToast(`Login berhasil! Halo, ${activeEmployeeSession.name}`, 'success');
                 
-                // Perbarui UI Mobile
                 document.getElementById('mobile-user-title').innerText = `Halo, ${activeEmployeeSession.name}`;
                 document.getElementById('mobile-user-initial').innerText = activeEmployeeSession.name.charAt(0).toUpperCase();
                 
-                // Redirect ke Tab Absen
                 switchMobileTab('absen');
+                loadMobileHistory();
+                loadMobileInbox();
 
             } catch(err) {
                 console.error("Login Error:", err);
@@ -662,7 +686,6 @@
                     return;
                 }
                 
-                // Set Sesi Aktif Desktop
                 activeEmployeeSession = {
                     ...user,
                     name: user.name || 'Karyawan'
@@ -670,11 +693,12 @@
 
                 showToast(`Selamat datang, ${activeEmployeeSession.name}!`, 'success');
                 
-                // Sembunyikan layar login dan tampilkan app utama
                 document.getElementById('desktop-login-screen').classList.add('hidden');
                 document.getElementById('desktop-main-app').classList.remove('hidden');
                 
                 updateDesktopSessionUI();
+                loadDashboardStats();
+                loadRekapData();
 
             } catch (err) {
                 console.error("Desktop Login Error:", err);
@@ -694,6 +718,337 @@
             }
         }
 
+        // ==================== FITUR DATA FETCHING SUPABASE (DITAMBAHKAN) ==================== //
+
+        async function loadDashboardStats() {
+            try {
+                const { count: totalEmp, error: errEmp } = await supabaseClient
+                    .from('employees')
+                    .select('*', { count: 'exact', head: true });
+
+                const todayStr = new Date().toISOString().split('T')[0];
+                const { data: attData, error: errAtt } = await supabaseClient
+                    .from('attendance')
+                    .select('*')
+                    .eq('date', todayStr);
+
+                if (!errEmp && document.getElementById('stat-total-karyawan')) {
+                    document.getElementById('stat-total-karyawan').innerText = `${totalEmp || 0} Orang`;
+                }
+
+                if (!errAtt && attData) {
+                    const tepatWaktu = attData.filter(a => a.status && a.status.toLowerCase().includes('tepat')).length;
+                    const terlambat = attData.filter(a => a.status && a.status.toLowerCase().includes('terlambat')).length;
+                    const izin = attData.filter(a => a.status && (a.status.toLowerCase().includes('izin') || a.status.toLowerCase().includes('sakit'))).length;
+
+                    if(document.getElementById('stat-tepat-waktu')) document.getElementById('stat-tepat-waktu').innerText = `${tepatWaktu} Orang`;
+                    if(document.getElementById('stat-terlambat')) document.getElementById('stat-terlambat').innerText = `${terlambat} Orang`;
+                    if(document.getElementById('stat-izin-alpha')) document.getElementById('stat-izin-alpha').innerText = `${izin} Orang`;
+                }
+            } catch(e) {
+                console.error("Error loading dashboard stats:", e);
+            }
+        }
+
+        async function loadRekapData() {
+            try {
+                const startDate = document.getElementById('rekap-start-date')?.value;
+                const endDate = document.getElementById('rekap-end-date')?.value;
+
+                let query = supabaseClient.from('attendance').select('*').order('date', { ascending: false });
+
+                if (startDate) query = query.gte('date', startDate);
+                if (endDate) query = query.lte('date', endDate);
+
+                const { data, error } = await query;
+                const tbody = document.getElementById('rekap-tbody');
+                if(!tbody) return;
+
+                if (error) {
+                    console.error("Error fetching attendance:", error);
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">Gagal memuat data rekap dari database.</td></tr>`;
+                    return;
+                }
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data kehadiran tercatat.</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = data.map(item => `
+                    <tr class="hover:bg-slate-900/50 transition">
+                        <td class="p-3">${item.date || '-'}</td>
+                        <td class="p-3 font-semibold text-white">${item.name || item.employee_id || '-'}</td>
+                        <td class="p-3">${item.basecamp || 'Pusat'}</td>
+                        <td class="p-3 font-mono text-emerald-400">${item.time_in || '--:--'}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${item.status || 'Hadir'}</span></td>
+                        <td class="p-3">${item.selfie ? `<a href="${item.selfie}" target="_blank" class="text-gold-400 underline">Lihat Foto</a>` : 'Tidak ada'}</td>
+                        <td class="p-3 text-amber-400">${item.late_count || '0 Menit'}</td>
+                    </tr>
+                `).join('');
+
+            } catch(e) {
+                console.error("Rekap Load Error:", e);
+            }
+        }
+
+        function filterRekap() {
+            loadRekapData();
+            showToast('Filter rekap berhasil diterapkan!', 'success');
+        }
+
+        function resetRekapData() {
+            if(document.getElementById('rekap-start-date')) document.getElementById('rekap-start-date').value = '';
+            if(document.getElementById('rekap-end-date')) document.getElementById('rekap-end-date').value = '';
+            loadRekapData();
+            showToast('Data rekap telah di-reset.', 'success');
+        }
+
+        function exportToExcel() {
+            try {
+                const table = document.querySelector('#d-tab-rekap table');
+                if(!table) {
+                    showToast('Tabel rekap tidak ditemukan!', 'error');
+                    return;
+                }
+                const wb = XLSX.utils.table_to_book(table, { sheet: "Rekap Absensi" });
+                XLSX.writeFile(wb, `Rekap_Absensi_Acero_${new Date().toISOString().split('T')[0]}.xlsx`);
+                showToast('Berhasil mengekspor data ke Excel!', 'success');
+            } catch(e) {
+                console.error("Export Error:", e);
+                showToast('Gagal mengekspor ke Excel', 'error');
+            }
+        }
+
+        async function loadMobileHistory() {
+            if (!activeEmployeeSession || !activeEmployeeSession.id || activeEmployeeSession.name === 'Tamu') return;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('attendance')
+                    .select('*')
+                    .eq('employee_id', activeEmployeeSession.id)
+                    .order('date', { ascending: false })
+                    .limit(5);
+
+                const container = document.getElementById('mobile-my-history');
+                if(!container) return;
+
+                if(error || !data || data.length === 0) {
+                    container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+                    return;
+                }
+
+                container.innerHTML = data.map(h => `
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+                        <div>
+                            <span class="font-bold text-white block">${h.date}</span>
+                            <span class="text-[10px] text-slate-400">Masuk: ${h.time_in || '--:--'}</span>
+                        </div>
+                        <span class="px-2 py-1 rounded text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold">${h.status || 'Hadir'}</span>
+                    </div>
+                `).join('');
+            } catch(e) {
+                console.error("Error loading mobile history:", e);
+            }
+        }
+
+        async function loadMobileInbox() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('messages')
+                    .select('*')
+                    .or(`receiver.eq.${activeEmployeeSession.id},is_broadcast.eq.true`)
+                    .order('created_at', { ascending: false });
+
+                const inboxList = document.getElementById('m-email-inbox-list');
+                if(!inboxList) return;
+
+                if(error || !data || data.length === 0) {
+                    inboxList.innerHTML = `<p class="text-slate-500 text-center py-6 text-xs">Tidak ada email masuk.</p>`;
+                    return;
+                }
+
+                inboxList.innerHTML = data.map(m => `
+                    <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 space-y-1">
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-gold-400 text-xs">${m.subject || 'Tanpa Subjek'}</span>
+                            <span class="text-[9px] text-slate-500">${m.created_at ? new Date(m.created_at).toLocaleDateString() : ''}</span>
+                        </div>
+                        <p class="text-xs text-slate-300">${m.body || ''}</p>
+                        <span class="text-[10px] text-slate-500 block">Dari: ${m.sender || 'Admin'}</span>
+                    </div>
+                `).join('');
+            } catch(e) {
+                console.error("Inbox load error:", e);
+            }
+        }
+
+        async function triggerAbsenProcess() {
+            if (!activeEmployeeSession || !activeEmployeeSession.id || activeEmployeeSession.name === 'Tamu') {
+                showToast('Silakan login terlebih dahulu sebelum absen!', 'warning');
+                switchMobileTab('daftar');
+                return;
+            }
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            const nowTime = new Date().toLocaleTimeString('id-ID');
+
+            try {
+                const { error } = await supabaseClient.from('attendance').insert([{
+                    employee_id: activeEmployeeSession.id,
+                    name: activeEmployeeSession.name,
+                    date: todayStr,
+                    time_in: nowTime,
+                    status: 'Tepat Waktu',
+                    basecamp: 'Basecamp Utama'
+                }]);
+
+                if (error) {
+                    console.error("Absen Error:", error);
+                    showToast('Gagal menyimpan absensi ke server.', 'error');
+                    return;
+                }
+
+                showToast('Absen Masuk Berhasil Dicatat!', 'success');
+                if(document.getElementById('mobile-jam-masuk')) {
+                    document.getElementById('mobile-jam-masuk').innerText = nowTime + ' WIB';
+                }
+                loadMobileHistory();
+            } catch(e) {
+                console.error("Absen Exception:", e);
+                showToast('Terjadi kesalahan saat absen.', 'error');
+            }
+        }
+
+        async function submitMobileIzin() {
+            if (!activeEmployeeSession || !activeEmployeeSession.id || activeEmployeeSession.name === 'Tamu') {
+                showToast('Silakan login terlebih dahulu!', 'warning');
+                return;
+            }
+
+            const jenis = document.getElementById('m-izin-jenis').value;
+            const start = document.getElementById('m-izin-start').value;
+            const end = document.getElementById('m-izin-end').value;
+            const desc = document.getElementById('m-izin-desc').value.trim();
+
+            if (!start || !end || !desc) {
+                showToast('Semua field form izin harus diisi!', 'warning');
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('leaves').insert([{
+                    employee_id: activeEmployeeSession.id,
+                    type: jenis,
+                    start_date: start,
+                    end_date: end,
+                    description: desc,
+                    status: 'Pending'
+                }]);
+
+                if (error) {
+                    showToast('Gagal mengajukan izin.', 'error');
+                    return;
+                }
+
+                showToast('Pengajuan izin berhasil dikirim ke atasan!', 'success');
+                document.getElementById('m-izin-desc').value = '';
+            } catch(e) {
+                showToast('Terjadi kesalahan sistem.', 'error');
+            }
+        }
+
+        async function sendMobileEmail(isBroadcast) {
+            if (!activeEmployeeSession || !activeEmployeeSession.id || activeEmployeeSession.name === 'Tamu') {
+                showToast('Silakan login terlebih dahulu!', 'warning');
+                return;
+            }
+
+            const subject = document.getElementById(isBroadcast ? 'm-broadcast-subject' : 'm-email-subject').value.trim();
+            const body = document.getElementById(isBroadcast ? 'm-broadcast-body' : 'm-email-body').value.trim();
+            const receiver = isBroadcast ? 'ALL' : document.getElementById('m-email-receiver').value;
+
+            if (!subject || !body || (!isBroadcast && !receiver)) {
+                showToast('Mohon lengkapi data email!', 'warning');
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient.from('messages').insert([{
+                    sender: activeEmployeeSession.id,
+                    receiver: receiver,
+                    subject: subject,
+                    body: body,
+                    is_broadcast: isBroadcast
+                }]);
+
+                if (error) {
+                    showToast('Gagal mengirim pesan.', 'error');
+                    return;
+                }
+
+                showToast(isBroadcast ? 'Broadcast berhasil dikirim!' : 'Email berhasil dikirim!', 'success');
+                if(!isBroadcast) {
+                    document.getElementById('m-email-subject').value = '';
+                    document.getElementById('m-email-body').value = '';
+                } else {
+                    document.getElementById('m-broadcast-subject').value = '';
+                    document.getElementById('m-broadcast-body').value = '';
+                }
+            } catch(e) {
+                showToast('Gagal mengirim pesan.', 'error');
+            }
+        }
+
+        function requestOTP() {
+            const email = document.getElementById('reg-email').value.trim();
+            const nama = document.getElementById('reg-nama').value.trim();
+            const wa = document.getElementById('reg-wa').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
+
+            if(!email || !nama || !wa || !pass) {
+                showToast('Semua field pendaftaran wajib diisi!', 'warning');
+                return;
+            }
+
+            showToast('Kode OTP simulasi: 123456', 'success');
+            document.getElementById('reg-step-1').classList.add('hidden');
+            document.getElementById('reg-step-2').classList.remove('hidden');
+        }
+
+        async function verifyOTP() {
+            const otp = document.getElementById('reg-otp-input').value.trim();
+            if(otp !== '123456') {
+                showToast('Kode OTP salah! (Gunakan: 123456)', 'error');
+                return;
+            }
+
+            const email = document.getElementById('reg-email').value.trim();
+            const nama = document.getElementById('reg-nama').value.trim();
+            const phone = document.getElementById('reg-wa').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
+
+            try {
+                const { error } = await supabaseClient.from('employees').insert([{
+                    id: email,
+                    name: nama,
+                    phone: phone,
+                    password: pass,
+                    status: 'approved',
+                    role: 'Employee'
+                }]);
+
+                if(error) {
+                    showToast('Gagal mendaftarkan akun ke database: ' + error.message, 'error');
+                    return;
+                }
+
+                showToast('Akun berhasil didaftarkan! Silakan Login.', 'success');
+                toggleAuthMode('login');
+            } catch(e) {
+                showToast('Terjadi kesalahan pendaftaran.', 'error');
+            }
+        }
     </script>
 </body>
 </html>
