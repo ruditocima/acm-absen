@@ -127,10 +127,6 @@
                             <input type="text" id="reg-nama" placeholder="Nama lengkap Anda..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                         </div>
                         <div>
-                            <label class="block text-[11px] text-slate-400 mb-1">Nomor WhatsApp</label>
-                            <input type="text" id="reg-wa" placeholder="08xxxxxxxxxx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-                        </div>
-                        <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Password</label>
                             <input type="password" id="reg-pass" placeholder="Buat password..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                         </div>
@@ -146,7 +142,7 @@
                     <!-- VERIFIKASI OTP -->
                     <div id="reg-step-2" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verifikasi Kode OTP 6 Digit</h3>
-                        <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email dan WhatsApp terdaftar Anda.</p>
+                        <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email terdaftar Anda.</p>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Masukkan 6 Digit OTP</label>
                             <input type="text" id="reg-otp-input" maxlength="6" placeholder="------" class="w-full text-center tracking-widest font-mono text-lg bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500">
@@ -221,7 +217,7 @@
                             <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan izin..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
                         <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
-                            Ajukan Izin ke Atasan (Kirim WA)
+                            Ajukan Izin ke Atasan
                         </button>
                     </div>
 
@@ -466,7 +462,6 @@
                                         <th class="p-3">ID User</th>
                                         <th class="p-3">Nama Karyawan</th>
                                         <th class="p-3">Posisi</th>
-                                        <th class="p-3">WhatsApp</th>
                                         <th class="p-3">Role</th>
                                         <th class="p-3">Atasan Langsung</th>
                                         <th class="p-3 max-w-[100px]">Password (Hashed)</th>
@@ -616,10 +611,6 @@
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Posisi</label>
                 <input type="text" id="inp-position" placeholder="Contoh: Staff IT / Field Engineer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">WhatsApp</label>
-                <input type="text" id="inp-wa" placeholder="08xxxxxxxxxx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Role (Ditentukan Admin Master)</label>
@@ -861,7 +852,6 @@
                         id: e.id,
                         name: e.name,
                         position: e.position || '-',
-                        whatsapp: e.whatsapp,
                         role: e.role,
                         atasan: e.atasan,
                         password: e.password,
@@ -959,22 +949,21 @@
         function requestOTP() {
             const email = document.getElementById('reg-email').value.trim();
             const nama = document.getElementById('reg-nama').value.trim();
-            const wa = document.getElementById('reg-wa').value.trim();
             const pass = document.getElementById('reg-pass').value.trim();
 
-            if (!email || !nama || !wa || !pass || !email.includes('@gmail.com')) {
+            if (!email || !nama || !pass || !email.includes('@gmail.com')) {
                 showToast('Harap isi semua kolom dengan benar dan gunakan Gmail yang valid!', 'error');
                 return;
             }
 
-            tempRegData = { email, nama, wa, pass };
+            tempRegData = { email, nama, pass };
             
             generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
             otpExpiryTime = Date.now() + (3 * 60 * 1000); 
 
             const instElem = document.getElementById('otp-instruction-text');
             if (instElem) {
-                instElem.innerHTML = `Kode dikirim ke WA/Email. (Berlaku 3 Menit. Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
+                instElem.innerHTML = `Kode OTP telah dikirimkan ke Email terdaftar Anda. (Berlaku 3 Menit. Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
             }
 
             showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
@@ -1001,7 +990,6 @@
                 id: tempRegData.email,
                 name: tempRegData.nama,
                 position: 'Staff',
-                whatsapp: tempRegData.wa,
                 role: 'Karyawan / Field (Pending Role)',
                 atasan: 'Budi Santoso',
                 password: hashedPassword,
@@ -1065,7 +1053,6 @@
             }
 
             const atasanName = activeEmployeeSession.atasan || 'Budi Santoso';
-            const supervisor = employees.find(e => e.name === atasanName) || { whatsapp: '081298765432', name: atasanName };
 
             const newIzin = {
                 id: Date.now(),
@@ -1074,7 +1061,7 @@
                 start: start,
                 end: end,
                 desc: desc,
-                atasan: supervisor.name,
+                atasan: atasanName,
                 status: 'Pending'
             };
 
@@ -1088,11 +1075,7 @@
             renderAdminIzin();
             renderMobileMyHistory();
 
-            const waMessage = `Halo Bapak/Ibu ${supervisor.name},\n\nSaya ${activeEmployeeSession.name} mengajukan izin *${jenis}* mulai tanggal ${start} s/d ${end}.\nKeterangan: "${desc}".\n\nMohon persetujuannya di Sistem Absensi Enterprise. Terima kasih.`;
-            const waUrl = `https://wa.me/${supervisor.whatsapp}?text=${encodeURIComponent(waMessage)}`;
-
-            showToast(`Pengajuan izin berhasil dikirim & Notifikasi WhatsApp disiapkan ke ${supervisor.name}!`, 'success');
-            window.open(waUrl, '_blank');
+            showToast('Pengajuan izin berhasil dikirim ke atasan!', 'success');
 
             document.getElementById('m-izin-start').value = '';
             document.getElementById('m-izin-end').value = '';
@@ -1621,7 +1604,6 @@
                             <div class="text-[9px] mt-0.5 font-mono text-slate-500">${displayDevice}</div>
                         </td>
                         <td class="p-3 text-slate-300 font-medium">${emp.position || '-'}</td>
-                        <td class="p-3 text-gold-400 font-mono">${emp.whatsapp}</td>
                         <td class="p-3 text-slate-300 font-semibold">${emp.role}</td>
                         <td class="p-3 text-slate-300">${emp.atasan || '-'}</td>
                         <td class="p-3 text-slate-500 font-mono text-[10px] truncate max-w-[100px]" title="Hashed Security">${emp.password}</td>
@@ -1643,7 +1625,6 @@
             document.getElementById('inp-id').value = 'karyawan' + (employees.length + 1) + '@gmail.com';
             document.getElementById('inp-name').value = '';
             document.getElementById('inp-position').value = '';
-            document.getElementById('inp-wa').value = '';
             document.getElementById('inp-password').value = 'password123';
             document.getElementById('employee-modal').classList.remove('hidden');
         }
@@ -1657,7 +1638,6 @@
             document.getElementById('inp-id').value = emp.id;
             document.getElementById('inp-name').value = emp.name;
             document.getElementById('inp-position').value = emp.position || '';
-            document.getElementById('inp-wa').value = emp.whatsapp;
             document.getElementById('inp-password').value = '••••••••'; 
             document.getElementById('employee-modal').classList.remove('hidden');
         }
@@ -1669,24 +1649,23 @@
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
             const position = document.getElementById('inp-position').value.trim();
-            const whatsapp = document.getElementById('inp-wa').value.trim();
             const role = document.getElementById('inp-role').value.trim();
             const atasan = document.getElementById('inp-atasan').value;
             const password = document.getElementById('inp-password').value.trim();
 
-            if (!id || !name || !whatsapp) {
-                showToast('Email, Nama, dan WhatsApp wajib diisi!', 'error');
+            if (!id || !name) {
+                showToast('Email dan Nama wajib diisi!', 'error');
                 return;
             }
 
             const finalPassword = (password === '••••••••' && index !== -1) ? employees[index].password : await hashPassword(password);
 
             if (index === -1) {
-                const newEmp = { id, name, position, whatsapp, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
+                const newEmp = { id, name, position, role, atasan, password: finalPassword, status: 'Approved', device_id: 'Unbound' };
                 await supabaseClient.from('employees').insert([newEmp]);
                 showToast('Karyawan baru berhasil ditambahkan!', 'success');
             } else {
-                await supabaseClient.from('employees').update({ name, position, whatsapp, role, atasan, password: finalPassword }).eq('id', id);
+                await supabaseClient.from('employees').update({ name, position, role, atasan, password: finalPassword }).eq('id', id);
                 showToast('Data karyawan diperbarui!', 'success');
             }
 
@@ -1787,23 +1766,17 @@
             basecamps.forEach((bc, index) => {
                 const marker = L.marker([bc.lat, bc.lng]).addTo(bcLayerGroup);
                 marker.bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
-                
-                const circle = L.circle([bc.lat, bc.lng], {
-                    color: '#d4af37',
-                    fillColor: '#d4af37',
-                    fillOpacity: 0.2,
-                    radius: bc.radius
-                }).addTo(bcLayerGroup);
+                L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
 
                 if (container) {
                     container.innerHTML += `
                         <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
                             <h5 class="font-bold text-white text-xs">${bc.name}</h5>
-                            <p class="text-[10px] text-slate-400">Koordinat: ${bc.lat}, ${bc.lng}</p>
-                            <p class="text-[10px] text-gold-400 font-semibold">Radius Aman: ${bc.radius} Meter</p>
-                            <div class="flex gap-2 pt-2">
-                                <button onclick="openEditBasecampModal(${index})" class="text-[10px] text-gold-400 hover:underline">Edit</button>
-                                <button onclick="deleteBasecamp(${index})" class="text-[10px] text-rose-400 hover:underline">Hapus</button>
+                            <p class="text-[11px] text-slate-400 font-mono">Lat: ${bc.lat}, Lng: ${bc.lng}</p>
+                            <p class="text-[11px] text-gold-400 font-semibold">Radius Aman: ${bc.radius} Meter</p>
+                            <div class="flex gap-2 pt-1">
+                                <button onclick="openEditBasecampModal(${index})" class="text-xs text-gold-400 hover:underline">Edit</button>
+                                <button onclick="deleteBasecamp(${index})" class="text-xs text-rose-400 hover:underline">Hapus</button>
                             </div>
                         </div>
                     `;
@@ -1815,8 +1788,8 @@
             document.getElementById('bc-edit-index').value = '-1';
             document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
             document.getElementById('bc-inp-name').value = '';
-            document.getElementById('bc-inp-lat').value = '0.434291';
-            document.getElementById('bc-inp-lng').value = '101.466385';
+            document.getElementById('bc-inp-lat').value = '';
+            document.getElementById('bc-inp-lng').value = '';
             document.getElementById('bc-inp-radius').value = '1500';
             document.getElementById('basecamp-modal').classList.remove('hidden');
         }
@@ -1832,9 +1805,7 @@
             document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
-        function closeBasecampModal() {
-            document.getElementById('basecamp-modal').classList.add('hidden');
-        }
+        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
 
         async function saveBasecamp() {
             const index = parseInt(document.getElementById('bc-edit-index').value);
@@ -1844,26 +1815,18 @@
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
 
             if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                showToast('Harap isi semua kolom basecamp dengan valid!', 'error');
+                showToast('Harap isi semua data basecamp dengan benar!', 'error');
                 return;
             }
 
             if (index === -1) {
                 const newBc = { id: Date.now(), name, lat, lng, radius };
-                const { error } = await supabaseClient.from('basecamps').insert([newBc]);
-                if (error) {
-                    showToast('Gagal menambah basecamp: ' + error.message, 'error');
-                    return;
-                }
-                showToast('Basecamp berhasil ditambahkan!', 'success');
+                await supabaseClient.from('basecamps').insert([newBc]);
+                showToast('Basecamp baru ditambahkan!', 'success');
             } else {
                 const targetBc = basecamps[index];
-                const { error } = await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', targetBc.id);
-                if (error) {
-                    showToast('Gagal memperbarui basecamp: ' + error.message, 'error');
-                    return;
-                }
-                showToast('Basecamp berhasil diperbarui!', 'success');
+                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', targetBc.id);
+                showToast('Basecamp diperbarui!', 'success');
             }
 
             closeBasecampModal();
@@ -1871,78 +1834,74 @@
         }
 
         function deleteBasecamp(index) {
-            showConfirm('Hapus Basecamp', `Hapus basecamp ${basecamps[index].name}?`, async () => {
+            showConfirm('Hapus Basecamp', `Hapus ${basecamps[index].name}?`, async () => {
                 await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
                 await fetchAllDataFromSupabase();
                 showToast('Basecamp dihapus.', 'success');
             }, true);
         }
 
-        function renderRekap(data = rekapList) {
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        function renderRekap(dataToRender = rekapList) {
             const tbody = document.getElementById('rekap-tbody');
             if (!tbody) return;
             tbody.innerHTML = '';
-            if (data.length === 0) {
+
+            if (dataToRender.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>`;
                 return;
             }
-            data.forEach((item) => {
+
+            dataToRender.forEach(r => {
+                const badgeColor = r.status.includes('Tepat') ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20';
                 tbody.innerHTML += `
                     <tr>
-                        <td class="p-3 text-slate-400">${item.date}</td>
-                        <td class="p-3 font-bold text-white">${item.name}</td>
-                        <td class="p-3 text-slate-300">${item.basecamp}</td>
-                        <td class="p-3 font-mono text-emerald-400">${item.time}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">${item.status}</span></td>
-                        <td class="p-3 font-mono text-amber-400">${item.late}</td>
-                        <td class="p-3">
-                            ${item.selfie_url ? `<img src="${item.selfie_url}" onclick="openImageZoom('${item.selfie_url}', 'Selfie ${item.name} - ${item.date} ${item.time}')" class="w-9 h-9 rounded-lg object-cover border border-gold-500/30 cursor-pointer hover:opacity-80 transition shadow" title="Klik untuk zoom">` : '<span class="text-slate-500">-</span>'}
-                        </td>
-                    </tr>
-                `;
+                        <td class="p-3 text-slate-400">${r.date}</td>
+                        <td class="p-3 font-bold text-white">${r.name}</td>
+                        <td class="p-3 text-slate-300">${r.basecamp}</td>
+                        <td class="p-3 font-mono text-gold-400">${r.time}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded border text-[10px] ${badgeColor}">${r.status}</span></td>
+                        <td class="p-3 text-slate-300 font-mono">${r.late}</td>
+                        <td class="p-3">${r.selfie_url ? `<img src="${r.selfie_url}" onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date}')" class="w-8 h-8 rounded object-cover border border-gold-500/35 cursor-pointer hover:opacity-80 transition" title="Klik untuk zoom">` : '-'}</td>
+                    </tr>`;
             });
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // metres
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c; // in metres
-        }
-
         function switchMode(mode) {
-            const btnMobile = document.getElementById('btn-mobile');
-            const btnDesktop = document.getElementById('btn-desktop');
-            const viewMobile = document.getElementById('view-mobile');
-            const viewDesktop = document.getElementById('view-desktop');
+            const m = document.getElementById('view-mobile');
+            const d = document.getElementById('view-desktop');
+            const btnM = document.getElementById('btn-mobile');
+            const btnD = document.getElementById('btn-desktop');
 
             if (mode === 'mobile') {
-                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
-                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-                viewMobile.classList.remove('hidden');
-                viewDesktop.classList.add('hidden');
+                m.classList.remove('hidden');
+                d.classList.add('hidden');
+                btnM.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnD.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             } else {
-                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
-                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-                viewDesktop.classList.remove('hidden');
-                viewMobile.classList.add('hidden');
+                m.classList.add('hidden');
+                d.classList.remove('hidden');
+                btnD.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnM.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
             }
         }
 
         function switchMobileTab(tab) {
             ['daftar', 'absen', 'email'].forEach(t => {
-                const tabEl = document.getElementById(`m-tab-${t}`);
-                const navEl = document.getElementById(`m-nav-${t}`);
-                if (tabEl) tabEl.classList.add('hidden');
-                if (navEl) navEl.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
+                const elTab = document.getElementById(`m-tab-${t}`);
+                const elNav = document.getElementById(`m-nav-${t}`);
+                if (elTab) elTab.classList.add('hidden');
+                if (elNav) elNav.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
             });
             const activeTab = document.getElementById(`m-tab-${tab}`);
             const activeNav = document.getElementById(`m-nav-${tab}`);
@@ -1952,22 +1911,21 @@
 
         function switchDesktopTab(tab) {
             ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(t => {
-                const tabEl = document.getElementById(`d-tab-${t}`);
-                const navEl = document.getElementById(`d-nav-${t}`);
-                if (tabEl) tabEl.classList.add('hidden');
-                if (navEl) navEl.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+                const elTab = document.getElementById(`d-tab-${t}`);
+                const elNav = document.getElementById(`d-nav-${t}`);
+                if (elTab) elTab.classList.add('hidden');
+                if (elNav) elNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
             });
             const activeTab = document.getElementById(`d-tab-${tab}`);
             const activeNav = document.getElementById(`d-nav-${tab}`);
             if (activeTab) activeTab.classList.remove('hidden');
             if (activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
-            
+
             if (tab === 'basecamp') {
                 setTimeout(() => { if (bcMap) bcMap.invalidateSize(); }, 200);
             }
         }
 
-        // Live Clock Timer
         setInterval(() => {
             const now = new Date();
             const clockEl = document.getElementById('live-clock');
