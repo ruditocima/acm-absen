@@ -506,10 +506,8 @@
             toast.innerText = message;
             container.appendChild(toast);
             
-            // Animasi Fade-in
             setTimeout(() => toast.classList.remove('opacity-0'), 10);
             
-            // Animasi Fade-out lalu hapus elemen
             setTimeout(() => {
                 toast.classList.add('opacity-0');
                 setTimeout(() => toast.remove(), 300);
@@ -565,8 +563,8 @@
         let activeEmployeeSession = { name: 'Tamu' };
         let employees = []; 
         
+        // Tetap dipertahankan sebagai fallback saat offline/database kosong
         async function fetchAllDataFromSupabase() {
-            // Simulasi dummy data untuk testing login jika database kosong
             if(employees.length === 0) {
                 employees = [
                     { id: 'admin@gmail.com', name: 'Administrator', password: 'admin', status: 'Approved', role: 'Master Admin' },
@@ -575,8 +573,6 @@
             }
         }
 
-        // Penting: Panggil fungsi fetch data begitu halaman selesai dimuat 
-        // agar array 'employees' terisi sebelum kita menekan tombol login
         window.onload = () => {
             fetchAllDataFromSupabase();
         };
@@ -592,27 +588,61 @@
                 return;
             }
 
-            const user = employees.find(e => e.id === email);
-            if (!user) {
-                showToast('Akun tidak ditemukan atau belum disetujui!', 'error');
-                return;
-            }
+            try {
+                // PENTING: Minta ke database Supabase secara real-time
+                // Ganti 'karyawan' dengan nama tabel Anda yang sesungguhnya di Supabase
+                const { data: user, error } = await supabaseClient
+                    .from('karyawan') // <- UBAH INI JIKA NAMA TABEL BERBEDA
+                    .select('*')
+                    .eq('email', email) // <- UBAH 'email' JIKA NAMA KOLOM BERBEDA
+                    .single();
 
-            // Pengecekan password tanpa hash untuk sementara (sesuai dummy di atas)
-            if (user.password !== pass) {
-                showToast('Password salah!', 'error');
-                return;
-            }
+                if (user) {
+                    // Cek password. UBAH 'password' sesuai nama kolom password Anda
+                    if (user.password !== pass) { 
+                        showToast('Password salah!', 'error');
+                        return;
+                    }
 
-            activeEmployeeSession = user;
-            showToast(`Login berhasil! Halo, ${user.name}`, 'success');
-            
-            // Perbarui UI Mobile
-            document.getElementById('mobile-user-title').innerText = `Halo, ${user.name}`;
-            document.getElementById('mobile-user-initial').innerText = user.name.charAt(0).toUpperCase();
-            
-            // Redirect ke Tab Absen
-            switchMobileTab('absen');
+                    // (Opsional) Jika punya kolom status seperti Approved/Aktif, uncomment ini:
+                    // if (user.status && user.status !== 'Approved') {
+                    //     showToast('Akun belum disetujui!', 'error');
+                    //     return;
+                    // }
+
+                    // Set Sesi Aktif
+                    activeEmployeeSession = {
+                        id: user.email, 
+                        name: user.nama || user.name || 'Karyawan', // UBAH 'nama' SESUAI KOLOM DATABASE
+                        ...user
+                    };
+                } else {
+                    // Fallback jika tidak ada koneksi / data tidak ada di Supabase, cek dummy
+                    const localUser = employees.find(e => e.id === email);
+                    if (!localUser) {
+                        showToast('Akun tidak ditemukan di Database!', 'error');
+                        return;
+                    }
+                    if (localUser.password !== pass) {
+                        showToast('Password salah!', 'error');
+                        return;
+                    }
+                    activeEmployeeSession = localUser;
+                }
+
+                showToast(`Login berhasil! Halo, ${activeEmployeeSession.name}`, 'success');
+                
+                // Perbarui UI Mobile
+                document.getElementById('mobile-user-title').innerText = `Halo, ${activeEmployeeSession.name}`;
+                document.getElementById('mobile-user-initial').innerText = activeEmployeeSession.name.charAt(0).toUpperCase();
+                
+                // Redirect ke Tab Absen
+                switchMobileTab('absen');
+
+            } catch(err) {
+                console.error("Login Error:", err);
+                showToast('Terjadi kesalahan saat memproses login!', 'error');
+            }
         }
 
         async function handleDesktopLogin() { 
@@ -624,25 +654,50 @@
                 return;
             }
 
-            const user = employees.find(e => e.id === email);
-            if (!user) {
-                showToast('Akun tidak ditemukan!', 'error');
-                return;
-            }
+            try {
+                // PENTING: Pengecekan Desktop sama dengan mobile
+                const { data: user, error } = await supabaseClient
+                    .from('karyawan') // <- UBAH INI JIKA NAMA TABEL BERBEDA
+                    .select('*')
+                    .eq('email', email) // <- UBAH 'email' JIKA NAMA KOLOM BERBEDA
+                    .single();
 
-            if (user.password !== pass) {
-                showToast('Password salah!', 'error');
-                return;
-            }
+                if (user) {
+                    if (user.password !== pass) {
+                        showToast('Password salah!', 'error');
+                        return;
+                    }
+                    
+                    activeEmployeeSession = {
+                        id: user.email,
+                        name: user.nama || user.name || 'Karyawan',
+                        ...user
+                    };
+                } else {
+                    const localUser = employees.find(e => e.id === email);
+                    if (!localUser) {
+                        showToast('Akun tidak ditemukan!', 'error');
+                        return;
+                    }
+                    if (localUser.password !== pass) {
+                        showToast('Password salah!', 'error');
+                        return;
+                    }
+                    activeEmployeeSession = localUser;
+                }
 
-            activeEmployeeSession = user;
-            showToast(`Selamat datang, ${user.name}!`, 'success');
-            
-            // Sembunyikan layar login dan tampilkan app utama
-            document.getElementById('desktop-login-screen').classList.add('hidden');
-            document.getElementById('desktop-main-app').classList.remove('hidden');
-            
-            updateDesktopSessionUI();
+                showToast(`Selamat datang, ${activeEmployeeSession.name}!`, 'success');
+                
+                // Sembunyikan layar login dan tampilkan app utama
+                document.getElementById('desktop-login-screen').classList.add('hidden');
+                document.getElementById('desktop-main-app').classList.remove('hidden');
+                
+                updateDesktopSessionUI();
+
+            } catch (err) {
+                console.error("Desktop Login Error:", err);
+                showToast('Terjadi kesalahan saat memproses login!', 'error');
+            }
         }
 
         function updateDesktopSessionUI() {
