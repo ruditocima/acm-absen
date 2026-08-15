@@ -39,7 +39,7 @@
         #basecamp-map { z-index: 10; }
     </style>
 </head>
-<body class="h-full text-slate-100 font-sans flex flex-col">
+<body class="h-full text-slate-100 font-sans flex flex-col" onload="initializeDeviceBinding(); fetchAllDataFromSupabase();">
 
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
@@ -661,7 +661,7 @@
             </div>
             <div>
                 <label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label>
-                <input type="number" id="bc-inp-radius" placeholder="15000" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
+                <input type="number" id="bc-inp-radius" placeholder="1500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
             </div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveBasecamp()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Basecamp</button>
@@ -714,7 +714,7 @@
         </div>
     </div>
 
-    <!-- MODAL ZOOM IMAGE SELFIE (LIGHTBOX) - BARU -->
+    <!-- MODAL ZOOM IMAGE SELFIE (LIGHTBOX) -->
     <div id="image-zoom-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="closeImageZoom()">
         <div class="relative max-w-lg max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
             <button onclick="closeImageZoom()" class="absolute -top-10 right-0 text-slate-400 hover:text-white text-xl font-bold bg-slate-900/80 w-8 h-8 rounded-full flex items-center justify-center border border-slate-700 hover:bg-slate-800 transition">
@@ -815,7 +815,7 @@
             closeConfirmModal();
         });
 
-        // ----------------- IMAGE ZOOM FUNCTIONS (LIGHTBOX) - BARU ----------------- //
+        // ----------------- IMAGE ZOOM FUNCTIONS (LIGHTBOX) ----------------- //
         function openImageZoom(url, caption = 'Foto Selfie Absensi') {
             const modal = document.getElementById('image-zoom-modal');
             const img = document.getElementById('zoomed-image');
@@ -1766,11 +1766,15 @@
             showToast('Role dihapus', 'success'); 
         }
 
+        // ==================== PETA & BASECAMP MAPPING (DIPERBARUI) ==================== //
         let bcMap = null, bcLayerGroup = null;
+
         function initMap() {
             if (bcMap) return;
-            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 5);
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png').addTo(bcMap);
+            bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 13);
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; OpenStreetMap contributors & CARTO'
+            }).addTo(bcMap);
             bcLayerGroup = L.layerGroup().addTo(bcMap);
         }
 
@@ -1778,48 +1782,74 @@
             const container = document.getElementById('basecamp-container');
             if (!container) return;
             container.innerHTML = '';
+            
+            initMap();
+            bcLayerGroup.clearLayers();
+
+            if (basecamps.length === 0) {
+                container.innerHTML = `<div class="col-span-3 text-center text-slate-500 py-4">Belum ada data basecamp.</div>`;
+                return;
+            }
+
+            const bounds = [];
+
             basecamps.forEach((bc, index) => {
+                const lat = parseFloat(bc.lat);
+                const lng = parseFloat(bc.lng);
+                const radius = parseFloat(bc.radius) || 1500;
+
+                // Tambahkan Marker & Lingkaran Radius ke Peta
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    const marker = L.marker([lat, lng]).bindPopup(`<b>${bc.name}</b><br>Radius: ${radius} Meter`);
+                    const circle = L.circle([lat, lng], {
+                        radius: radius,
+                        color: '#d4af37',
+                        fillColor: '#d4af37',
+                        fillOpacity: 0.25,
+                        weight: 2
+                    });
+                    bcLayerGroup.addLayer(marker);
+                    bcLayerGroup.addLayer(circle);
+                    bounds.push([lat, lng]);
+                }
+
                 container.innerHTML += `
                     <div class="glass-card p-4 rounded-2xl space-y-3 border border-slate-800 flex flex-col justify-between">
                         <div>
-                            <h5 class="font-bold text-white text-sm">${bc.name}</h5>
-                            <p class="text-xs text-slate-400 mt-1"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${bc.lat}, Lng: ${bc.lng}</p>
-                            <p class="text-xs text-slate-400">Radius Aman: ${bc.radius}m</p>
+                            <div class="flex justify-between items-start">
+                                <h5 class="font-bold text-white text-xs">${bc.name}</h5>
+                                <span class="text-[10px] text-gold-400 font-mono">${radius}m</span>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1 font-mono"><i class="fa-solid fa-location-dot"></i> Lat: ${bc.lat}, Lng: ${bc.lng}</p>
                         </div>
-                        <div class="flex gap-2 pt-2 border-t border-slate-800/60">
-                            <button onclick="openEditBasecampModal(${index})" class="flex-1 py-1.5 px-3 bg-gold-500/10 text-gold-400 hover:bg-gold-500/20 border border-gold-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-pen-to-square"></i> Edit
-                            </button>
-                            <button onclick="deleteBasecamp(${index})" class="flex-1 py-1.5 px-3 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-trash"></i> Hapus
-                            </button>
+                        <div class="flex gap-2 pt-2 border-t border-slate-800">
+                            <button onclick="openEditBasecampModal(${index})" class="flex-1 py-1.5 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded-lg text-xs font-semibold">Edit</button>
+                            <button onclick="deleteBasecamp(${index})" class="flex-1 py-1.5 bg-slate-800 text-rose-400 hover:bg-slate-700 rounded-lg text-xs font-semibold">Hapus</button>
                         </div>
-                    </div>`;
+                    </div>
+                `;
             });
-            if (bcMap && bcLayerGroup) {
-                bcLayerGroup.clearLayers();
-                basecamps.forEach(bc => {
-                    L.circle([bc.lat, bc.lng], { radius: bc.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcLayerGroup);
-                    L.marker([bc.lat, bc.lng]).addTo(bcLayerGroup)
-                      .bindPopup(`<div style="color: #0f172a; font-weight: bold;">${bc.name}</div><div style="color: #334155; font-size: 11px;">Lat: ${bc.lat}, Lng: ${bc.lng}<br>Radius: ${bc.radius}m</div>`);
-                });
+
+            // Otomatis arahkan pandangan peta mencakup semua titik basecamp
+            if (bounds.length > 0 && bcMap) {
+                bcMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
             }
         }
 
         function openAddBasecampModal() {
-            document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
             document.getElementById('bc-edit-index').value = '-1';
+            document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
             document.getElementById('bc-inp-name').value = '';
             document.getElementById('bc-inp-lat').value = '';
             document.getElementById('bc-inp-lng').value = '';
-            document.getElementById('bc-inp-radius').value = '15000';
+            document.getElementById('bc-inp-radius').value = '1500';
             document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
         function openEditBasecampModal(index) {
             const bc = basecamps[index];
-            document.getElementById('bc-modal-title').innerText = 'Edit Basecamp';
             document.getElementById('bc-edit-index').value = index;
+            document.getElementById('bc-modal-title').innerText = 'Edit Basecamp';
             document.getElementById('bc-inp-name').value = bc.name;
             document.getElementById('bc-inp-lat').value = bc.lat;
             document.getElementById('bc-inp-lng').value = bc.lng;
@@ -1827,7 +1857,9 @@
             document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
-        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
+        function closeBasecampModal() {
+            document.getElementById('basecamp-modal').classList.add('hidden');
+        }
 
         async function saveBasecamp() {
             const index = parseInt(document.getElementById('bc-edit-index').value);
@@ -1837,30 +1869,129 @@
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
 
             if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                showToast('Harap isi semua kolom basecamp dengan valid!', 'error');
+                showToast('Harap isi semua kolom dengan format angka yang valid!', 'error');
                 return;
             }
 
             if (index === -1) {
                 const newBc = { id: Date.now(), name, lat, lng, radius };
-                await supabaseClient.from('basecamps').insert([newBc]);
-                showToast('Basecamp berhasil ditambahkan!', 'success');
+                const { error } = await supabaseClient.from('basecamps').insert([newBc]);
+                if (error) {
+                    showToast('Gagal menyimpan basecamp: ' + error.message, 'error');
+                    return;
+                }
+                showToast('Basecamp baru berhasil ditambahkan!', 'success');
             } else {
-                const targetBc = basecamps[index];
-                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', targetBc.id);
-                showToast('Basecamp diperbarui!', 'success');
+                const target = basecamps[index];
+                const { error } = await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', target.id);
+                if (error) {
+                    showToast('Gagal memperbarui basecamp: ' + error.message, 'error');
+                    return;
+                }
+                showToast('Basecamp berhasil diperbarui!', 'success');
             }
 
             closeBasecampModal();
             await fetchAllDataFromSupabase();
         }
 
-        async function deleteBasecamp(index) {
+        function deleteBasecamp(index) {
             showConfirm('Hapus Basecamp', `Hapus basecamp ${basecamps[index].name}?`, async () => {
-                await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
+                const target = basecamps[index];
+                await supabaseClient.from('basecamps').delete().eq('id', target.id);
                 await fetchAllDataFromSupabase();
-                showToast('Basecamp dihapus.', 'success');
+                showToast('Basecamp berhasil dihapus.', 'success');
             }, true);
+        }
+
+        // ==================== NAVIGASI & TAB UTAMA ==================== //
+        function switchMobileTab(tab) {
+            ['daftar', 'absen', 'email'].forEach(t => {
+                const sec = document.getElementById(`m-tab-${t}`);
+                const btn = document.getElementById(`m-nav-${t}`);
+                if (sec) sec.classList.add('hidden');
+                if (btn) {
+                    btn.className = t === tab ? "text-gold-400 flex flex-col items-center text-xs space-y-1 transition" : "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
+                }
+            });
+            const activeSec = document.getElementById(`m-tab-${tab}`);
+            if (activeSec) activeSec.classList.remove('hidden');
+        }
+
+        function switchDesktopTab(tab) {
+            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(t => {
+                const sec = document.getElementById(`d-tab-${t}`);
+                const btn = document.getElementById(`d-nav-${t}`);
+                if (sec) sec.classList.add('hidden');
+                if (btn) {
+                    btn.className = t === tab ? "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 font-semibold" : "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
+                }
+            });
+            const activeSec = document.getElementById(`d-tab-${tab}`);
+            if (activeSec) activeSec.classList.remove('hidden');
+
+            const titles = {
+                dashboard: 'Dashboard & Statistik',
+                rekap: 'Rekapitulasi Kehadiran',
+                role: 'Manajemen Data Role',
+                karyawan: 'Manajemen Data Karyawan',
+                basecamp: 'Kelola Basecamp & Zona GPS',
+                izin: 'Persetujuan Izin Karyawan',
+                email: 'Pusat Pesan & Broadcast'
+            };
+            document.getElementById('desktop-title').innerText = titles[tab] || 'Master Control';
+
+            if (tab === 'basecamp') {
+                setTimeout(() => {
+                    if (bcMap) {
+                        bcMap.invalidateSize();
+                        renderBasecamps();
+                    } else {
+                        initMap();
+                        renderBasecamps();
+                    }
+                }, 150);
+            }
+        }
+
+        function switchMode(mode) {
+            const mMobile = document.getElementById('view-mobile');
+            const mDesktop = document.getElementById('view-desktop');
+            const btnMobile = document.getElementById('btn-mobile');
+            const btnDesktop = document.getElementById('btn-desktop');
+
+            if (mode === 'mobile') {
+                mMobile.classList.remove('hidden');
+                mDesktop.classList.add('hidden');
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+            } else {
+                mMobile.classList.add('hidden');
+                mDesktop.classList.remove('hidden');
+                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
+                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+                
+                setTimeout(() => {
+                    if (bcMap) {
+                        bcMap.invalidateSize();
+                        renderBasecamps();
+                    }
+                }, 200);
+            }
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
         }
 
         function renderRekap(dataToRender = rekapList) {
@@ -1872,81 +2003,21 @@
                 return;
             }
             dataToRender.forEach(r => {
+                const statusColor = r.status.includes('Tepat') ? 'text-emerald-400' : 'text-amber-400';
                 tbody.innerHTML += `
                     <tr>
                         <td class="p-3 text-slate-400">${r.date}</td>
                         <td class="p-3 font-bold text-white">${r.name}</td>
-                        <td class="p-3 text-slate-300">${r.basecamp}</td>
-                        <td class="p-3 font-mono text-emerald-400">${r.time}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">${r.status}</span></td>
+                        <td class="p-3 text-gold-400">${r.basecamp}</td>
+                        <td class="p-3 font-mono text-slate-300">${r.time}</td>
+                        <td class="p-3 ${statusColor} font-semibold">${r.status}</td>
                         <td class="p-3 text-slate-300">${r.late}</td>
                         <td class="p-3">
-                            ${r.selfie_url ? `<img src="${r.selfie_url}" onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date}')" class="w-10 h-10 rounded object-cover border border-gold-500/30 cursor-pointer hover:opacity-80 transition" title="Klik untuk zoom">` : '-'}
+                            ${r.selfie_url ? `<img src="${r.selfie_url}" onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date}')" class="w-8 h-8 rounded object-cover border border-gold-500/30 cursor-pointer hover:opacity-80 transition" title="Klik untuk zoom">` : '-'}
                         </td>
                     </tr>`;
             });
         }
-
-        function switchMode(mode) {
-            const viewMobile = document.getElementById('view-mobile');
-            const viewDesktop = document.getElementById('view-desktop');
-            const btnMobile = document.getElementById('btn-mobile');
-            const btnDesktop = document.getElementById('btn-desktop');
-
-            if (mode === 'mobile') {
-                viewMobile.classList.remove('hidden');
-                viewDesktop.classList.add('hidden');
-                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
-                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-            } else {
-                viewMobile.classList.add('hidden');
-                viewDesktop.classList.remove('hidden');
-                btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
-                btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-                setTimeout(() => {
-                    if (bcMap) bcMap.invalidateSize();
-                }, 200);
-            }
-        }
-
-        function switchMobileTab(tab) {
-            ['daftar', 'absen', 'email'].forEach(t => {
-                const tabEl = document.getElementById(`m-tab-${t}`);
-                const navEl = document.getElementById(`m-nav-${t}`);
-                if(tabEl) tabEl.classList.add('hidden');
-                if(navEl) navEl.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
-            });
-            const activeTab = document.getElementById(`m-tab-${tab}`);
-            const activeNav = document.getElementById(`m-nav-${tab}`);
-            if(activeTab) activeTab.classList.remove('hidden');
-            if(activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
-        }
-
-        function switchDesktopTab(tab) {
-            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(t => {
-                const tabEl = document.getElementById(`d-tab-${t}`);
-                const navEl = document.getElementById(`d-nav-${t}`);
-                if(tabEl) tabEl.classList.add('hidden');
-                if(navEl) navEl.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
-            });
-            const activeTab = document.getElementById(`d-tab-${tab}`);
-            const activeNav = document.getElementById(`d-nav-${tab}`);
-            if(activeTab) activeTab.classList.remove('hidden');
-            if(activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
-            
-            if (tab === 'basecamp') {
-                setTimeout(() => {
-                    initMap();
-                    if (bcMap) bcMap.invalidateSize();
-                }, 200);
-            }
-        }
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initializeDeviceBinding();
-            await fetchAllDataFromSupabase();
-            switchMobileTab('daftar');
-        });
     </script>
 </body>
 </html>
