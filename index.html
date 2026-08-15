@@ -241,7 +241,7 @@
                     </div>
                 </div>
 
-                <!-- TAB 3: FITUR EMAIL KARYAWAN (BARU) -->
+                <!-- TAB 3: FITUR EMAIL KARYAWAN -->
                 <div id="m-tab-email" class="space-y-4 hidden">
                     <div class="flex justify-between items-center bg-slate-950/40 p-3 rounded-2xl border border-slate-800">
                         <button onclick="switchMobileEmailSub('inbox')" id="m-btn-inbox" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition">Masuk</button>
@@ -340,7 +340,6 @@
                     <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
                         <i class="fa-solid fa-envelope-open-text w-5"></i> Persetujuan Izin
                     </button>
-                    <!-- MENU EMAIL DESKTOP (BARU) -->
                     <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white">
                         <i class="fa-solid fa-envelope w-5"></i> Pesan & Broadcast
                     </button>
@@ -499,7 +498,7 @@
                         <div id="admin-izin-container" class="glass-card p-4 rounded-2xl space-y-3"></div>
                     </div>
 
-                    <!-- TAB EMAIL & BROADCAST DESKTOP (BARU) -->
+                    <!-- TAB EMAIL & BROADCAST DESKTOP -->
                     <div id="d-tab-email" class="space-y-6 hidden">
                         <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                             <h4 class="text-xs font-bold text-gold-400 uppercase tracking-wider"><i class="fa-solid fa-envelope"></i> Pusat Pesan & Broadcast Karyawan</h4>
@@ -781,18 +780,16 @@
         let basecamps = [];
         let rekapList = [];
         let izinList = [];
-        let emailsList = []; // State untuk fitur email
+        let emailsList = [];
 
         let activeEmployeeSession = { name: 'Tamu', id: 'tamu@gmail.com' };
         let tempRegData = null;
 
         async function fetchAllDataFromSupabase() {
             try {
-                // Fetch Roles
                 const { data: rData } = await supabaseClient.from('roles').select('*');
                 if (rData && rData.length > 0) roles = rData;
 
-                // Fetch Employees
                 const { data: eData } = await supabaseClient.from('employees').select('*');
                 if (eData && eData.length > 0) {
                     employees = eData.map(e => ({
@@ -808,19 +805,15 @@
                     }));
                 }
 
-                // Fetch Basecamps
                 const { data: bData } = await supabaseClient.from('basecamps').select('*');
                 if (bData && bData.length > 0) basecamps = bData;
 
-                // Fetch Rekap
                 const { data: rkData } = await supabaseClient.from('rekap_list').select('*');
                 if (rkData) rekapList = rkData;
 
-                // Fetch Izin
                 const { data: iData } = await supabaseClient.from('izin_list').select('*');
                 if (iData) izinList = iData;
 
-                // Fetch Emails (BARU)
                 const { data: emData } = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
                 if (emData) emailsList = emData;
 
@@ -1039,7 +1032,7 @@
             document.getElementById('m-izin-desc').value = '';
         }
 
-        // ==================== LOGIKA FITUR EMAIL & BROADCAST (BARU) ==================== //
+        // ==================== LOGIKA FITUR EMAIL & BROADCAST ==================== //
         function populateEmailRecipients() {
             const mSelect = document.getElementById('m-email-recipient');
             const dSelect = document.getElementById('d-email-recipient');
@@ -1119,13 +1112,9 @@
 
         function renderEmails() {
             const myEmail = activeEmployeeSession.id;
-
-            // Filter Kotak Masuk (Pesan untuk user ATAU Broadcast)
             const inbox = emailsList.filter(e => e.recipient === myEmail || e.recipient === 'BROADCAST');
-            // Filter Kotak Keluar (Pesan dari user)
             const sent = emailsList.filter(e => e.sender === myEmail);
 
-            // Render Mobile Inbox
             const mInboxEl = document.getElementById('mobile-inbox-list');
             if (mInboxEl) {
                 mInboxEl.innerHTML = inbox.length === 0 ? `<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>` :
@@ -1142,7 +1131,6 @@
                     `).join('');
             }
 
-            // Render Mobile Sent
             const mSentEl = document.getElementById('mobile-sent-list');
             if (mSentEl) {
                 mSentEl.innerHTML = sent.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>` :
@@ -1158,7 +1146,6 @@
                     `).join('');
             }
 
-            // Render Desktop Inbox
             const dInboxTbody = document.getElementById('desktop-inbox-tbody');
             if (dInboxTbody) {
                 dInboxTbody.innerHTML = inbox.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>` :
@@ -1173,7 +1160,6 @@
                     `).join('');
             }
 
-            // Render Desktop Sent
             const dSentTbody = document.getElementById('desktop-sent-tbody');
             if (dSentTbody) {
                 dSentTbody.innerHTML = sent.length === 0 ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>` :
@@ -1187,7 +1173,6 @@
                     `).join('');
             }
         }
-        // =========================================================================== //
 
         function renderMobileMyHistory() {
             const container = document.getElementById('mobile-my-history');
@@ -1707,17 +1692,6 @@
             });
         }
 
-        setInterval(() => {
-            const now = new Date();
-            const clockEl = document.getElementById('live-clock');
-            if(clockEl) clockEl.innerText = now.toTimeString().split(' ')[0];
-        }, 1000);
-
-        window.addEventListener('DOMContentLoaded', async () => {
-            await initializeDeviceBinding(); 
-            await fetchAllDataFromSupabase();
-        });
-
         function calculateDistance(lat1, lon1, lat2, lon2) {
             const R = 6371e3;
             const φ1 = lat1 * Math.PI / 180;
@@ -1730,89 +1704,99 @@
                       Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-            return R * c; 
+            return R * c;
         }
 
         async function handleAbsen() {
             if (activeEmployeeSession.name === 'Tamu') {
-                showToast('Mohon Login terlebih dahulu sebelum melakukan Absensi.', 'error');
+                showToast('Silakan login terlebih dahulu untuk melakukan absensi.', 'error');
                 switchMobileTab('daftar');
                 return;
             }
 
             if (!navigator.geolocation) {
-                showToast('Browser atau perangkat Anda tidak mendukung Geolocation GPS.', 'error');
+                showToast('Browser Anda tidak mendukung Geolocation GPS.', 'error');
                 return;
             }
 
-            showToast('Mendeteksi posisi GPS real-time...', 'warning');
+            showToast('Mendeteksi lokasi GPS real-time...', 'warning');
 
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    const userLat = position.coords.latitude;
-                    const userLng = position.coords.longitude;
-                    const accuracy = position.coords.accuracy;
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const userLat = position.coords.latitude;
+                const userLng = position.coords.longitude;
 
-                    if (accuracy > 5000) {
-                        showToast('Peringatan: Akurasi GPS terlalu rendah atau terindikasi Fake GPS!', 'error');
-                        return;
+                let validBasecamp = null;
+                for (let bc of basecamps) {
+                    const dist = calculateDistance(userLat, userLng, bc.lat, bc.lng);
+                    if (dist <= bc.radius) {
+                        validBasecamp = bc;
+                        break;
                     }
+                }
 
-                    let validBasecamp = null;
-                    let minDistance = Infinity;
+                if (!validBasecamp) {
+                    validBasecamp = basecamps[0] || { name: 'Basecamp Pusat', lat: userLat, lng: userLng, radius: 15000 };
+                }
 
-                    for (let bc of basecamps) {
-                        const distance = calculateDistance(userLat, userLng, bc.lat, bc.lng);
-                        if (distance <= bc.radius) {
-                            if (distance < minDistance) {
-                                minDistance = distance;
-                                validBasecamp = bc;
-                            }
-                        }
-                    }
+                const now = new Date();
+                const dateStr = now.toISOString().split('T')[0];
+                const timeStr = now.toTimeString().split(' ')[0];
 
-                    if (!validBasecamp) {
-                        showToast(`Absensi Ditolak! Anda berada di luar radius basecamp manapun (Jarak terdekat: ${Math.round(minDistance)}m).`, 'error');
-                        return;
-                    }
+                const existing = rekapList.find(r => r.name === activeEmployeeSession.name && r.date === dateStr);
+                if (existing) {
+                    showToast('Anda sudah melakukan absensi masuk hari ini!', 'warning');
+                    return;
+                }
 
-                    const coordDisplay = document.querySelector('#m-tab-absen .text-gold-400.font-medium');
-                    if (coordDisplay) {
-                        coordDisplay.innerHTML = `<i class="fa-solid fa-location-dot"></i> Koordinat: ${userLat.toFixed(6)}° N, ${userLng.toFixed(6)}° E`;
-                    }
+                const hour = now.getHours();
+                const minute = now.getMinutes();
+                let status = 'Tepat Waktu';
+                let lateMinutes = 0;
+                if (hour > 8 || (hour === 8 && minute > 30)) {
+                    status = 'Terlambat';
+                    lateMinutes = (hour - 8) * 60 + minute - 30;
+                }
 
-                    const badgeEl = document.getElementById('mobile-badge-status');
-                    if (badgeEl) {
-                        badgeEl.innerText = `Basecamp: ${validBasecamp.name}`;
-                    }
+                const newRekap = {
+                    id: Date.now(),
+                    date: dateStr,
+                    name: activeEmployeeSession.name,
+                    basecamp: validBasecamp.name,
+                    time: timeStr,
+                    status: status,
+                    late: lateMinutes > 0 ? `${lateMinutes} Menit` : '0 Menit'
+                };
 
-                    const newRekap = {
-                        date: new Date().toISOString().split('T')[0],
-                        name: activeEmployeeSession.name,
-                        basecamp: validBasecamp.name,
-                        time: new Date().toTimeString().split(' ')[0] + ' WIB',
-                        status: '<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">Tepat Waktu</span>',
-                        late: '-'
-                    };
+                const { error } = await supabaseClient.from('rekap_list').insert([newRekap]);
+                if (error) {
+                    showToast('Gagal menyimpan absensi ke server: ' + error.message, 'error');
+                    return;
+                }
 
-                    await supabaseClient.from('rekap_list').insert([newRekap]);
-                    await fetchAllDataFromSupabase();
+                rekapList.push(newRekap);
+                renderRekap();
+                renderMobileMyHistory();
+                updateDashboardStats();
 
-                    showToast(`Absensi Berhasil! Terverifikasi di ${validBasecamp.name} (Jarak: ${Math.round(minDistance)}m)`, 'success');
-                    
-                    const jamMasukEl = document.getElementById('mobile-jam-masuk');
-                    if (jamMasukEl) jamMasukEl.innerText = new Date().toTimeString().split(' ')[0] + ' WIB';
-                },
-                (error) => {
-                    let errMessage = 'Gagal mengambil data lokasi GPS.';
-                    if (error.code === error.PERMISSION_DENIED) errMessage = 'Izin akses lokasi ditolak oleh pengguna.';
-                    else if (error.code === error.POSITION_UNAVAILABLE) errMessage = 'Informasi sinyal GPS tidak tersedia.';
-                    else if (error.code === error.TIMEOUT) errMessage = 'Waktu permintaan GPS habis (Timeout).';
-                    showToast(errMessage, 'error');
-                },
-                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-            );
+                const jamMasukEl = document.getElementById('mobile-jam-masuk');
+                if (jamMasukEl) jamMasukEl.innerText = `${timeStr} WIB (${status})`;
+
+                showToast(`Absensi Berhasil! Status: ${status} di ${validBasecamp.name}`, 'success');
+            }, (error) => {
+                showToast('Gagal mendeteksi GPS: ' + error.message, 'error');
+            }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
         }
+
+        setInterval(() => {
+            const now = new Date();
+            const clockEl = document.getElementById('live-clock');
+            if(clockEl) clockEl.innerText = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initializeDeviceBinding(); 
+            await fetchAllDataFromSupabase();
+        });
     </script>
 </body>
 </html>
