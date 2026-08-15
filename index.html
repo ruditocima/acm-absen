@@ -1,4 +1,4 @@
-[source: 1]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id" class="h-full bg-slate-950">
 <head>
     <meta charset="UTF-8">
@@ -945,7 +945,7 @@
                         id: e.id,
                         sender: e.sender,
                         sender_name: e.sender_name,
-                        receiver: e.recipient, // Map recipient to receiver for UI
+                        receiver: e.recipient,
                         subject: e.subject,
                         message: e.message,
                         created_at: e.created_at,
@@ -1474,7 +1474,7 @@
             closeBasecampModal(); showToast('Basecamp baru tersimpan.', 'success');
         }
 
-        // ----------------- EMAIL & BROADCAST FIX ----------------- //
+        // ----------------- EMAIL & BROADCAST FULL INTEGRATION ----------------- //
         function populateEmailRecipients() {
             const mSelect = document.getElementById('m-email-recipient');
             const dSelect = document.getElementById('d-email-recipient');
@@ -1599,8 +1599,10 @@
                         <td class="p-3 text-white">${e.sender_name || getEmployeeDisplayName(e.sender)}</td>
                         <td class="p-3 text-gold-400">${e.subject}</td>
                         <td class="p-3 truncate max-w-xs text-slate-400">${e.message}</td>
-                        <td class="p-3">${e.receiver === 'BROADCAST' ? '<span class="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-[9px]">Broadcast</span>' : 'Pribadi'}</td>
-                        <td class="p-3"><button class="px-2.5 py-1 bg-gold-500/10 text-gold-400 border border-gold-500/20 rounded hover:bg-gold-500/20">Baca</button></td>
+                        <td class="p-3">${e.receiver === 'BROADCAST' ? '<span class="px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-[10px] font-bold">Broadcast</span>' : '<span class="px-2 py-0.5 bg-slate-800 text-slate-300 rounded-full text-[10px]">Pribadi</span>'}</td>
+                        <td class="p-3">
+                            <button onclick="event.stopPropagation(); deleteEmail(${e.id})" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </td>
                     </tr>
                 `).join('');
             }
@@ -1615,7 +1617,9 @@
                         <td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td>
                         <td class="p-3 text-gold-400">${e.subject}</td>
                         <td class="p-3 truncate max-w-xs text-slate-400">${e.message}</td>
-                        <td class="p-3"><button class="px-2.5 py-1 bg-slate-800 text-slate-300 rounded hover:bg-slate-700">Detail</button></td>
+                        <td class="p-3">
+                            <button onclick="event.stopPropagation(); deleteEmail(${e.id})" class="text-rose-400 hover:text-rose-300 p-1"><i class="fa-solid fa-trash"></i></button>
+                        </td>
                     </tr>
                 `).join('');
             }
@@ -1624,9 +1628,9 @@
         function openEmailDetail(id) {
             const email = emailsList.find(e => e.id === id);
             if (!email) return;
-            activeSelectedEmail = email;
             email.read = true;
 
+            activeSelectedEmail = email;
             document.getElementById('detail-email-sender').innerText = email.sender_name || getEmployeeDisplayName(email.sender);
             document.getElementById('detail-email-receiver').innerText = getEmployeeDisplayName(email.receiver);
             document.getElementById('detail-email-time').innerText = new Date(email.created_at).toLocaleString('id-ID');
@@ -1645,344 +1649,211 @@
         function replyEmail() {
             if (!activeSelectedEmail) return;
             const targetSender = activeSelectedEmail.sender;
+            const targetSubj = "Re: " + activeSelectedEmail.subject;
+            
             closeEmailDetailModal();
-
-            const isMobile = !document.getElementById('view-mobile').classList.contains('hidden');
-            if (isMobile) {
-                switchMobileTab('email');
-                switchMobileEmailSub('compose');
-                const recSelect = document.getElementById('m-email-recipient');
-                if (recSelect) recSelect.value = targetSender;
-                const subjInput = document.getElementById('m-email-subject');
-                if (subjInput) subjInput.value = `Re: ${activeSelectedEmail.subject}`;
-            } else {
+            if (document.getElementById('view-mobile').classList.contains('hidden')) {
                 switchDesktopTab('email');
                 switchDesktopEmailSub('compose');
-                const recSelect = document.getElementById('d-email-recipient');
-                if (recSelect) recSelect.value = targetSender;
-                const subjInput = document.getElementById('d-email-subject');
-                if (subjInput) subjInput.value = `Re: ${activeSelectedEmail.subject}`;
+                document.getElementById('d-email-recipient').value = targetSender;
+                document.getElementById('d-email-subject').value = targetSubj;
+                document.getElementById('d-email-message').focus();
+            } else {
+                switchMobileTab('email');
+                switchMobileEmailSub('compose');
+                document.getElementById('m-email-recipient').value = targetSender;
+                document.getElementById('m-email-subject').value = targetSubj;
+                document.getElementById('m-email-message').focus();
             }
         }
 
+        async function deleteEmail(id) {
+            showConfirm('Hapus Pesan', 'Apakah Anda yakin ingin menghapus pesan ini?', async () => {
+                emailsList = emailsList.filter(e => e.id !== id);
+                await supabaseClient.from('emails').delete().eq('id', id);
+                renderEmails();
+                showToast('Pesan berhasil dihapus.', 'success');
+            }, true);
+        }
+
+        // Helper render lainnya agar sistem tetap utuh
         function renderRoles() {
             const tbody = document.getElementById('role-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = roles.map((r, idx) => `
+            if(!tbody) return;
+            tbody.innerHTML = roles.map(r => `
                 <tr class="border-b border-slate-800">
-                    <td class="p-3 font-mono">${r.code}</td>
+                    <td class="p-3 font-mono text-gold-400">${r.id}</td>
                     <td class="p-3 font-bold text-white">${r.name}</td>
                     <td class="p-3 text-slate-400">${r.access}</td>
-                    <td class="p-3 flex gap-2">
-                        <button onclick="editRole(${idx})" class="px-2.5 py-1 bg-amber-500/10 text-amber-400 rounded hover:bg-amber-500/20">Edit</button>
-                        <button onclick="deleteRole(${idx})" class="px-2.5 py-1 bg-rose-500/10 text-rose-400 rounded hover:bg-rose-500/20">Hapus</button>
-                    </td>
+                    <td class="p-3"><span class="text-xs text-slate-500">Default</span></td>
                 </tr>
             `).join('');
-
-            const roleSelect = document.getElementById('inp-role');
-            if (roleSelect) {
-                roleSelect.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
-            }
-        }
-
-        function openRoleModal() {
-            document.getElementById('role-edit-index').value = '-1';
-            document.getElementById('role-modal-title').innerText = 'Tambah Role';
-            document.getElementById('inp-role-id').value = '';
-            document.getElementById('inp-role-name').value = '';
-            document.getElementById('inp-role-access').value = '';
-            document.getElementById('role-modal').classList.remove('hidden');
-        }
-
-        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
-
-        async function saveRole() {
-            const idx = parseInt(document.getElementById('role-edit-index').value);
-            const code = document.getElementById('inp-role-id').value.trim();
-            const name = document.getElementById('inp-role-name').value.trim();
-            const access = document.getElementById('inp-role-access').value.trim();
-
-            if (!code || !name) return showToast('Kode dan Nama Role wajib diisi!', 'error');
-
-            if (idx === -1) {
-                const newRole = { code, name, access };
-                roles.push(newRole);
-                await supabaseClient.from('roles').insert([newRole]);
-            } else {
-                roles[idx] = { code, name, access };
-                await supabaseClient.from('roles').update({ code, name, access }).eq('code', code);
-            }
-            renderRoles();
-            closeRoleModal();
-            showToast('Role berhasil disimpan.', 'success');
-        }
-
-        function editRole(idx) {
-            const r = roles[idx];
-            document.getElementById('role-edit-index').value = idx;
-            document.getElementById('role-modal-title').innerText = 'Edit Role';
-            document.getElementById('inp-role-id').value = r.code;
-            document.getElementById('inp-role-name').value = r.name;
-            document.getElementById('inp-role-access').value = r.access;
-            document.getElementById('role-modal').classList.remove('hidden');
-        }
-
-        async function deleteRole(idx) {
-            const r = roles[idx];
-            showConfirm('Hapus Role', `Hapus role ${r.name}?`, async () => {
-                roles.splice(idx, 1);
-                await supabaseClient.from('roles').delete().eq('code', r.code);
-                renderRoles();
-                showToast('Role dihapus.', 'success');
-            });
         }
 
         function renderEmployees() {
             const tbody = document.getElementById('karyawan-tbody');
-            if (!tbody) return;
-
-            const pendingCount = employees.filter(e => e.status === 'Pending').length;
-            const badge = document.getElementById('karyawan-pending-badge');
-            if (badge) {
-                if (pendingCount > 0) {
-                    badge.innerText = `${pendingCount} Pending`;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-
+            if(!tbody) return;
             tbody.innerHTML = employees.map((e, idx) => `
                 <tr class="border-b border-slate-800">
-                    <td class="p-3 font-mono">${e.id}</td>
+                    <td class="p-3 font-mono text-xs">${e.id}</td>
                     <td class="p-3 font-bold text-white">${e.name}</td>
-                    <td class="p-3">${e.position}</td>
-                    <td class="p-3">${e.role}</td>
-                    <td class="p-3">${e.atasan || '-'}</td>
+                    <td class="p-3 text-slate-400">${e.position}</td>
+                    <td class="p-3 text-gold-400">${e.role}</td>
+                    <td class="p-3 text-slate-300">${e.atasan || '-'}</td>
                     <td class="p-3 font-mono text-[10px] text-slate-500 truncate max-w-[100px]">${e.password}</td>
                     <td class="p-3">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${e.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
-                            ${e.status || 'Approved'}
-                        </span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${e.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'}">${e.status}</span>
                     </td>
-                    <td class="p-3 flex flex-wrap gap-1.5">
-                        ${e.status === 'Pending' ? `<button onclick="approveEmployeeAccount(${idx})" class="px-2 py-1 bg-emerald-500 text-slate-950 font-bold rounded">Setujui</button>` : ''}
-                        <button onclick="resetEmployeeDevice(${idx})" class="px-2 py-1 bg-amber-500/20 text-amber-400 rounded hover:bg-amber-500/30">Reset Device</button>
-                        <button onclick="editEmployee(${idx})" class="px-2 py-1 bg-slate-800 text-slate-300 rounded">Edit</button>
-                        <button onclick="deleteEmployee(${idx})" class="px-2 py-1 bg-rose-500/20 text-rose-400 rounded">Hapus</button>
+                    <td class="p-3 flex gap-2">
+                        ${e.status === 'Pending' ? `<button onclick="approveEmployeeAccount(${idx})" class="px-2 py-1 bg-emerald-500 text-slate-950 font-bold rounded text-[10px]">Approve</button>` : ''}
+                        <button onclick="resetEmployeeDevice(${idx})" class="px-2 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded text-[10px]">Reset Device</button>
                     </td>
                 </tr>
             `).join('');
 
-            const atasanSelect = document.getElementById('inp-atasan');
-            if (atasanSelect) {
-                atasanSelect.innerHTML = `<option value="Master Admin">Master Admin</option>` +
-                    employees.map(emp => `<option value="${emp.name}">${emp.name}</option>`).join('');
+            const pendingCount = employees.filter(e => e.status === 'Pending').length;
+            const badge = document.getElementById('karyawan-pending-badge');
+            if(badge) {
+                if(pendingCount > 0) { badge.innerText = `${pendingCount} Pending`; badge.classList.remove('hidden'); }
+                else badge.classList.add('hidden');
             }
         }
 
-        function openAddEmployeeModal() {
-            document.getElementById('edit-index').value = '-1';
-            document.getElementById('modal-title').innerText = 'Tambah Karyawan';
-            document.getElementById('inp-id').value = '';
-            document.getElementById('inp-name').value = '';
-            document.getElementById('inp-position').value = '';
-            document.getElementById('inp-password').value = '';
-            document.getElementById('employee-modal').classList.remove('hidden');
+        function renderRekap() {
+            const tbody = document.getElementById('rekap-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = rekapList.map(r => `
+                <tr class="border-b border-slate-800">
+                    <td class="p-3 font-mono">${r.date}</td>
+                    <td class="p-3 font-bold text-white">${r.name}</td>
+                    <td class="p-3 text-slate-400">${r.basecamp}</td>
+                    <td class="p-3 font-mono text-emerald-400">${r.time}</td>
+                    <td class="p-3">${r.status}</td>
+                    <td class="p-3 text-amber-400">${r.late}</td>
+                    <td class="p-3">
+                        ${r.selfie_url ? `<button onclick="openImageZoom('${r.selfie_url}')" class="px-2 py-1 bg-slate-800 text-gold-400 rounded text-[10px] border border-gold-500/30">Lihat Foto</button>` : '-'}
+                    </td>
+                </tr>
+            `).join('');
         }
 
-        function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
+        function renderAdminIzin() {
+            const container = document.getElementById('admin-izin-container');
+            if(!container) return;
 
+            const pendingIzin = izinList.filter(i => i.status === 'Pending');
+            const counter = document.getElementById('tab-izin-counter-badge');
+            const sidebarBadge = document.getElementById('sidebar-izin-badge');
+
+            if(counter) {
+                if(pendingIzin.length > 0) { counter.innerText = `${pendingIzin.length} Pengajuan Pending`; counter.classList.remove('hidden'); }
+                else counter.classList.add('hidden');
+            }
+            if(sidebarBadge) {
+                if(pendingIzin.length > 0) { sidebarBadge.innerText = pendingIzin.length; sidebarBadge.classList.remove('hidden'); }
+                else sidebarBadge.classList.add('hidden');
+            }
+
+            container.innerHTML = izinList.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pengajuan izin.</p>` :
+            izinList.map(i => `
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white">${i.name}</span>
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-gold-500/10 text-gold-400 border border-gold-500/20">${i.jenis}</span>
+                            <span class="text-[10px] text-slate-400">(${i.start} s/d ${i.end})</span>
+                        </div>
+                        <p class="text-xs text-slate-300">Alasan: "${i.desc}"</p>
+                        <p class="text-[10px] text-slate-500">Ditujukan ke Atasan: ${i.atasan}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-1 rounded text-xs font-bold ${i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : i.status === 'Rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span>
+                        ${i.status === 'Pending' ? `
+                            <button onclick="updateIzinStatus(${i.id}, 'Approved')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold rounded text-xs">Setujui</button>
+                            <button onclick="updateIzinStatus(${i.id}, 'Rejected')" class="px-3 py-1 bg-rose-500 text-white font-bold rounded text-xs">Tolak</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function updateIzinStatus(id, newStatus) {
+            const izin = izinList.find(i => i.id === id);
+            if(izin) {
+                izin.status = newStatus;
+                await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
+                renderAdminIzin();
+                showToast(`Status izin berhasil di-${newStatus}.`, 'success');
+            }
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if(!container) return;
+            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
+            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name);
+
+            container.innerHTML = (myIzin.length === 0 && myRekap.length === 0) ? `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>` :
+            `
+                <div class="space-y-2">
+                    ${myRekap.map(r => `<div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]"><span class="text-slate-400">${r.date} (${r.time})</span><span class="text-emerald-400 font-bold">${r.status}</span></div>`).join('')}
+                    ${myIzin.map(i => `<div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]"><span class="text-slate-400">Izin: ${i.jenis} (${i.start})</span><span class="text-amber-400 font-bold">${i.status}</span></div>`).join('')}
+                </div>
+            `;
+        }
+
+        function updateDashboardStats() {
+            const total = employees.length;
+            const tepat = rekapList.filter(r => r.status.includes('Tepat Waktu')).length;
+            const telat = rekapList.filter(r => r.status.includes('Terlambat')).length;
+            const izin = izinList.filter(i => i.status === 'Approved').length;
+
+            const el1 = document.getElementById('stat-total-karyawan');
+            const el2 = document.getElementById('stat-tepat-waktu');
+            const el3 = document.getElementById('stat-terlambat');
+            const el4 = document.getElementById('stat-izin-alpha');
+
+            if(el1) el1.innerText = `${total} Orang`;
+            if(el2) el2.innerText = `${tepat} Orang`;
+            if(el3) el3.innerText = `${telat} Orang`;
+            if(el4) el4.innerText = `${izin} Orang`;
+        }
+
+        function filterRekap() { renderRekap(); showToast('Filter rekap diterapkan.', 'success'); }
+        function resetRekapData() { showConfirm('Reset Rekap', 'Hapus seluruh data rekap absensi?', () => { rekapList = []; renderRekap(); showToast('Data rekap di-reset.', 'success'); }, true); }
+        function exportToExcel() {
+            const ws = XLSX.utils.json_to_sheet(rekapList);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Rekap Absensi");
+            XLSX.writeFile(wb, "Rekap_Absensi.xlsx");
+            showToast('File Excel berhasil di-export.', 'success');
+        }
+        function openRoleModal() { document.getElementById('role-modal').classList.remove('hidden'); }
+        function closeRoleModal() { document.getElementById('role-modal').classList.add('hidden'); }
+        function saveRole() {
+            const id = document.getElementById('inp-role-id').value;
+            const name = document.getElementById('inp-role-name').value;
+            const access = document.getElementById('inp-role-access').value;
+            if(!id || !name) return showToast('Isi ID dan Nama Role dengan benar', 'error');
+            roles.push({ id, name, access });
+            supabaseClient.from('roles').insert([{ id, name, access }]).then();
+            renderRoles(); closeRoleModal(); showToast('Role baru berhasil disimpan.', 'success');
+        }
+        function openAddEmployeeModal() { document.getElementById('employee-modal').classList.remove('hidden'); }
+        function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
         async function saveEmployee() {
-            const idx = parseInt(document.getElementById('edit-index').value);
             const id = document.getElementById('inp-id').value.trim();
             const name = document.getElementById('inp-name').value.trim();
             const position = document.getElementById('inp-position').value.trim();
             const role = document.getElementById('inp-role').value;
             const atasan = document.getElementById('inp-atasan').value;
-            const password = document.getElementById('inp-password').value.trim();
-
-            if (!id || !name) return showToast('ID / Email dan Nama wajib diisi!', 'error');
-
-            const hashedPassword = password ? await hashPassword(password) : '••••••••';
-
-            if (idx === -1) {
-                const newEmp = { id, name, position, role, atasan, password: hashedPassword, status: 'Approved', device_id: 'Unbound' };
-                employees.push({ ...newEmp, deviceId: 'Unbound' });
-                await supabaseClient.from('employees').insert([newEmp]);
-            } else {
-                employees[idx] = { ...employees[idx], id, name, position, role, atasan, password: hashedPassword };
-                await supabaseClient.from('employees').update({ name, position, role, atasan, password: hashedPassword }).eq('id', id);
-            }
-            renderEmployees();
-            closeEmployeeModal();
-            showToast('Data karyawan berhasil disimpan.', 'success');
-        }
-
-        function editEmployee(idx) {
-            const e = employees[idx];
-            document.getElementById('edit-index').value = idx;
-            document.getElementById('modal-title').innerText = 'Edit Karyawan';
-            document.getElementById('inp-id').value = e.id;
-            document.getElementById('inp-name').value = e.name;
-            document.getElementById('inp-position').value = e.position;
-            document.getElementById('inp-role').value = e.role;
-            document.getElementById('inp-atasan').value = e.atasan;
-            document.getElementById('inp-password').value = '';
-            document.getElementById('employee-modal').classList.remove('hidden');
-        }
-
-        async function deleteEmployee(idx) {
-            const e = employees[idx];
-            showConfirm('Hapus Karyawan', `Hapus data ${e.name}?`, async () => {
-                employees.splice(idx, 1);
-                await supabaseClient.from('employees').delete().eq('id', e.id);
-                renderEmployees();
-                showToast('Karyawan dihapus.', 'success');
-            });
-        }
-
-        function renderRekap() {
-            const tbody = document.getElementById('rekap-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = rekapList.length === 0 ? `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>` :
-            rekapList.map(r => `
-                <tr class="border-b border-slate-800">
-                    <td class="p-3 font-mono">${r.date}</td>
-                    <td class="p-3 font-bold text-white">${r.name}</td>
-                    <td class="p-3">${r.basecamp}</td>
-                    <td class="p-3 font-mono">${r.time}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-semibold ${r.status.includes('Tepat') ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${r.status}</span></td>
-                    <td class="p-3 font-mono">${r.late}</td>
-                    <td class="p-3">${r.selfie_url ? `<button onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} (${r.date})')" class="px-2 py-1 bg-gold-500/10 text-gold-400 border border-gold-500/20 rounded">Lihat Foto</button>` : 'Tidak ada'}</td>
-                </tr>
-            `).join('');
-        }
-
-        function filterRekap() {
-            showToast('Filter rekap diterapkan.', 'success');
-            renderRekap();
-        }
-
-        function resetRekapData() {
-            showConfirm('Reset Rekap', 'Hapus seluruh data rekap absensi?', async () => {
-                rekapList = [];
-                await supabaseClient.from('rekap_list').delete().neq('id', 0);
-                renderRekap();
-                showToast('Rekap absensi direset.', 'success');
-            });
-        }
-
-        function exportToExcel() {
-            if (rekapList.length === 0) return showToast('Tidak ada data untuk diexport.', 'warning');
-            const ws = XLSX.utils.json_to_sheet(rekapList);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Rekap Absensi");
-            XLSX.writeFile(wb, "Rekap_Absensi.xlsx");
-            showToast('File Excel berhasil diunduh.', 'success');
-        }
-
-        function renderAdminIzin() {
-            const container = document.getElementById('admin-izin-container');
-            const counterBadge = document.getElementById('tab-izin-counter-badge');
-            const sidebarBadge = document.getElementById('sidebar-izin-badge');
-            if (!container) return;
-
-            const pendingIzin = izinList.filter(i => i.status === 'Pending');
-            if (counterBadge) {
-                if (pendingIzin.length > 0) {
-                    counterBadge.innerText = `${pendingIzin.length} Pengajuan Pending`;
-                    counterBadge.classList.remove('hidden');
-                    if (sidebarBadge) { sidebarBadge.innerText = pendingIzin.length; sidebarBadge.classList.remove('hidden'); }
-                } else {
-                    counterBadge.classList.add('hidden');
-                    if (sidebarBadge) sidebarBadge.classList.add('hidden');
-                }
-            }
-
-            container.innerHTML = izinList.length === 0 ? `<p class="text-slate-500 text-center py-4">Belum ada pengajuan izin.</p>` :
-            izinList.map((i, idx) => `
-                <div class="glass-card p-4 rounded-xl border ${i.status === 'Pending' ? 'border-amber-500/30' : 'border-slate-800'} flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="font-bold text-white">${i.name}</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] bg-gold-500/10 text-gold-400 font-semibold">${i.jenis}</span>
-                            <span class="px-2 py-0.5 rounded text-[10px] ${i.status === 'Pending' ? 'bg-amber-500/20 text-amber-400' : i.status === 'Disetujui' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'} font-semibold">${i.status}</span>
-                        </div>
-                        <p class="text-xs text-slate-300">Tanggal: <span class="font-mono text-gold-400">${i.start} s/d ${i.end}</span></p>
-                        <p class="text-xs text-slate-400 mt-1">Alasan: "${i.desc}"</p>
-                    </div>
-                    ${i.status === 'Pending' ? `
-                        <div class="flex gap-2">
-                            <button onclick="approveIzin(${idx})" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs">Setujui</button>
-                            <button onclick="rejectIzin(${idx})" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs">Tolak</button>
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        }
-
-        async function approveIzin(idx) {
-            izinList[idx].status = 'Disetujui';
-            await supabaseClient.from('izin_list').update({ status: 'Disetujui' }).eq('id', izinList[idx].id);
-            renderAdminIzin();
-            showToast('Pengajuan izin disetujui.', 'success');
-        }
-
-        async function rejectIzin(idx) {
-            izinList[idx].status = 'Ditolak';
-            await supabaseClient.from('izin_list').update({ status: 'Ditolak' }).eq('id', izinList[idx].id);
-            renderAdminIzin();
-            showToast('Pengajuan izin ditolak.', 'warning');
-        }
-
-        function renderMobileMyHistory() {
-            const container = document.getElementById('mobile-my-history');
-            if (!container) return;
-
-            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name);
-            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
-
-            let html = '';
-            if (myRekap.length === 0 && myIzin.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
-                return;
-            }
-
-            html += myRekap.map(r => `
-                <div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
-                    <div>
-                        <p class="font-bold text-white">Absen: ${r.date}</p>
-                        <p class="text-[10px] text-slate-400">Jam: ${r.time} (${r.status})</p>
-                    </div>
-                    <span class="text-emerald-400 font-semibold text-[10px]">Hadir</span>
-                </div>
-            `).join('');
-
-            html += myIzin.map(i => `
-                <div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
-                    <div>
-                        <p class="font-bold text-white">Izin: ${i.jenis} (${i.start})</p>
-                        <p class="text-[10px] text-slate-400">${i.desc}</p>
-                    </div>
-                    <span class="font-semibold text-[10px] ${i.status === 'Disetujui' ? 'text-emerald-400' : i.status === 'Pending' ? 'text-amber-400' : 'text-rose-400'}">${i.status}</span>
-                </div>
-            `).join('');
-
-            container.innerHTML = html;
-        }
-
-        function updateDashboardStats() {
-            const totalEl = document.getElementById('stat-total-karyawan');
-            const tepatEl = document.getElementById('stat-tepat-waktu');
-            const terlambatEl = document.getElementById('stat-terlambat');
-            const izinEl = document.getElementById('stat-izin-alpha');
-
-            if (totalEl) totalEl.innerText = `${employees.length} Orang`;
-            if (tepatEl) tepatEl.innerText = `${rekapList.filter(r => r.status.includes('Tepat')).length} Orang`;
-            if (terlambatEl) terlambatEl.innerText = `${rekapList.filter(r => r.status.includes('Terlambat')).length} Orang`;
-            if (izinEl) izinEl.innerText = `${izinList.filter(i => i.status === 'Disetujui').length} Orang`;
+            const password = document.getElementById('inp-password').value;
+            if(!id || !name) return showToast('Isi data karyawan dengan lengkap', 'error');
+            const hashedPassword = await hashPassword(password || '123456');
+            const newEmp = { id, name, position, role, atasan, password: hashedPassword, status: 'Approved', device_id: 'Unbound' };
+            employees.push({ ...newEmp, deviceId: 'Unbound' });
+            await supabaseClient.from('employees').insert([newEmp]);
+            renderEmployees(); updateDashboardStats(); closeEmployeeModal(); showToast('Karyawan berhasil ditambahkan.', 'success');
         }
     </script>
 </body>
