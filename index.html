@@ -495,7 +495,7 @@
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2aXFmZGJ1b3J1cWxkc2JicnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjU1MzksImV4cCI6MjEwMjIwMTUzOX0.RalUZTRpAKswYK0SxdJjZWkY1wQb1V0JFKmXu8i0Lo0';
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // ==================== FUNGSI UTILITIES YANG DITAMBAHKAN ==================== //
+        // ==================== FUNGSI UTILITIES ==================== //
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -558,11 +558,10 @@
             }
         }
 
-        // ==================== INISIALISASI DATA & STATE ==================== //
-        
+        // ==================== INISIALISASI STATE ==================== //
         let activeEmployeeSession = { name: 'Tamu' };
         
-        // ==================== LOGIKA LOGIN UTAMA YANG DIPERBARUI ==================== //
+        // ==================== LOGIKA LOGIN UTAMA (DIPERBAIKI DENGAN TRIM & MAYBESINGLE) ==================== //
 
         async function handleLogin() { 
             const email = document.getElementById('login-email').value.trim();
@@ -574,33 +573,38 @@
             }
 
             try {
-                // Mengambil data dari tabel 'employees'
-                // Karena 'id' digunakan sebagai email/username di tabel Anda, maka dicocokkan ke '.eq('id', email)'
+                // Menggunakan .maybeSingle() agar aman dari error pencarian baris tunggal di Supabase
                 const { data: user, error } = await supabaseClient
                     .from('employees') 
                     .select('*')
                     .eq('id', email) 
-                    .single();
+                    .maybeSingle();
 
-                if (error || !user) {
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    showToast('Terjadi kesalahan koneksi database!', 'error');
+                    return;
+                }
+
+                if (!user) {
                     showToast('Akun tidak ditemukan di Database!', 'error');
                     return;
                 }
 
-                // Cek kesesuaian password dengan kolom 'password'
-                if (user.password !== pass) { 
+                // Pembersihan spasi (trim) pada password database & input untuk menghindari error "password salah"
+                const dbPassword = user.password ? String(user.password).trim() : '';
+                const inputPassword = String(pass).trim();
+
+                if (dbPassword !== inputPassword) { 
                     showToast('Password salah!', 'error');
                     return;
                 }
 
-                // Cek status persetujuan akun (jika status null akan dilewati, jika ada 'Pending' akan ditolak)
-                // Hapus tanda komentar (//) di bawah jika Anda ingin mengaktifkan fitur ini
-                /*
+                // Cek status persetujuan akun jika diperlukan (opsional)
                 if (user.status && user.status.toLowerCase() !== 'approved' && user.status.toLowerCase() !== 'aktif') {
-                    showToast('Akun Anda belum disetujui atau sedang dinonaktifkan!', 'error');
+                    showToast('Akun Anda belum disetujui atau dinonaktifkan!', 'error');
                     return;
                 }
-                */
 
                 // Set Sesi Aktif
                 activeEmployeeSession = {
@@ -633,19 +637,27 @@
             }
 
             try {
-                // Pengecekan Desktop sama dengan mobile: Gunakan 'employees' dan cari di kolom 'id'
                 const { data: user, error } = await supabaseClient
                     .from('employees') 
                     .select('*')
                     .eq('id', email) 
-                    .single();
+                    .maybeSingle();
 
-                if (error || !user) {
+                if (error) {
+                    console.error("Supabase Error:", error);
+                    showToast('Terjadi kesalahan koneksi database!', 'error');
+                    return;
+                }
+
+                if (!user) {
                     showToast('Akun tidak ditemukan di Database!', 'error');
                     return;
                 }
 
-                if (user.password !== pass) {
+                const dbPassword = user.password ? String(user.password).trim() : '';
+                const inputPassword = String(pass).trim();
+
+                if (dbPassword !== inputPassword) {
                     showToast('Password salah!', 'error');
                     return;
                 }
