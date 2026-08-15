@@ -556,7 +556,7 @@
                                 </div>
                             </div>
 
-                            <!-- KOTAK MASUK DESKTOP (Tanpa kolom Isi Pesan, Klik untuk Baca, Tombol Hapus) -->
+                            <!-- KOTAK MASUK DESKTOP (Tombol Baca & Hapus) -->
                             <div id="d-email-inbox-section" class="space-y-3">
                                 <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                     <table class="w-full text-left text-xs">
@@ -574,7 +574,7 @@
                                 </div>
                             </div>
 
-                            <!-- KOTAK KELUAR DESKTOP (Tanpa kolom Isi Pesan, Klik untuk Baca, Tombol Hapus) -->
+                            <!-- KOTAK KELUAR DESKTOP (Tombol Baca & Hapus) -->
                             <div id="d-email-sent-section" class="space-y-3 hidden">
                                 <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                     <table class="w-full text-left text-xs">
@@ -583,7 +583,7 @@
                                                 <th class="p-3">Waktu</th>
                                                 <th class="p-3">Penerima</th>
                                                 <th class="p-3">Subjek</th>
-                                                <th class="p-3 w-28">Aksi</th>
+                                                <th class="p-3 w-36">Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody id="desktop-sent-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
@@ -1401,7 +1401,6 @@
         async function handleAbsen() {
             if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
             
-            // Validasi Batas Absen Mulai Pukul 07:45:00 WIB
             const nowCheck = new Date();
             const currentSecs = nowCheck.getHours() * 3600 + nowCheck.getMinutes() * 60 + nowCheck.getSeconds();
             const limitSecs = 7 * 3600 + 45 * 60; // 07:45:00 WIB
@@ -1650,20 +1649,19 @@
                 const newRole = { id, name, access };
                 roles.push(newRole);
                 await supabaseClient.from('roles').insert([newRole]);
-                showToast('Role berhasil ditambahkan!', 'success');
+                showToast('Role baru berhasil ditambahkan.', 'success');
             } else {
-                const r = roles[editIndex];
-                r.id = id; r.name = name; r.access = access;
+                roles[editIndex] = { id, name, access };
                 await supabaseClient.from('roles').update({ name, access }).eq('id', id);
-                showToast('Role berhasil diperbarui!', 'success');
+                showToast('Role berhasil diperbarui.', 'success');
             }
             closeRoleModal();
             renderRoles();
         }
 
-        function deleteRole(index) {
-            showConfirm('Hapus Role', `Apakah Anda yakin ingin menghapus role ${roles[index].name}?`, async () => {
-                const r = roles[index];
+        async function deleteRole(index) {
+            const r = roles[index];
+            showConfirm('Hapus Role', `Apakah Anda yakin ingin menghapus role ${r.name}?`, async () => {
                 roles.splice(index, 1);
                 await supabaseClient.from('roles').delete().eq('id', r.id);
                 renderRoles();
@@ -1671,355 +1669,13 @@
             });
         }
 
-        // ==================== MANAJEMEN KARYAWAN & EDIT ==================== //
-        function renderEmployees() {
-            const tbody = document.getElementById('karyawan-tbody');
-            if(!tbody) return;
-            tbody.innerHTML = employees.map((e, index) => `
-                <tr class="hover:bg-slate-900/50">
-                    <td class="p-3 font-mono text-slate-300">${e.id}</td>
-                    <td class="p-3 font-semibold text-white">${e.name}</td>
-                    <td class="p-3 text-slate-300">${e.position}</td>
-                    <td class="p-3 text-slate-300">${e.role}</td>
-                    <td class="p-3 text-slate-300">${e.atasan || '-'}</td>
-                    <td class="p-3 font-mono text-slate-500 max-w-[100px] truncate">${e.password}</td>
-                    <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${e.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
-                            ${e.status}
-                        </span>
-                    </td>
-                    <td class="p-3">
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            ${e.status === 'Pending' ? `<button onclick="approveEmployeeAccount(${index})" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded text-[11px] font-semibold transition">Approve</button>` : ''}
-                            <button onclick="openEditEmployeeModal(${index})" class="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-[11px] font-semibold transition flex items-center gap-1"><i class="fa-solid fa-pen"></i> Edit</button>
-                            <button onclick="resetEmployeeDevice(${index})" class="px-2 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Reset Device</button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
-
-            const atasanSelect = document.getElementById('inp-atasan');
-            if (atasanSelect) {
-                atasanSelect.innerHTML = `<option value="Master Admin">Master Admin</option>` + employees.map(emp => `<option value="${emp.name}">${emp.name}</option>`).join('');
-            }
-
-            const pendingCount = employees.filter(e => e.status === 'Pending').length;
-            const badge = document.getElementById('karyawan-pending-badge');
-            if (badge) {
-                if (pendingCount > 0) {
-                    badge.innerText = `${pendingCount} Pending`;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-        }
-
-        function openAddEmployeeModal() {
-            document.getElementById('modal-title').innerText = "Tambah Karyawan";
-            document.getElementById('edit-index').value = "-1";
-            document.getElementById('inp-id').value = "";
-            document.getElementById('inp-id').disabled = false;
-            document.getElementById('inp-name').value = "";
-            document.getElementById('inp-position').value = "";
-            document.getElementById('inp-password').value = "";
-            document.getElementById('employee-modal').classList.remove('hidden');
-        }
-
-        function openEditEmployeeModal(index) {
-            const emp = employees[index];
-            document.getElementById('modal-title').innerText = "Edit Karyawan";
-            document.getElementById('edit-index').value = index;
-            document.getElementById('inp-id').value = emp.id;
-            document.getElementById('inp-id').disabled = true; // Email/ID tidak boleh diubah saat edit
-            document.getElementById('inp-name').value = emp.name;
-            document.getElementById('inp-position').value = emp.position;
-            document.getElementById('inp-role').value = emp.role;
-            document.getElementById('inp-atasan').value = emp.atasan || 'Master Admin';
-            document.getElementById('inp-password').value = "••••••••";
-            document.getElementById('employee-modal').classList.remove('hidden');
-        }
-
-        function closeEmployeeModal() {
-            document.getElementById('employee-modal').classList.add('hidden');
-        }
-
-        async function saveEmployee() {
-            const editIndex = parseInt(document.getElementById('edit-index').value);
-            const id = document.getElementById('inp-id').value.trim();
-            const name = document.getElementById('inp-name').value.trim();
-            const position = document.getElementById('inp-position').value.trim();
-            const role = document.getElementById('inp-role').value;
-            const atasan = document.getElementById('inp-atasan').value;
-            const pass = document.getElementById('inp-password').value.trim();
-
-            if (!id || !name || !position) return showToast('Harap isi semua kolom wajib!', 'error');
-
-            if (editIndex === -1) {
-                if (employees.some(e => e.id === id)) return showToast('ID / Email karyawan sudah terdaftar!', 'error');
-                const hashedPassword = await hashPassword(pass || '123456');
-                const newEmp = {
-                    id, name, position, role, atasan,
-                    password: hashedPassword, status: 'Approved', device_id: 'Unbound'
-                };
-                employees.push({ ...newEmp, deviceId: newEmp.device_id });
-                await supabaseClient.from('employees').insert([newEmp]);
-                showToast('Karyawan berhasil ditambahkan!', 'success');
-            } else {
-                const emp = employees[editIndex];
-                emp.name = name;
-                emp.position = position;
-                emp.role = role;
-                emp.atasan = atasan;
-                if (pass && pass !== '••••••••') {
-                    emp.password = await hashPassword(pass);
-                }
-                await supabaseClient.from('employees').update({
-                    name: emp.name,
-                    position: emp.position,
-                    role: emp.role,
-                    atasan: emp.atasan,
-                    password: emp.password
-                }).eq('id', emp.id);
-                showToast('Data karyawan berhasil diperbarui!', 'success');
-            }
-
-            closeEmployeeModal();
-            renderEmployees();
-            updateDashboardStats();
-        }
-
-        // ==================== BASECAMP ==================== //
-        function renderBasecamps() {
-            const container = document.getElementById('basecamp-container');
-            if(!container) return;
-            container.innerHTML = basecamps.map((b, index) => `
-                <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <div class="flex justify-between items-start">
-                        <h5 class="text-xs font-bold text-white">${b.name}</h5>
-                        <div class="flex gap-1.5">
-                            <button onclick="openEditBasecampModal(${index})" class="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-[10px] font-semibold"><i class="fa-solid fa-pen"></i> Edit</button>
-                            <button onclick="deleteBasecamp(${index})" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[10px] font-semibold"><i class="fa-solid fa-trash"></i> Hapus</button>
-                        </div>
-                    </div>
-                    <p class="text-[11px] text-slate-400"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat: ${b.lat}, Lng: ${b.lng}</p>
-                    <p class="text-[11px] text-slate-400"><i class="fa-solid fa-bullseye text-emerald-400"></i> Radius: ${b.radius} Meter</p>
-                </div>
-            `).join('');
-
-            if (!bcMap) {
-                bcMap = L.map('basecamp-map').setView([0.5071, 101.4478], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
-            }
-            basecamps.forEach(b => {
-                L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup(`<b>${b.name}</b><br>Radius: ${b.radius}m`);
-            });
-        }
-
-        function openAddBasecampModal() {
-            document.getElementById('bc-modal-title').innerText = "Tambah Basecamp";
-            document.getElementById('bc-edit-index').value = "-1";
-            document.getElementById('bc-inp-name').value = "";
-            document.getElementById('bc-inp-lat').value = "";
-            document.getElementById('bc-inp-lng').value = "";
-            document.getElementById('bc-inp-radius').value = "1500";
-            document.getElementById('basecamp-modal').classList.remove('hidden');
-        }
-
-        function openEditBasecampModal(index) {
-            const b = basecamps[index];
-            document.getElementById('bc-modal-title').innerText = "Edit Basecamp";
-            document.getElementById('bc-edit-index').value = index;
-            document.getElementById('bc-inp-name').value = b.name;
-            document.getElementById('bc-inp-lat').value = b.lat;
-            document.getElementById('bc-inp-lng').value = b.lng;
-            document.getElementById('bc-inp-radius').value = b.radius;
-            document.getElementById('basecamp-modal').classList.remove('hidden');
-        }
-
-        function closeBasecampModal() {
-            document.getElementById('basecamp-modal').classList.add('hidden');
-        }
-
-        async function saveBasecamp() {
-            const editIndex = parseInt(document.getElementById('bc-edit-index').value);
-            const name = document.getElementById('bc-inp-name').value.trim();
-            const lat = parseFloat(document.getElementById('bc-inp-lat').value);
-            const lng = parseFloat(document.getElementById('bc-inp-lng').value);
-            const radius = parseInt(document.getElementById('bc-inp-radius').value);
-
-            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) return showToast('Harap lengkapi data basecamp dengan benar!', 'error');
-
-            if (editIndex === -1) {
-                const newBc = { name, lat, lng, radius };
-                basecamps.push(newBc);
-                await supabaseClient.from('basecamps').insert([newBc]);
-                showToast('Basecamp berhasil ditambahkan!', 'success');
-            } else {
-                const b = basecamps[editIndex];
-                b.name = name; b.lat = lat; b.lng = lng; b.radius = radius;
-                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', b.id);
-                showToast('Basecamp berhasil diperbarui!', 'success');
-            }
-            closeBasecampModal();
-            renderBasecamps();
-        }
-
-        function deleteBasecamp(index) {
-            showConfirm('Hapus Basecamp', `Hapus basecamp ${basecamps[index].name}?`, async () => {
-                const b = basecamps[index];
-                basecamps.splice(index, 1);
-                await supabaseClient.from('basecamps').delete().eq('id', b.id);
-                renderBasecamps();
-                showToast('Basecamp berhasil dihapus.', 'success');
-            });
-        }
-
-        // ==================== IZIN & APPROVAL ==================== //
-        function renderAdminIzin() {
-            const container = document.getElementById('admin-izin-container');
-            if(!container) return;
-            const pendingIzin = izinList.filter(i => i.status === 'Pending');
-            
-            const badge = document.getElementById('tab-izin-counter-badge');
-            const sidebarBadge = document.getElementById('sidebar-izin-badge');
-            if (badge) {
-                if (pendingIzin.length > 0) {
-                    badge.innerText = `${pendingIzin.length} Pengajuan Pending`;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-            if (sidebarBadge) {
-                if (pendingIzin.length > 0) {
-                    sidebarBadge.innerText = pendingIzin.length;
-                    sidebarBadge.classList.remove('hidden');
-                } else {
-                    sidebarBadge.classList.add('hidden');
-                }
-            }
-
-            if(izinList.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center py-4">Belum ada pengajuan izin.</p>`;
-                return;
-            }
-
-            container.innerHTML = izinList.map(i => `
-                <div class="glass-card p-4 rounded-xl border border-slate-800 space-y-2">
-                    <div class="flex justify-between items-center text-xs">
-                        <span class="font-bold text-white">${i.name} (${i.jenis})</span>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : i.status === 'Ditolak' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">${i.status}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-300">Tanggal: ${i.start} s/d ${i.end}</p>
-                    <p class="text-[11px] text-slate-400 italic">Keterangan: "${i.desc}"</p>
-                    ${i.status === 'Pending' ? `
-                        <div class="flex gap-2 pt-2">
-                            <button onclick="updateIzinStatus(${i.id}, 'Disetujui')" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold text-[11px] rounded-lg shadow">Setujui</button>
-                            <button onclick="updateIzinStatus(${i.id}, 'Ditolak')" class="px-3 py-1 bg-rose-500 text-white font-bold text-[11px] rounded-lg shadow">Tolak</button>
-                        </div>
-                    ` : ''}
-                </div>
-            `).join('');
-        }
-
-        async function updateIzinStatus(id, newStatus) {
-            const izin = izinList.find(i => i.id === id);
-            if (!izin) return;
-            izin.status = newStatus;
-            await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
-            renderAdminIzin();
-            showToast(`Pengajuan izin status diubah menjadi: ${newStatus}`, 'success');
-        }
-
-        function renderMobileMyHistory() {
-            const container = document.getElementById('mobile-my-history');
-            if (!container) return;
-            const myName = activeEmployeeSession.name;
-            const myAbsens = rekapList.filter(r => r.name === myName);
-            const myIzins = izinList.filter(i => i.name === myName);
-
-            if (myAbsens.length === 0 && myIzins.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
-                return;
-            }
-
-            let html = '';
-            myAbsens.forEach(a => {
-                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                    <div><span class="font-bold text-white">Absen Masuk (${a.date})</span><span class="text-slate-400 block">${a.time} WIB - ${a.status}</span></div>
-                    <span class="text-emerald-400 font-semibold">${a.basecamp}</span>
-                </div>`;
-            });
-            myIzins.forEach(i => {
-                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-[11px]">
-                    <div><span class="font-bold text-white">Izin: ${i.jenis}</span><span class="text-slate-400 block">${i.start} s/d ${i.end}</span></div>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        // ==================== EMAIL & BROADCAST ==================== //
-        function populateEmailRecipients() {
-            const mSelect = document.getElementById('m-email-recipient');
-            const dSelect = document.getElementById('d-email-recipient');
-            const options = `<option value="BROADCAST">📢 BROADCAST (Kirim ke Seluruh Karyawan)</option>` + employees.map(e => `<option value="${e.id}">${e.name} (${e.id})</option>`).join('');
-            if (mSelect) mSelect.innerHTML = options;
-            if (dSelect) dSelect.innerHTML = options;
-        }
-
-        async function sendAppEmail(mode) {
-            if (activeEmployeeSession.name === 'Tamu') { return showToast('Silakan login terlebih dahulu.', 'error'); }
-
-            const prefix = mode === 'mobile' ? 'm' : 'd';
-            const recipient = document.getElementById(`${prefix}-email-recipient`).value;
-            const subject = document.getElementById(`${prefix}-email-subject`).value.trim();
-            const message = document.getElementById(`${prefix}-email-message`).value.trim();
-
-            if (!subject || !message) { return showToast('Harap isi subjek dan pesan!', 'error'); }
-
-            const dbEmail = {
-                sender: activeEmployeeSession.id,
-                sender_name: activeEmployeeSession.name,
-                recipient: recipient,
-                subject: subject,
-                message: message,
-                created_at: new Date().toISOString()
-            };
-
-            const { data: inserted, error } = await supabaseClient.from('emails').insert([dbEmail]).select();
-            if (error) {
-                console.error("Gagal kirim email:", error);
-                return showToast("Gagal mengirim pesan.", "error");
-            }
-
-            if (inserted && inserted.length > 0) {
-                emailsList.unshift({
-                    id: inserted[0].id,
-                    sender: inserted[0].sender,
-                    sender_name: inserted[0].sender_name,
-                    receiver: inserted[0].recipient,
-                    subject: inserted[0].subject,
-                    message: inserted[0].message,
-                    created_at: inserted[0].created_at,
-                    read: false
-                });
-            }
-
-            document.getElementById(`${prefix}-email-subject`).value = '';
-            document.getElementById(`${prefix}-email-message`).value = '';
-            showToast('Pesan berhasil dikirim!', 'success');
-            renderEmails();
-            updateEmailBadges();
-        }
-
+        // ==================== EMAIL & BROADCAST FUNCTIONS ==================== //
         function renderEmails() {
-            const userEmail = activeEmployeeSession && activeEmployeeSession.id ? activeEmployeeSession.id : '';
+            const userId = activeEmployeeSession && activeEmployeeSession.id ? activeEmployeeSession.id : 'tamu';
             const readIds = getReadEmailIds();
 
-            const inbox = emailsList.filter(e => (e.receiver === userEmail || e.receiver === 'BROADCAST') && e.sender !== userEmail);
-            const sent = emailsList.filter(e => e.sender === userEmail);
+            const inbox = emailsList.filter(e => (e.receiver === userId || e.receiver === 'BROADCAST') && e.sender !== userId);
+            const sent = emailsList.filter(e => e.sender === userId);
 
             // Mobile Inbox
             const mInboxEl = document.getElementById('mobile-inbox-list');
@@ -2029,13 +1685,14 @@
                 } else {
                     mInboxEl.innerHTML = inbox.map(e => {
                         const isRead = readIds.includes(e.id) || e.read;
+                        const unreadDot = !isRead ? `<span class="w-2 h-2 rounded-full bg-gold-400 inline-block"></span>` : '';
                         return `
-                            <div onclick="openEmailDetail('${e.id}')" class="glass-card p-3 rounded-xl border ${isRead ? 'border-slate-800' : 'border-gold-500/40 bg-gold-500/5'} cursor-pointer hover:border-gold-500 transition space-y-1">
-                                <div class="flex justify-between items-center text-[10px] text-slate-400">
-                                    <span>Dari: <b class="text-white">${e.sender_name || e.sender}</b></span>
-                                    <span>${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
+                            <div class="glass-card p-3 rounded-xl space-y-1.5 cursor-pointer hover:border-gold-500/50 transition ${!isRead ? 'border-l-4 border-l-gold-500' : ''}" onclick="openEmailDetail('${e.id}')">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold text-white flex items-center gap-1.5">${unreadDot} ${e.sender_name || getEmployeeDisplayName(e.sender)}</span>
+                                    <span class="text-[10px] text-slate-400 font-mono">${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
                                 </div>
-                                <h4 class="text-xs font-bold text-white">${e.subject}</h4>
+                                <p class="text-xs text-gold-400 font-semibold">${e.subject}</p>
                                 <p class="text-[11px] text-slate-300 truncate">${e.message}</p>
                             </div>
                         `;
@@ -2050,19 +1707,19 @@
                     mSentEl.innerHTML = `<p class="text-slate-500 text-center py-4">Tidak ada pesan terkirim.</p>`;
                 } else {
                     mSentEl.innerHTML = sent.map(e => `
-                        <div onclick="openEmailDetail('${e.id}')" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition space-y-1">
-                            <div class="flex justify-between items-center text-[10px] text-slate-400">
-                                <span>Kepada: <b class="text-white">${getEmployeeDisplayName(e.receiver)}</b></span>
-                                <span>${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
+                        <div class="glass-card p-3 rounded-xl space-y-1.5 cursor-pointer hover:border-gold-500/50 transition" onclick="openEmailDetail('${e.id}')">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-white">Kepada: ${getEmployeeDisplayName(e.receiver)}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
                             </div>
-                            <h4 class="text-xs font-bold text-white">${e.subject}</h4>
+                            <p class="text-xs text-gold-400 font-semibold">${e.subject}</p>
                             <p class="text-[11px] text-slate-300 truncate">${e.message}</p>
                         </div>
                     `).join('');
                 }
             }
 
-            // Desktop Inbox (Tanpa kolom Isi Pesan, Klik baris untuk baca, Tombol Hapus di Aksi)
+            // Desktop Inbox (Fully Functional 'Baca' Button)
             const dInboxTbody = document.getElementById('desktop-inbox-tbody');
             if (dInboxTbody) {
                 if (inbox.length === 0) {
@@ -2070,16 +1727,22 @@
                 } else {
                     dInboxTbody.innerHTML = inbox.map(e => {
                         const isRead = readIds.includes(e.id) || e.read;
+                        const unreadDot = !isRead ? `<span class="w-2 h-2 rounded-full bg-gold-400 inline-block mr-1"></span>` : '';
+                        const typeBadge = e.receiver === 'BROADCAST' ? '<span class="px-2 py-0.5 rounded bg-gold-500/10 text-gold-400 border border-gold-500/20 text-[10px]">Broadcast</span>' : '<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">Pribadi</span>';
                         return `
-                            <tr class="hover:bg-slate-900/50 cursor-pointer ${isRead ? '' : 'bg-gold-500/5 font-semibold'}" onclick="openEmailDetail('${e.id}')">
+                            <tr class="hover:bg-slate-900/50 ${!isRead ? 'bg-slate-900/30 font-medium' : ''}">
                                 <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString('id-ID')}</td>
-                                <td class="p-3 text-white">${e.sender_name || e.sender}</td>
-                                <td class="p-3 text-white">${e.subject}</td>
-                                <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${e.receiver === 'BROADCAST' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}">${e.receiver === 'BROADCAST' ? 'Broadcast' : 'Pesan Pribadi'}</span></td>
-                                <td class="p-3" onclick="event.stopPropagation()">
-                                    <div class="flex items-center gap-2">
-                                        <button onclick="openEmailDetail('${e.id}')" class="px-2.5 py-1 bg-gold-500/20 text-gold-400 hover:bg-gold-500/30 rounded text-xs font-semibold transition">Baca</button>
-                                        <button onclick="deleteEmail('${e.id}')" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-xs font-semibold transition"><i class="fa-solid fa-trash"></i> Hapus</button>
+                                <td class="p-3 text-white font-semibold">${unreadDot}${e.sender_name || getEmployeeDisplayName(e.sender)}</td>
+                                <td class="p-3 text-slate-200">${e.subject}</td>
+                                <td class="p-3">${typeBadge}</td>
+                                <td class="p-3">
+                                    <div class="flex items-center gap-1.5">
+                                        <button onclick="openEmailDetail('${e.id}')" class="px-2.5 py-1 bg-gold-500/20 text-gold-400 hover:bg-gold-500/30 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                                            <i class="fa-solid fa-book-open"></i> Baca
+                                        </button>
+                                        <button onclick="deleteEmail('${e.id}')" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded-lg text-xs transition" title="Hapus">
+                                            <i class="fa-solid fa-trash"></i>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -2088,19 +1751,26 @@
                 }
             }
 
-            // Desktop Sent (Tanpa kolom Isi Pesan, Klik baris untuk baca, Tombol Hapus di Aksi)
+            // Desktop Sent (Fully Functional 'Baca' Button)
             const dSentTbody = document.getElementById('desktop-sent-tbody');
             if (dSentTbody) {
                 if (sent.length === 0) {
                     dSentTbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">Tidak ada pesan terkirim.</td></tr>`;
                 } else {
                     dSentTbody.innerHTML = sent.map(e => `
-                        <tr class="hover:bg-slate-900/50 cursor-pointer" onclick="openEmailDetail('${e.id}')">
+                        <tr class="hover:bg-slate-900/50">
                             <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString('id-ID')}</td>
-                            <td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td>
-                            <td class="p-3 text-white">${e.subject}</td>
-                            <td class="p-3" onclick="event.stopPropagation()">
-                                <button onclick="deleteEmail('${e.id}')" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-xs font-semibold transition"><i class="fa-solid fa-trash"></i> Hapus</button>
+                            <td class="p-3 text-white font-semibold">${getEmployeeDisplayName(e.receiver)}</td>
+                            <td class="p-3 text-slate-200">${e.subject}</td>
+                            <td class="p-3">
+                                <div class="flex items-center gap-1.5">
+                                    <button onclick="openEmailDetail('${e.id}')" class="px-2.5 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg text-xs font-semibold transition flex items-center gap-1">
+                                        <i class="fa-solid fa-book-open"></i> Baca
+                                    </button>
+                                    <button onclick="deleteEmail('${e.id}')" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded-lg text-xs transition" title="Hapus">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     `).join('');
@@ -2111,11 +1781,11 @@
         function openEmailDetail(emailId) {
             const email = emailsList.find(e => e.id === emailId);
             if (!email) return;
-            activeSelectedEmail = email;
 
+            activeSelectedEmail = email;
             markEmailAsRead(emailId);
 
-            document.getElementById('detail-email-sender').innerText = email.sender_name ? `${email.sender_name} (${email.sender})` : email.sender;
+            document.getElementById('detail-email-sender').innerText = email.sender_name || getEmployeeDisplayName(email.sender);
             document.getElementById('detail-email-receiver').innerText = getEmployeeDisplayName(email.receiver);
             document.getElementById('detail-email-time').innerText = new Date(email.created_at).toLocaleString('id-ID');
             document.getElementById('detail-email-subject').innerText = email.subject;
@@ -2131,14 +1801,31 @@
 
         function replyEmail() {
             if (!activeSelectedEmail) return;
-            const recipientEmail = activeSelectedEmail.sender;
+            const originalSender = activeSelectedEmail.sender;
+            const originalSubject = activeSelectedEmail.subject;
+            
             closeEmailDetailModal();
-            switchDesktopTab('email');
-            switchDesktopEmailSub('compose');
-            const recSelect = document.getElementById('d-email-recipient');
-            if (recSelect) recSelect.value = recipientEmail;
-            const subInput = document.getElementById('d-email-subject');
-            if (subInput) subInput.value = `Re: ${activeSelectedEmail.subject}`;
+
+            const isDesktop = !document.getElementById('view-desktop').classList.contains('hidden');
+            if (isDesktop) {
+                switchDesktopEmailSub('compose');
+                const recipientSelect = document.getElementById('d-email-recipient');
+                if (recipientSelect) recipientSelect.value = originalSender;
+                const subjectInput = document.getElementById('d-email-subject');
+                if (subjectInput) subjectInput.value = `Re: ${originalSubject}`;
+                const messageInput = document.getElementById('d-email-message');
+                if (messageInput) messageInput.focus();
+            } else {
+                switchMobileTab('email');
+                switchMobileEmailSub('compose');
+                const recipientSelect = document.getElementById('m-email-recipient');
+                if (recipientSelect) recipientSelect.value = originalSender;
+                const subjectInput = document.getElementById('m-email-subject');
+                if (subjectInput) subjectInput.value = `Re: ${originalSubject}`;
+                const messageInput = document.getElementById('m-email-message');
+                if (messageInput) messageInput.focus();
+            }
+            showToast('Mode balas pesan diaktifkan.', 'success');
         }
 
         async function deleteEmail(emailId) {
@@ -2151,22 +1838,305 @@
             });
         }
 
-        // ==================== DASHBOARD STATS ==================== //
+        async function sendAppEmail(mode) {
+            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
+
+            const recipient = document.getElementById(mode === 'desktop' ? 'd-email-recipient' : 'm-email-recipient').value;
+            const subject = document.getElementById(mode === 'desktop' ? 'd-email-subject' : 'm-email-subject').value.trim();
+            const message = document.getElementById(mode === 'desktop' ? 'd-email-message' : 'm-email-message').value.trim();
+
+            if (!subject || !message) { showToast('Harap lengkapi subjek dan isi pesan!', 'error'); return; }
+
+            const newEmail = {
+                sender: activeEmployeeSession.id,
+                sender_name: activeEmployeeSession.name,
+                recipient: recipient,
+                subject: subject,
+                message: message,
+                created_at: new Date().toISOString()
+            };
+
+            const { data: inserted, error } = await supabaseClient.from('emails').insert([newEmail]).select();
+            if (error) {
+                showToast('Gagal mengirim pesan ke server.', 'error');
+                return;
+            }
+
+            if (inserted && inserted.length > 0) {
+                emailsList.unshift({
+                    id: inserted[0].id,
+                    sender: inserted[0].sender,
+                    sender_name: inserted[0].sender_name,
+                    receiver: inserted[0].recipient,
+                    subject: inserted[0].subject,
+                    message: inserted[0].message,
+                    created_at: inserted[0].created_at,
+                    read: false
+                });
+            }
+
+            document.getElementById(mode === 'desktop' ? 'd-email-subject' : 'm-email-subject').value = '';
+            document.getElementById(mode === 'desktop' ? 'd-email-message' : 'm-email-message').value = '';
+
+            renderEmails();
+            updateEmailBadges();
+            showToast('Pesan / Broadcast berhasil dikirim!', 'success');
+
+            if (mode === 'desktop') switchDesktopEmailSub('inbox');
+            else switchMobileEmailSub('inbox');
+        }
+
+        function populateEmailRecipients() {
+            const dSelect = document.getElementById('d-email-recipient');
+            const mSelect = document.getElementById('m-email-recipient');
+            
+            const optionsHtml = `<option value="BROADCAST">📢 BROADCAST (Kirim ke Seluruh Karyawan)</option>` + 
+                employees.map(e => `<option value="${e.id}">${e.name} (${e.position})</option>`).join('');
+
+            if (dSelect) dSelect.innerHTML = optionsHtml;
+            if (mSelect) mSelect.innerHTML = optionsHtml;
+        }
+
+        function renderEmployees() {
+            const tbody = document.getElementById('karyawan-tbody');
+            if(!tbody) return;
+
+            let pendingCount = 0;
+            employees.forEach(e => { if(e.status === 'Pending') pendingCount++; });
+            const badgeEl = document.getElementById('karyawan-pending-badge');
+            if(badgeEl) {
+                if(pendingCount > 0) {
+                    badgeEl.innerText = `${pendingCount} Pending`;
+                    badgeEl.classList.remove('hidden');
+                } else {
+                    badgeEl.classList.add('hidden');
+                }
+            }
+
+            tbody.innerHTML = employees.map((e, index) => `
+                <tr class="hover:bg-slate-900/50">
+                    <td class="p-3 font-mono text-slate-300">${e.id}</td>
+                    <td class="p-3 font-semibold text-white">${e.name}</td>
+                    <td class="p-3 text-slate-300">${e.position}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-800 text-gold-400 font-semibold text-[10px]">${e.role}</span></td>
+                    <td class="p-3 text-slate-300">${e.atasan || '-'}</td>
+                    <td class="p-3 font-mono text-slate-400 truncate max-w-[100px]">${e.password.substring(0, 15)}...</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${e.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">${e.status}</span></td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            ${e.status === 'Pending' ? `<button onclick="approveEmployeeAccount(${index})" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded-lg text-xs font-semibold transition">Approve</button>` : ''}
+                            <button onclick="resetEmployeeDevice(${index})" class="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded-lg text-xs font-semibold transition" title="Reset Perangkat (UUID)">Reset HP</button>
+                            <button onclick="deleteEmployee(${index})" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded-lg text-xs transition"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const atasanSelect = document.getElementById('inp-atasan');
+            if(atasanSelect) {
+                atasanSelect.innerHTML = `<option value="Master Admin">Master Admin</option>` + employees.map(e => `<option value="${e.name}">${e.name}</option>`).join('');
+            }
+            populateEmailRecipients();
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('modal-title').innerText = "Tambah Karyawan Baru";
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('inp-id').value = "";
+            document.getElementById('inp-name').value = "";
+            document.getElementById('inp-position').value = "";
+            document.getElementById('inp-password').value = "";
+            document.getElementById('employee-modal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+
+        async function saveEmployee() {
+            const id = document.getElementById('inp-id').value.trim();
+            const name = document.getElementById('inp-name').value.trim();
+            const position = document.getElementById('inp-position').value.trim();
+            const role = document.getElementById('inp-role').value;
+            const atasan = document.getElementById('inp-atasan').value;
+            const pass = document.getElementById('inp-password').value.trim();
+
+            if(!id || !name || !pass) return showToast('Harap isi ID, Nama, dan Password!', 'error');
+
+            const hashedPassword = await hashPassword(pass);
+            const newEmp = { id, name, position, role, atasan, password: hashedPassword, status: 'Approved', device_id: 'Unbound' };
+            
+            employees.push({ ...newEmp, deviceId: 'Unbound' });
+            await supabaseClient.from('employees').insert([newEmp]);
+
+            renderEmployees(); updateDashboardStats();
+            closeEmployeeModal();
+            showToast('Karyawan berhasil ditambahkan.', 'success');
+        }
+
+        async function deleteEmployee(index) {
+            const emp = employees[index];
+            showConfirm('Hapus Karyawan', `Apakah Anda yakin ingin menghapus akun ${emp.name}?`, async () => {
+                employees.splice(index, 1);
+                await supabaseClient.from('employees').delete().eq('id', emp.id);
+                renderEmployees(); updateDashboardStats();
+                showToast('Karyawan berhasil dihapus.', 'success');
+            });
+        }
+
+        function renderBasecamps() {
+            const container = document.getElementById('basecamp-container');
+            if(!container) return;
+            container.innerHTML = basecamps.map((b, index) => `
+                <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                    <div class="flex justify-between items-center">
+                        <h5 class="text-xs font-bold text-white">${b.name}</h5>
+                        <button onclick="deleteBasecamp(${index})" class="text-rose-400 hover:text-rose-300 text-xs"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-mono"><i class="fa-solid fa-location-dot"></i> Lat: ${b.lat}, Lng: ${b.lng}</p>
+                    <p class="text-[11px] text-emerald-400"><i class="fa-solid fa-circle-nodes"></i> Radius: ${b.radius} Meter</p>
+                </div>
+            `).join('');
+
+            if (!bcMap) {
+                bcMap = L.map('basecamp-map').setView([0.5071, 101.4478], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
+            }
+            basecamps.forEach(b => {
+                L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup(`<b>${b.name}</b><br>Radius: ${b.radius}m`);
+                L.circle([b.lat, b.lng], { radius: b.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.15 }).addTo(bcMap);
+            });
+        }
+
+        function openAddBasecampModal() {
+            document.getElementById('basecamp-modal').classList.remove('hidden');
+        }
+
+        function closeBasecampModal() {
+            document.getElementById('basecamp-modal').classList.add('hidden');
+        }
+
+        async function saveBasecamp() {
+            const name = document.getElementById('bc-inp-name').value.trim();
+            const lat = parseFloat(document.getElementById('bc-inp-lat').value);
+            const lng = parseFloat(document.getElementById('bc-inp-lng').value);
+            const radius = parseInt(document.getElementById('bc-inp-radius').value);
+
+            if(!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) return showToast('Harap isi data basecamp dengan benar!', 'error');
+
+            const newBc = { name, lat, lng, radius };
+            basecamps.push(newBc);
+            await supabaseClient.from('basecamps').insert([newBc]);
+
+            renderBasecamps();
+            closeBasecampModal();
+            showToast('Basecamp berhasil ditambahkan.', 'success');
+        }
+
+        async function deleteBasecamp(index) {
+            const bc = basecamps[index];
+            showConfirm('Hapus Basecamp', `Hapus basecamp ${bc.name}?`, async () => {
+                basecamps.splice(index, 1);
+                await supabaseClient.from('basecamps').delete().eq('name', bc.name);
+                renderBasecamps();
+                showToast('Basecamp dihapus.', 'success');
+            });
+        }
+
+        function renderAdminIzin() {
+            const container = document.getElementById('admin-izin-container');
+            const badge = document.getElementById('sidebar-izin-badge');
+            const counterBadge = document.getElementById('tab-izin-counter-badge');
+            if(!container) return;
+
+            const pendingIzin = izinList.filter(i => i.status === 'Pending');
+            if(badge) {
+                if(pendingIzin.length > 0) { badge.innerText = pendingIzin.length; badge.classList.remove('hidden'); }
+                else badge.classList.add('hidden');
+            }
+            if(counterBadge) {
+                if(pendingIzin.length > 0) { counterBadge.innerText = `${pendingIzin.length} Pengajuan Pending`; counterBadge.classList.remove('hidden'); }
+                else counterBadge.classList.add('hidden');
+            }
+
+            if(izinList.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin / penyesuaian.</p>`;
+                return;
+            }
+
+            container.innerHTML = izinList.map((i, index) => `
+                <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div class="space-y-1 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-white">${i.name}</span>
+                            <span class="px-2 py-0.5 rounded bg-gold-500/10 text-gold-400 font-semibold text-[10px]">${i.jenis}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400' : i.status === 'Ditolak' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}">${i.status}</span>
+                        </div>
+                        <p class="text-slate-400"><i class="fa-solid fa-calendar"></i> ${i.start} s/d ${i.end}</p>
+                        <p class="text-slate-300 italic">"${i.desc}"</p>
+                    </div>
+                    ${i.status === 'Pending' ? `
+                        <div class="flex gap-2">
+                            <button onclick="updateIzinStatus(${index}, 'Disetujui')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow">Setujui</button>
+                            <button onclick="updateIzinStatus(${index}, 'Ditolak')" class="px-3 py-1.5 bg-rose-500 text-white font-bold text-xs rounded-xl shadow">Tolak</button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        async function updateIzinStatus(index, newStatus) {
+            const izin = izinList[index];
+            izin.status = newStatus;
+            await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', izin.id);
+            renderAdminIzin();
+            showToast(`Pengajuan izin ${izin.name} telah ${newStatus}.`, 'success');
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if(!container) return;
+            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
+            const myAbsen = rekapList.filter(r => r.name === activeEmployeeSession.name);
+
+            if(myIzin.length === 0 && myAbsen.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+                return;
+            }
+
+            container.innerHTML = myAbsen.map(a => `
+                <div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="font-bold text-emerald-400">Absen Masuk (${a.date})</span>
+                        <p class="text-[10px] text-slate-400">Basecamp: ${a.basecamp}</p>
+                    </div>
+                    <span class="font-mono text-xs text-white">${a.time} WIB</span>
+                </div>
+            `).join('') + myIzin.map(i => `
+                <div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div>
+                        <span class="font-bold text-gold-400">${i.jenis}</span>
+                        <p class="text-[10px] text-slate-400">${i.start} s/d ${i.end}</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span>
+                </div>
+            `).join('');
+        }
+
         function updateDashboardStats() {
-            const totalEmp = employees.length;
-            const tepatWaktu = rekapList.filter(r => r.status === 'Tepat Waktu').length;
+            const totalEl = document.getElementById('stat-total-karyawan');
+            const tepatEl = document.getElementById('stat-tepat-waktu');
+            const terlambatEl = document.getElementById('stat-terlambat');
+            const izinAlphaEl = document.getElementById('stat-izin-alpha');
+
+            if(totalEl) totalEl.innerText = `${employees.length} Orang`;
+            const tepat = rekapList.filter(r => r.status === 'Tepat Waktu').length;
             const terlambat = rekapList.filter(r => r.status === 'Terlambat').length;
-            const izinCount = izinList.filter(i => i.status === 'Disetujui').length;
+            const izin = izinList.filter(i => i.status === 'Disetujui').length;
 
-            const stTot = document.getElementById('stat-total-karyawan');
-            const stTep = document.getElementById('stat-tepat-waktu');
-            const stTer = document.getElementById('stat-terlambat');
-            const stIzi = document.getElementById('stat-izin-alpha');
-
-            if(stTot) stTot.innerText = `${totalEmp} Orang`;
-            if(stTep) stTep.innerText = `${tepatWaktu} Orang`;
-            if(stTer) stTer.innerText = `${terlambat} Orang`;
-            if(stIzi) stIzi.innerText = `${izinCount} Orang`;
+            if(tepatEl) tepatEl.innerText = `${tepat} Orang`;
+            if(terlambatEl) terlambatEl.innerText = `${terlambat} Orang`;
+            if(izinAlphaEl) izinAlphaEl.innerText = `${izin} Orang`;
         }
     </script>
 </body>
