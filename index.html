@@ -714,6 +714,17 @@
         </div>
     </div>
 
+    <!-- MODAL ZOOM IMAGE SELFIE (LIGHTBOX) - BARU -->
+    <div id="image-zoom-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="closeImageZoom()">
+        <div class="relative max-w-lg max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+            <button onclick="closeImageZoom()" class="absolute -top-10 right-0 text-slate-400 hover:text-white text-xl font-bold bg-slate-900/80 w-8 h-8 rounded-full flex items-center justify-center border border-slate-700 hover:bg-slate-800 transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <img id="zoomed-image" src="" alt="Zoomed Selfie" class="max-w-full max-h-[80vh] rounded-2xl object-contain border border-gold-500/30 shadow-2xl">
+            <p id="zoomed-caption" class="text-xs text-slate-300 mt-3 text-center font-medium"></p>
+        </div>
+    </div>
+
     <!-- JAVASCRIPT LOGIC WITH SUPABASE INTEGRATION -->
     <script>
         // ----------------- SUPABASE CONFIGURATION ----------------- //
@@ -803,6 +814,27 @@
             if (confirmCallback) confirmCallback();
             closeConfirmModal();
         });
+
+        // ----------------- IMAGE ZOOM FUNCTIONS (LIGHTBOX) - BARU ----------------- //
+        function openImageZoom(url, caption = 'Foto Selfie Absensi') {
+            const modal = document.getElementById('image-zoom-modal');
+            const img = document.getElementById('zoomed-image');
+            const cap = document.getElementById('zoomed-caption');
+            if (modal && img) {
+                img.src = url;
+                if (cap) cap.innerText = caption;
+                modal.classList.remove('hidden');
+            }
+        }
+
+        function closeImageZoom() {
+            const modal = document.getElementById('image-zoom-modal');
+            const img = document.getElementById('zoomed-image');
+            if (modal) {
+                modal.classList.add('hidden');
+                if (img) img.src = '';
+            }
+        }
 
         // ----------------- DATA STATE (LOADED FROM SUPABASE) ----------------- //
         let roles = [];
@@ -1413,7 +1445,7 @@
                             <span class="text-emerald-400 font-semibold"><i class="fa-solid fa-fingerprint"></i> Hadir (${r.basecamp})</span>
                             <div class="text-slate-400">${r.date} - ${r.time}</div>
                         </div>
-                        ${r.selfie_url ? `<a href="${r.selfie_url}" target="_blank"><img src="${r.selfie_url}" class="w-8 h-8 rounded object-cover border border-gold-500/30"></a>` : ''}
+                        ${r.selfie_url ? `<img src="${r.selfie_url}" onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date} ${r.time}')" class="w-8 h-8 rounded object-cover border border-gold-500/30 cursor-pointer hover:opacity-80 transition" title="Klik untuk zoom">` : ''}
                     </div>`;
             });
 
@@ -1775,10 +1807,6 @@
         }
 
         function openAddBasecampModal() {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menambah basecamp.', 'error');
-                return;
-            }
             document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
             document.getElementById('bc-edit-index').value = '-1';
             document.getElementById('bc-inp-name').value = '';
@@ -1789,10 +1817,6 @@
         }
 
         function openEditBasecampModal(index) {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat mengedit basecamp.', 'error');
-                return;
-            }
             const bc = basecamps[index];
             document.getElementById('bc-modal-title').innerText = 'Edit Basecamp';
             document.getElementById('bc-edit-index').value = index;
@@ -1803,15 +1827,9 @@
             document.getElementById('basecamp-modal').classList.remove('hidden');
         }
 
-        function closeBasecampModal() { 
-            document.getElementById('basecamp-modal').classList.add('hidden'); 
-        }
+        function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
 
         async function saveBasecamp() {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menyimpan perubahan basecamp.', 'error');
-                return;
-            }
             const index = parseInt(document.getElementById('bc-edit-index').value);
             const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
@@ -1819,36 +1837,54 @@
             const radius = parseInt(document.getElementById('bc-inp-radius').value);
 
             if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                showToast('Semua field basecamp wajib diisi dengan format yang benar!', 'error');
+                showToast('Harap isi semua kolom basecamp dengan valid!', 'error');
                 return;
             }
 
             if (index === -1) {
                 const newBc = { id: Date.now(), name, lat, lng, radius };
                 await supabaseClient.from('basecamps').insert([newBc]);
-                showToast('Basecamp baru berhasil ditambahkan!', 'success');
+                showToast('Basecamp berhasil ditambahkan!', 'success');
             } else {
-                const bcId = basecamps[index].id;
-                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bcId);
-                showToast('Basecamp berhasil diperbarui!', 'success');
+                const targetBc = basecamps[index];
+                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', targetBc.id);
+                showToast('Basecamp diperbarui!', 'success');
             }
 
             closeBasecampModal();
             await fetchAllDataFromSupabase();
-            if (bcMap) bcMap.invalidateSize();
         }
 
-        function deleteBasecamp(index) {
-            if (!isMasterAdmin()) {
-                showToast('Akses Ditolak! Hanya Master Admin yang dapat menghapus basecamp.', 'error');
-                return;
-            }
-            showConfirm('Hapus Basecamp', `Apakah Anda yakin ingin menghapus basecamp "${basecamps[index].name}"?`, async () => {
+        async function deleteBasecamp(index) {
+            showConfirm('Hapus Basecamp', `Hapus basecamp ${basecamps[index].name}?`, async () => {
                 await supabaseClient.from('basecamps').delete().eq('id', basecamps[index].id);
                 await fetchAllDataFromSupabase();
-                if (bcMap) bcMap.invalidateSize();
-                showToast('Basecamp berhasil dihapus.', 'success');
+                showToast('Basecamp dihapus.', 'success');
             }, true);
+        }
+
+        function renderRekap(dataToRender = rekapList) {
+            const tbody = document.getElementById('rekap-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (dataToRender.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>`;
+                return;
+            }
+            dataToRender.forEach(r => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 text-slate-400">${r.date}</td>
+                        <td class="p-3 font-bold text-white">${r.name}</td>
+                        <td class="p-3 text-slate-300">${r.basecamp}</td>
+                        <td class="p-3 font-mono text-emerald-400">${r.time}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px]">${r.status}</span></td>
+                        <td class="p-3 text-slate-300">${r.late}</td>
+                        <td class="p-3">
+                            ${r.selfie_url ? `<img src="${r.selfie_url}" onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date}')" class="w-10 h-10 rounded object-cover border border-gold-500/30 cursor-pointer hover:opacity-80 transition" title="Klik untuk zoom">` : '-'}
+                        </td>
+                    </tr>`;
+            });
         }
 
         function switchMode(mode) {
@@ -1867,76 +1903,50 @@
                 viewDesktop.classList.remove('hidden');
                 btnDesktop.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
                 btnMobile.className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
-                if (bcMap) bcMap.invalidateSize();
+                setTimeout(() => {
+                    if (bcMap) bcMap.invalidateSize();
+                }, 200);
             }
-        }
-
-        function switchDesktopTab(tab) {
-            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(t => {
-                const tabEl = document.getElementById(`d-tab-${t}`);
-                const navEl = document.getElementById(`d-nav-${t}`);
-                if (tabEl) tabEl.classList.add('hidden');
-                if (navEl) navEl.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
-            });
-            const activeTab = document.getElementById(`d-tab-${tab}`);
-            const activeNav = document.getElementById(`d-nav-${tab}`);
-            if (activeTab) activeTab.classList.remove('hidden');
-            if (activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
-            if (tab === 'basecamp' && !bcMap) { initMap(); renderBasecamps(); }
-            if (tab === 'izin') { renderAdminIzin(); }
-            if (tab === 'email') { renderEmails(); }
         }
 
         function switchMobileTab(tab) {
             ['daftar', 'absen', 'email'].forEach(t => {
                 const tabEl = document.getElementById(`m-tab-${t}`);
                 const navEl = document.getElementById(`m-nav-${t}`);
-                if (tabEl) tabEl.classList.add('hidden');
-                if (navEl) navEl.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
+                if(tabEl) tabEl.classList.add('hidden');
+                if(navEl) navEl.className = "text-slate-400 hover:text-white flex flex-col items-center text-xs space-y-1 transition";
             });
             const activeTab = document.getElementById(`m-tab-${tab}`);
             const activeNav = document.getElementById(`m-nav-${tab}`);
-            if (activeTab) activeTab.classList.remove('hidden');
-            if (activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
-            if (tab === 'absen') { renderMobileMyHistory(); }
-            if (tab === 'email') { renderEmails(); }
+            if(activeTab) activeTab.classList.remove('hidden');
+            if(activeNav) activeNav.className = "text-gold-400 flex flex-col items-center text-xs space-y-1 transition";
         }
 
-        function renderRekap(data = null) {
-            const tbody = document.getElementById('rekap-tbody');
-            if (!tbody) return;
-            tbody.innerHTML = '';
-            (data || rekapList).forEach(item => {
-                const selfieImg = item.selfie_url 
-                    ? `<a href="${item.selfie_url}" target="_blank" title="Lihat Foto Selfie"><img src="${item.selfie_url}" class="w-8 h-8 object-cover rounded-lg border border-gold-500/30 inline-block"></a>` 
-                    : '<span class="text-slate-500">-</span>';
-                tbody.innerHTML += `<tr><td class="p-3">${item.date}</td><td class="p-3">${item.name}</td><td class="p-3">${item.basecamp}</td><td class="p-3">${item.time}</td><td class="p-3">${item.status}</td><td class="p-3">${item.late}</td><td class="p-3">${selfieImg}</td></tr>`;
+        function switchDesktopTab(tab) {
+            ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(t => {
+                const tabEl = document.getElementById(`d-tab-${t}`);
+                const navEl = document.getElementById(`d-nav-${t}`);
+                if(tabEl) tabEl.classList.add('hidden');
+                if(navEl) navEl.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white";
             });
+            const activeTab = document.getElementById(`d-tab-${tab}`);
+            const activeNav = document.getElementById(`d-nav-${tab}`);
+            if(activeTab) activeTab.classList.remove('hidden');
+            if(activeNav) activeNav.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20";
+            
+            if (tab === 'basecamp') {
+                setTimeout(() => {
+                    initMap();
+                    if (bcMap) bcMap.invalidateSize();
+                }, 200);
+            }
         }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-            return R * c;
-        }
-
-        window.onload = async () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             await initializeDeviceBinding();
             await fetchAllDataFromSupabase();
-            setInterval(() => {
-                const clock = document.getElementById('live-clock');
-                if (clock) clock.innerText = new Date().toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' });
-            }, 1000);
-        };
+            switchMobileTab('daftar');
+        });
     </script>
 </body>
 </html>
