@@ -1545,8 +1545,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ==================== ABSENSI & SUPABASE REKAP LIST ==================== //
+        // ==================== ABSENSI & SUPABASE REKAP LIST ==================== //
         async function handleAbsen() {
-            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
+            if (activeEmployeeSession.name === 'Tamu') { 
+                showToast('Silakan login terlebih dahulu.', 'error'); 
+                switchMobileTab('daftar'); 
+                return; 
+            }
             
             const now = new Date();
             const currentH = now.getHours();
@@ -1560,15 +1565,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (!navigator.geolocation) { showToast('Browser Anda tidak mendukung GPS.', 'error'); return; }
+            if (!navigator.geolocation) { 
+                showToast('Browser Anda tidak mendukung GPS.', 'error'); 
+                return; 
+            }
 
             showToast('Mendeteksi lokasi GPS real-time...', 'warning');
             navigator.geolocation.getCurrentPosition(async (position) => {
-                const userLat = position.coords.latitude; const userLng = position.coords.longitude;
+                const userLat = position.coords.latitude; 
+                const userLng = position.coords.longitude;
                 let validBasecamp = null;
+                
                 for (let bc of basecamps) {
                     const dist = calculateDistance(userLat, userLng, bc.lat, bc.lng);
-                    if (dist <= bc.radius) { validBasecamp = bc; break; }
+                    if (dist <= bc.radius) { 
+                        validBasecamp = bc; 
+                        break; 
+                    }
                 }
 
                 pendingAbsenData = {
@@ -1607,7 +1620,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function closeSelfieModal() {
-            if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+            if (mediaStream) { 
+                mediaStream.getTracks().forEach(t => t.stop()); 
+                mediaStream = null; 
+            }
             document.getElementById('selfie-modal').classList.add('hidden');
             capturedBlob = null;
         }
@@ -1615,7 +1631,8 @@ document.addEventListener('DOMContentLoaded', () => {
         function captureSelfie() {
             const video = document.getElementById('selfie-video');
             const canvas = document.getElementById('selfie-canvas');
-            canvas.width = video.videoWidth || 320; canvas.height = video.videoHeight || 240;
+            canvas.width = video.videoWidth || 320; 
+            canvas.height = video.videoHeight || 240;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -1623,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 capturedBlob = blob;
                 const imageUrl = URL.createObjectURL(blob);
                 document.getElementById('selfie-preview').src = imageUrl;
-                document.getElementById('selfie-preview').classList.remove('hidden');
+                document.getElementById('selfie-preview').classList.add('hidden');
                 video.classList.add('hidden');
 
                 document.getElementById('btn-capture').classList.add('hidden');
@@ -1643,8 +1660,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitAbsenWithSelfie() {
             if (!pendingAbsenData) return;
-            async function submitAbsenWithSelfie() {
-            if (!pendingAbsenData) return;
             if (!capturedBlob) {
                 showToast('Foto selfie belum diambil!', 'error');
                 return;
@@ -1656,7 +1671,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const seconds = String(now.getSeconds()).padStart(2, '0');
             const timeString = `${hours}:${minutes}:${seconds} WIB`;
 
-            // Hitung status ketepatan waktu (Batas jam 07:45:00 WIB)
             const currentTotalSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
             const limitTotalSec = 7 * 3600 + 45 * 60;
             
@@ -1666,92 +1680,87 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentTotalSec > limitTotalSec) {
                 status = 'Terlambat';
                 const diffSec = currentTotalSec - limitTotalSec;
-                const diffMin = Math.floor(diffSec / 60);
-                terlambat = `Terlambat ${diffMin} Menit`;
+                const dH = Math.floor(diffSec / 3600);
+                const dM = Math.floor((diffSec % 3600) / 60);
+                const dS = diffSec % 60;
+                terlambat = `Terlambat ${dH > 0 ? dH + 'j ' : ''}${dM}m ${dS}s`;
             }
-            const reader = new FileReader();
-            reader.readAsDataURL(capturedBlob);
-            reader.onloadend = async function() {
-                    const dbAbsen = {
-                    date: pendingAbsenData.date,
-                    name: pendingAbsenData.name,
-                    basecamp: pendingAbsenData.basecamp,
-                    time: timeString,
-                    status: status,
-                    late: terlambat,
-                    selfie_url: base64data // Menggunakan string Base64 pengganti blob URL
-                };
 
-    const { data, error } = await supabaseClient.from('rekap_list').insert([dbAbsen]).select();
-                if (error) {
-                    console.error("Gagal menyimpan rekap absen ke Supabase:", error);
-                    showToast("Gagal menyimpan data absensi ke server.", "error");
-                    return;
-                }
+            showToast('Mengunggah foto selfie ke Supabase Storage...', 'warning');
 
-                if (data && data.length > 0) {
-                    rekapList.push(data[0]);
-                } else {
-                    rekapList.push(dbAbsen);
-                }
+            // 1. Upload file ke Supabase Bucket 'selfie-absen'
+            const cleanId = activeEmployeeSession.id.replace(/[^a-zA-Z0-9]/g, '_');
+            const fileName = `selfie_${Date.now()}_${cleanId}.jpg`;
+            
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('selfie-absen')
+                .upload(fileName, capturedBlob, {
+                    contentType: 'image/jpeg',
+                    upsert: false
+                });
 
-                closeSelfieModal();
-                renderRekap();
-                updateDashboardStats();
-                showToast('Absensi berhasil disimpan ke database!', 'success');
-                
-                const jamMasukEl = document.getElementById('mobile-jam-masuk');
-                if(jamMasukEl) jamMasukEl.innerText = timeString;
-
-                switchMobileTab('izin');
-            };
-        }
-            if (error) {
-                console.error("Gagal menyimpan rekap absen ke Supabase:", error);
-                showToast("Gagal menyimpan data absensi ke server.", "error");
+            if (uploadError) {
+                showToast('Gagal mengunggah foto selfie: ' + uploadError.message, 'error');
                 return;
             }
 
-            if (data && data.length > 0) {
-                rekapList.push(data[0]);
-            } else {
-                rekapList.push(dbAbsen);
-            }
+            // 2. Dapatkan Public URL resmi dari Supabase Storage
+            const { data: publicUrlData } = supabaseClient.storage
+                .from('selfie-absen')
+                .getPublicUrl(fileName);
+
+            const selfiePublicUrl = publicUrlData.publicUrl;
+
+            const newRekap = {
+                date: pendingAbsenData.date,
+                name: pendingAbsenData.name,
+                basecamp: pendingAbsenData.basecamp,
+                jam_masuk: timeString,
+                status: status,
+                terlambat: terlambat,
+                selfie: selfiePublicUrl
+            };
+
+            rekapList.push(newRekap);
+            await supabaseClient.from('rekap_list').insert([newRekap]);
 
             closeSelfieModal();
             renderRekap();
             updateDashboardStats();
-            showToast('Absensi berhasil disimpan ke database Supabase!', 'success');
+            showToast('Absensi berhasil dicatat!', 'success');
+            switchMobileTab('absen');
             
             const jamMasukEl = document.getElementById('mobile-jam-masuk');
             if(jamMasukEl) jamMasukEl.innerText = timeString;
-
-            switchMobileTab('izin');
         }
 
         function renderRekap() {
             const tbody = document.getElementById('rekap-tbody');
-            if(!tbody) return;
+            if (!tbody) return;
 
-            tbody.innerHTML = rekapList.map(item => `
+            if (rekapList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = rekapList.map(r => `
                 <tr class="hover:bg-slate-900/50">
-                    <td class="p-3 font-mono text-slate-300">${item.date || '-'}</td>
-                    <td class="p-3 font-semibold text-white">${item.name || '-'}</td>
-                    <td class="p-3 text-slate-300">${item.basecamp || '-'}</td>
-                    <td class="p-3 font-mono text-emerald-400">${item.time || '-'}</td>
+                    <td class="p-3 font-mono text-slate-300">${r.date}</td>
+                    <td class="p-3 font-semibold text-white">${r.name}</td>
+                    <td class="p-3 text-slate-300">${r.basecamp}</td>
+                    <td class="p-3 font-mono text-emerald-400">${r.jam_masuk}</td>
                     <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.status === 'Terlambat' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">
-                            ${item.status || 'Hadir'}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Hadir' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                            ${r.status}
                         </span>
                     </td>
-                    <td class="p-3 text-slate-300">${item.late || '-'}</td>
+                    <td class="p-3 text-slate-300">${r.terlambat}</td>
                     <td class="p-3">
-                        <img src="${item.selfie_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}" alt="Selfie" class="w-10 h-10 rounded-xl object-cover border border-slate-700 cursor-pointer hover:scale-105 transition" onclick="openImageZoom(this.src, 'Selfie Absen: ${item.name} (${item.date})')">
+                        ${r.selfie ? `<img src="${r.selfie}" alt="Selfie" class="w-10 h-10 object-cover rounded-lg border border-slate-700 cursor-pointer hover:opacity-80 transition" onclick="openImageZoom('${r.selfie}', 'Selfie ${r.name} - ${r.date}')">` : '<span class="text-slate-500">-</span>'}
                     </td>
                 </tr>
             `).join('');
         }
-
         function filterRekap() {
             showToast('Filter rekapitulasi diterapkan.', 'success');
         }
