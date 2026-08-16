@@ -1631,7 +1631,39 @@
 
         async function submitAbsenWithSelfie() {
             if (!pendingAbsenData) return;
-            const selfieUrl = capturedBlob ? URL.createObjectURL(capturedBlob) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+            
+            let selfieUrl = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+
+            try {
+                if (capturedBlob) {
+                    showToast('Mengunggah foto selfie ke Supabase Storage...', 'warning');
+                    const fileName = `selfie_${Date.now()}_${Math.random().toString(36.substring(2, 7))}.jpg`;
+                    
+                    // Upload ke Supabase Storage Bucket (Pastikan nama bucket Anda sesuai, misal: 'selfies')
+                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                        .from('selfie-absen')
+                        .upload(fileName, capturedBlob, {
+                            contentType: 'image/jpeg',
+                            upsert: false
+                        });
+
+                    if (uploadError) {
+                        throw uploadError;
+                    }
+
+                    // Dapatkan Public URL dari Supabase Storage
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from('selfie-absen')
+                        .getPublicUrl(fileName);
+
+                    if (publicUrlData && publicUrlData.publicUrl) {
+                        selfieUrl = publicUrlData.publicUrl;
+                    }
+                }
+            } catch (err) {
+                console.error("Gagal upload ke Supabase Storage:", err);
+                showToast('Gagal mengunggah foto ke storage, menggunakan foto cadangan.', 'warning');
+            }
 
             const now = new Date();
             const timeString = now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
@@ -1677,20 +1709,17 @@
                     <td class="p-3 text-slate-300">${r.basecamp}</td>
                     <td class="p-3 font-mono text-emerald-400">${r.time}</td>
                     <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Terlambat' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Hadir Tepat Waktu' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
                             ${r.status}
                         </span>
                     </td>
-                    <td class="p-3 font-mono text-slate-300">${r.late}</td>
+                    <td class="p-3 text-slate-300">${r.late}</td>
                     <td class="p-3">
-                        <button onclick="openImageZoom('${r.selfie_url}', 'Selfie ${r.name} - ${r.date}')" class="text-gold-400 hover:underline flex items-center gap-1">
-                            <i class="fa-solid fa-image"></i> Lihat Foto
-                        </button>
+                        <img src="${r.selfie_url}" alt="Selfie" class="w-10 h-10 rounded-lg object-cover cursor-pointer border border-slate-700 hover:border-gold-500 transition" onclick="openImageZoom('${r.selfie_url}', 'Absen: ${r.name} (${r.date})')">
                     </td>
                 </tr>
             `).join('');
-        }
-        function renderBasecamps() {
+        }        function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if(!container) return;
             container.innerHTML = basecamps.map((b, idx) => `
