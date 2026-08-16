@@ -841,24 +841,22 @@ function initSupabaseRealtime() {
     // Pastikan supabaseClient sudah diinisialisasi
     if (typeof supabaseClient === 'undefined') return;
         
-    // 1. Channel untuk Tabel Izin / Cuti
+    // 1. Channel untuk Tabel Rekap / Absen
     supabaseClient
         .channel('realtime-rekap-channel')
         .on(
             'postgres_changes',
             {
-                event: 'INSERT', // Atau '*' jika ingin memantau update/delete juga
+                event: 'INSERT',
                 schema: 'public',
-                table: 'rekap_list' // Pastikan nama tabel di Supabase persis sama
+                table: 'rekap_list'
             },
             (payload) => {
                 console.log('Rekap baru terdeteksi:', payload);
-                // Panggil fungsi untuk mengambil ulang data atau memperbarui UI
                 fetchAllDataFromSupabase(); 
             }
         )
         .subscribe();
-}
 
     // 2. Channel untuk Tabel Pesan / Email
     supabaseClient
@@ -868,7 +866,7 @@ function initSupabaseRealtime() {
             {
                 event: 'INSERT', 
                 schema: 'public',
-                table: 'emails' // Sesuaikan dengan nama tabel di database Anda
+                table: 'emails'
             },
             (payload) => {
                 console.log('Pesan baru terdeteksi:', payload);
@@ -884,7 +882,6 @@ function initSupabaseRealtime() {
 }
 // Jalankan inisialisasi realtime setelah DOM atau koneksi siap
 document.addEventListener('DOMContentLoaded', () => {
-    // Beri jeda sedikit untuk memastikan klien supabase siap
     setTimeout(() => {
         initSupabaseRealtime();
     }, 1000);
@@ -1685,16 +1682,24 @@ if (rkData) {
             const jamMasuk = `${hours}:${minutes}:${seconds}`;
 
             const timeInSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            const targetTime = 7 * 3600 + 45 * 60; // Pukul 07.45.00 WIB
-            let status = timeInSecs > targetTime ? 'Terlambat' : 'Tepat Waktu';
-            let keterlambatan = timeInSecs > targetTime ? `${Math.floor((timeInSecs - targetTime)/60)} menit` : '0 menit';
+            const targetTime = 9 * 3600 + 40 * 60; // Pukul 09.45.00 WIB
+
+            let statusAbsen = "Tepat Waktu";
+            let keterlambatan = "0 Menit";
+            if (timeInSecs > targetTime) {
+                const diff = timeInSecs - targetTime;
+                const latM = Math.floor(diff / 60);
+                const latS = diff % 60;
+                statusAbsen = "Terlambat";
+                keterlambatan = `${latM} Menit ${latS} Detik`;
+            }
 
             const newRekap = {
                 date: pendingAbsenData.date,
                 name: pendingAbsenData.name,
                 basecamp: pendingAbsenData.basecamp,
                 jam_masuk: jamMasuk,
-                status: status,
+                status: statusAbsen,
                 keterlambatan: keterlambatan,
                 selfie_url: selfieDataUrl
             };
@@ -1703,10 +1708,9 @@ if (rkData) {
             await supabaseClient.from('rekap_list').insert([newRekap]);
 
             closeSelfieModal();
-            renderRekap();
-            updateDashboardStats();
             showToast('Absensi berhasil dicatat!', 'success');
-            switchMobileTab('izin');
+            fetchAllDataFromSupabase();
+            switchMobileTab('absen');
         }
 // 2. Perbaikan Fungsi renderRekap() untuk Menampilkan Jam Masuk, Keterlambatan, dan Tombol Selfie 'Lihat'
 function renderRekap() {
