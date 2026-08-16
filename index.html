@@ -1640,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 capturedBlob = blob;
                 const imageUrl = URL.createObjectURL(blob);
                 document.getElementById('selfie-preview').src = imageUrl;
-                document.getElementById('selfie-preview').classList.add('hidden');
+                document.getElementById('selfie-preview').classList.remove('hidden');
                 video.classList.add('hidden');
 
                 document.getElementById('btn-capture').classList.add('hidden');
@@ -1660,49 +1660,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitAbsenWithSelfie() {
             if (!pendingAbsenData) return;
-            if (!capturedBlob) {
-                showToast('Foto selfie belum diambil!', 'error');
-                return;
-            }
-
+          
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            const timeString = `${hours}:${minutes}:${seconds} WIB`;
-
-            const currentTotalSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            const limitTotalSec = 7 * 3600 + 45 * 60;
-            
-            let status = 'Hadir';
-            let terlambat = 'Tepat Waktu';
-
-            if (currentTotalSec > limitTotalSec) {
-                status = 'Terlambat';
-                const diffSec = currentTotalSec - limitTotalSec;
-                const dH = Math.floor(diffSec / 3600);
-                const dM = Math.floor((diffSec % 3600) / 60);
-                const dS = diffSec % 60;
-                terlambat = `Terlambat ${dH > 0 ? dH + 'j ' : ''}${dM}m ${dS}s`;
-            }
-
-            showToast('Mengunggah foto selfie ke Supabase Storage...', 'warning');
-
-            // 1. Upload file ke Supabase Bucket 'selfie-absen'
-            const cleanId = activeEmployeeSession.id.replace(/[^a-zA-Z0-9]/g, '_');
-            const fileName = `selfie_${Date.now()}_${cleanId}.jpg`;
-            
-            const { data: uploadData, error: uploadError } = await supabaseClient.storage
-                .from('selfie-absen')
-                .upload(fileName, capturedBlob, {
-                    contentType: 'image/jpeg',
-                    upsert: false
-                });
-
-            if (uploadError) {
-                showToast('Gagal mengunggah foto selfie: ' + uploadError.message, 'error');
-                return;
-            }
+            const jamMasuk = now.toTimeString().split(' ')[0]; // Output: "08:15:00"
+            const batasJamMasuk = 9 * 3600 + 40; // 08:00 WIB dalam menit
+            const menitSekarang = now.getHours() * 60 + now.getMinutes();
+            const isLate = menitSekarang > batasJamMasuk;
+            const status = isLate ? 'Terlambat' : 'Tepat Waktu';
+            const reader = new FileReader();
+            reader.readAsDataURL(capturedBlob);
+            reader.onloadend = async () => {
+            const base64Foto = reader.result;
+        
+            const dataAbsen = {
+            tanggal: pendingAbsenData.date,
+            nama: pendingAbsenData.name,
+            basecamp: pendingAbsenData.basecamp,
+            jam_masuk: jamMasuk,
+            status: status,
+            keterlambatan: isLate ? 'Ya' : 'Tidak',
+            selfie: base64Foto 
+        };
+            rekapList.push(dataAbsen);
+            const { error } = await supabaseClient
+            .from('rekap_list') 
+            .insert([dataAbsen]);
+                if (error) {
+            showToast('Gagal menyimpan data absensi ke server!', 'error');
+            console.error('Supabase Error:', error);
+        } else {
+            showToast('Absensi berhasil dan tersimpan secara permanen!', 'success');
+        }
+                if (typeof renderRekap === 'function') renderRekap();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        if (typeof renderMobileMyHistory === 'function') renderMobileMyHistory();
+        
+        closeSelfieModal();
+    };
+}
 
             // 2. Dapatkan Public URL resmi dari Supabase Storage
             const { data: publicUrlData } = supabaseClient.storage
