@@ -670,7 +670,7 @@
         }
 
         async function hashPassword(message) {
-            return message; // Sederhana / enkripsi mock
+            return message; 
         }
 
         function showToast(message, type = 'success') {
@@ -708,10 +708,7 @@
             { code: 'Admin', name: 'Administrator', modules: 'Semua Modul' },
             { code: 'Karyawan', name: 'Karyawan Lapangan', modules: 'Absensi, Izin, Email' }
         ];
-        let employees = [
-            { id: 1, name: 'Administrator', email: 'admin@gmail.com', password: 'admin123', role: 'Admin', position: 'HR Manager', supervisor: '-', status: 'Aktif' },
-            { id: 2, name: 'Budi Santoso', email: 'budi@gmail.com', password: '123', role: 'Karyawan', position: 'Teknisi FTTH', supervisor: 'Administrator', status: 'Aktif' }
-        ];
+        let employees = [];
         let basecamps = [
             { id: 1, name: 'Pekanbaru Pusat', lat: 0.5071, lng: 101.4478, radius: 100 }
         ];
@@ -725,6 +722,25 @@
         let pendingAbsenData = null;
         
         async function fetchAllDataFromSupabase() {
+            try {
+                const { data, error } = await supabaseClient.from('employees').select('*');
+                if (!error && data && data.length > 0) {
+                    employees = data;
+                } else if (employees.length === 0) {
+                    employees = [
+                        { id: 1, name: 'Administrator', email: 'admin@gmail.com', password: 'admin123', role: 'Admin', position: 'HR Manager', supervisor: '-', status: 'Aktif' },
+                        { id: 2, name: 'Budi Santoso', email: 'budi@gmail.com', password: '123', role: 'Karyawan', position: 'Teknisi FTTH', supervisor: 'Administrator', status: 'Aktif' }
+                    ];
+                }
+            } catch (err) {
+                console.error('Gagal memuat data employees dari Supabase:', err);
+                if (employees.length === 0) {
+                    employees = [
+                        { id: 1, name: 'Administrator', email: 'admin@gmail.com', password: 'admin123', role: 'Admin', position: 'HR Manager', supervisor: '-', status: 'Aktif' },
+                        { id: 2, name: 'Budi Santoso', email: 'budi@gmail.com', password: '123', role: 'Karyawan', position: 'Teknisi FTTH', supervisor: 'Administrator', status: 'Aktif' }
+                    ];
+                }
+            }
             updateDashboardStats();
             renderRekap();
             renderRoles();
@@ -813,7 +829,7 @@
             }
         }
 
-        // ==================== [LOGIN LOGIC PERBAIKAN] ==================== //
+        // ==================== [SUPABASE EMPLOYEES LOGIN LOGIC] ==================== //
         async function handleLogin() {
             const email = document.getElementById('login-email').value.trim();
             const pass = document.getElementById('login-pass').value.trim();
@@ -822,19 +838,42 @@
                 return;
             }
 
-            let found = employees.find(e => e.email === email && e.password === pass);
-            if (!found && email === 'admin@gmail.com' && pass === 'admin123') {
-                found = { name: 'Administrator', email: 'admin@gmail.com', role: 'Admin' };
-            }
+            try {
+                // Query ke tabel employees Supabase
+                const { data, error } = await supabaseClient
+                    .from('employees')
+                    .select('*')
+                    .eq('email', email)
+                    .maybeSingle();
 
-            if (found) {
-                activeEmployeeSession = { name: found.name, id: found.email, role: found.role || 'Karyawan' };
-                document.getElementById('mobile-user-title').innerText = `Halo, ${found.name}`;
-                document.getElementById('mobile-user-initial').innerText = found.name.charAt(0).toUpperCase();
-                switchMobileTab('absen');
-                showToast(`Login berhasil, selamat datang ${found.name}!`, 'success');
-            } else {
-                showToast('Email atau Password salah!', 'error');
+                let found = data;
+
+                // Fallback untuk admin default
+                if (!found && email === 'admin@gmail.com' && pass === 'admin123') {
+                    found = { name: 'Administrator', email: 'admin@gmail.com', role: 'Admin' };
+                }
+
+                if (found && (found.password === pass || (email === 'admin@gmail.com' && pass === 'admin123'))) {
+                    activeEmployeeSession = { name: found.name, id: found.email, role: found.role || 'Karyawan' };
+                    document.getElementById('mobile-user-title').innerText = `Halo, ${found.name}`;
+                    document.getElementById('mobile-user-initial').innerText = found.name.charAt(0).toUpperCase();
+                    switchMobileTab('absen');
+                    showToast(`Login berhasil, selamat datang ${found.name}!`, 'success');
+                } else {
+                    showToast('Email atau Password salah!', 'error');
+                }
+            } catch (err) {
+                console.error('Error saat login:', err);
+                // Fallback jika terjadi kendala koneksi database
+                if (email === 'admin@gmail.com' && pass === 'admin123') {
+                    activeEmployeeSession = { name: 'Administrator', id: 'admin@gmail.com', role: 'Admin' };
+                    document.getElementById('mobile-user-title').innerText = `Halo, Administrator`;
+                    document.getElementById('mobile-user-initial').innerText = 'A';
+                    switchMobileTab('absen');
+                    showToast('Login berhasil (Mode Cadangan Offline)!', 'success');
+                } else {
+                    showToast('Gagal terhubung ke database Supabase.', 'error');
+                }
             }
         }
 
@@ -846,26 +885,56 @@
                 return;
             }
 
-            let found = employees.find(e => e.email === email && e.password === pass);
-            if (!found && email === 'admin@gmail.com' && pass === 'admin123') {
-                found = { name: 'Administrator', email: 'admin@gmail.com', role: 'Admin' };
-            }
+            try {
+                // Query ke tabel employees Supabase
+                const { data, error } = await supabaseClient
+                    .from('employees')
+                    .select('*')
+                    .eq('email', email)
+                    .maybeSingle();
 
-            if (found) {
-                activeEmployeeSession = { name: found.name, id: found.email, role: found.role || 'Admin' };
-                document.getElementById('desktop-login-section').classList.add('hidden');
-                document.getElementById('desktop-app-wrapper').classList.remove('hidden');
-                document.getElementById('desktop-role-label').innerText = found.role || 'Enterprise Dashboard';
-                document.getElementById('desktop-user-initial').innerText = found.name.charAt(0).toUpperCase();
-                
-                updateDashboardStats();
-                renderRekap();
-                renderRoles();
-                renderEmployees();
-                renderBasecamps();
-                showToast(`Selamat datang kembali, ${found.name}!`, 'success');
-            } else {
-                showToast('Email atau Password salah!', 'error');
+                let found = data;
+
+                // Fallback untuk admin default
+                if (!found && email === 'admin@gmail.com' && pass === 'admin123') {
+                    found = { name: 'Administrator', email: 'admin@gmail.com', role: 'Admin' };
+                }
+
+                if (found && (found.password === pass || (email === 'admin@gmail.com' && pass === 'admin123'))) {
+                    activeEmployeeSession = { name: found.name, id: found.email, role: found.role || 'Admin' };
+                    document.getElementById('desktop-login-section').classList.add('hidden');
+                    document.getElementById('desktop-app-wrapper').classList.remove('hidden');
+                    document.getElementById('desktop-role-label').innerText = found.role || 'Enterprise Dashboard';
+                    document.getElementById('desktop-user-initial').innerText = found.name.charAt(0).toUpperCase();
+                    
+                    updateDashboardStats();
+                    renderRekap();
+                    renderRoles();
+                    renderEmployees();
+                    renderBasecamps();
+                    showToast(`Selamat datang kembali, ${found.name}!`, 'success');
+                } else {
+                    showToast('Email atau Password salah!', 'error');
+                }
+            } catch (err) {
+                console.error('Error saat desktop login:', err);
+                // Fallback jika terjadi kendala koneksi database
+                if (email === 'admin@gmail.com' && pass === 'admin123') {
+                    activeEmployeeSession = { name: 'Administrator', id: 'admin@gmail.com', role: 'Admin' };
+                    document.getElementById('desktop-login-section').classList.add('hidden');
+                    document.getElementById('desktop-app-wrapper').classList.remove('hidden');
+                    document.getElementById('desktop-role-label').innerText = 'Admin';
+                    document.getElementById('desktop-user-initial').innerText = 'A';
+                    
+                    updateDashboardStats();
+                    renderRekap();
+                    renderRoles();
+                    renderEmployees();
+                    renderBasecamps();
+                    showToast('Login berhasil (Mode Cadangan Offline)!', 'success');
+                } else {
+                    showToast('Gagal terhubung ke database Supabase.', 'error');
+                }
             }
         }
 
@@ -1010,15 +1079,19 @@
         function renderEmployees() {
             const tbody = document.getElementById('karyawan-tbody');
             if(!tbody) return;
+            if(employees.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-slate-500">Belum ada data karyawan.</td></tr>`;
+                return;
+            }
             tbody.innerHTML = employees.map(emp => `
                 <tr class="hover:bg-slate-900/50">
-                    <td class="p-3 font-mono text-slate-400">${emp.id}</td>
+                    <td class="p-3 font-mono text-slate-400">${emp.id || '-'}</td>
                     <td class="p-3 font-semibold text-white">${emp.name}<br><span class="text-[10px] text-slate-400">${emp.email}</span></td>
-                    <td class="p-3 text-slate-300">${emp.position}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-gold-400 border border-slate-700">${emp.role}</span></td>
-                    <td class="p-3 text-slate-400">${emp.supervisor}</td>
+                    <td class="p-3 text-slate-300">${emp.position || '-'}</td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-gold-400 border border-slate-700">${emp.role || 'Karyawan'}</span></td>
+                    <td class="p-3 text-slate-400">${emp.supervisor || '-'}</td>
                     <td class="p-3 font-mono text-slate-500 text-[10px]">••••••••</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400">${emp.status}</span></td>
+                    <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/10 text-emerald-400">${emp.status || 'Aktif'}</span></td>
                     <td class="p-3 text-slate-400">Aktif</td>
                 </tr>
             `).join('');
