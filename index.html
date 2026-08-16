@@ -838,32 +838,27 @@
 // ==========================================
 
 function initSupabaseRealtime() {
-    // Pastikan objek supabase tersedia
-    if (typeof supabase === 'undefined') {
+    // Pastikan supabaseClient sudah diinisialisasi
+    if (typeof supabaseClient === 'undefined') {
         console.warn('Supabase client belum diinisialisasi.');
         return;
     }
 
-    // 1. Channel untuk Tabel Izin / Cuti (Contoh nama tabel: 'leaves' atau 'izin')
-    // Sesuaikan nama tabel dengan skema database Anda yang sebenarnya
-    supabase
+    // 1. Channel untuk Tabel Izin / Cuti
+    supabaseClient
         .channel('realtime-leaves-channel')
         .on(
             'postgres_changes',
             {
-                event: '*', // Mendengarkan semua event: INSERT, UPDATE, DELETE
+                event: '*', 
                 schema: 'public',
-                table: 'leaves' // Ganti dengan nama tabel izin Anda jika berbeda
+                table: 'izin_list' // Sesuaikan dengan nama tabel di database Anda
             },
             (payload) => {
                 console.log('Perubahan data izin terdeteksi:', payload);
-                // Panggil fungsi yang sudah ada di kode Anda untuk memuat ulang data izin
-                if (typeof loadLeaveData === 'function') {
-                    loadLeaveData();
-                } else if (typeof fetchIzin === 'function') {
-                    fetchIzin();
+                if (typeof renderAdminIzin === 'function') {
+                    renderAdminIzin();
                 }
-                // Tampilkan notifikasi ringan jika diinginkan
                 if (typeof showToast === 'function') {
                     showToast('Data izin diperbarui secara real-time.', 'info');
                 }
@@ -871,25 +866,21 @@ function initSupabaseRealtime() {
         )
         .subscribe();
 
-    // 2. Channel untuk Tabel Pesan / Email Masuk (Contoh nama tabel: 'messages' atau 'emails')
-    supabase
+    // 2. Channel untuk Tabel Pesan / Email
+    supabaseClient
         .channel('realtime-messages-channel')
         .on(
             'postgres_changes',
             {
-                event: 'INSERT', // Biasanya pesan masuk fokus pada penambahan data baru
+                event: 'INSERT', 
                 schema: 'public',
-                table: 'messages' // Ganti dengan nama tabel pesan/email Anda jika berbeda
+                table: 'emails' // Sesuaikan dengan nama tabel di database Anda
             },
             (payload) => {
-                console.log('Pesan/Email masuk baru terdeteksi:', payload);
-                // Panggil fungsi yang sudah ada di kode Anda untuk memuat ulang pesan
-                if (typeof loadMessages === 'function') {
-                    loadMessages();
-                } else if (typeof fetchEmails === 'function') {
-                    fetchEmails();
+                console.log('Pesan baru terdeteksi:', payload);
+                if (typeof renderEmails === 'function') {
+                    renderEmails();
                 }
-                // Tampilkan notifikasi ringan
                 if (typeof showToast === 'function') {
                     showToast('Pesan atau email baru diterima!', 'success');
                 }
@@ -897,7 +888,6 @@ function initSupabaseRealtime() {
         )
         .subscribe();
 }
-
 // Jalankan inisialisasi realtime setelah DOM atau koneksi siap
 document.addEventListener('DOMContentLoaded', () => {
     // Beri jeda sedikit untuk memastikan klien supabase siap
@@ -1653,34 +1643,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitAbsenWithSelfie() {
             if (!pendingAbsenData) return;
-            const selfieUrl = capturedBlob ? URL.createObjectURL(capturedBlob) : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+            // --- GANTI DENGAN KODE INI ---
+const reader = new FileReader();
+reader.readAsDataURL(capturedBlob);
+reader.onloadend = async function() {
+    const base64data = reader.result; // Aman disimpan ke database (tidak menghasilkan ERR_FILE_NOT_FOUND)
 
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
-            
-            const currentH = now.getHours();
-            const currentM = now.getMinutes();
-            let status = 'Hadir Tepat Waktu';
-            let terlambat = '-';
-            
-            if (currentH > 8 || (currentH === 8 && currentM > 0)) {
-                status = 'Terlambat';
-                const lateMins = (currentH - 8) * 60 + currentM;
-                terlambat = `${lateMins} Menit`;
-            }
+    const dbAbsen = {
+        date: pendingAbsenData.date,
+        name: pendingAbsenData.name,
+        basecamp: pendingAbsenData.basecamp,
+        time: timeString,
+        status: status,
+        late: terlambat,
+        selfie_url: base64data // Menggunakan Base64 string pengganti blob URL
+    };
 
-            // Memetakan properti ke kolom tabel Supabase: late & selfie_url
-            const dbAbsen = {
-                date: pendingAbsenData.date,
-                name: pendingAbsenData.name,
-                basecamp: pendingAbsenData.basecamp,
-                time: timeString,
-                status: status,
-                late: terlambat,
-                selfie_url: selfieUrl 
-            };
+    const { data, error } = await supabaseClient.from('rekap_list').insert([dbAbsen]).select();
+    if (error) {
+        console.error("Gagal menyimpan rekap absen ke Supabase:", error);
+        showToast("Gagal menyimpan data absensi ke server.", "error");
+        return;
+    }
 
-            const { data, error } = await supabaseClient.from('rekap_list').insert([dbAbsen]).select();
+    if (data && data.length > 0) {
+        rekapList.push(data[0]);
+    } else {
+        rekapList.push(dbAbsen);
+    }
+
+    closeSelfieModal();
+    renderRekap();
+    updateDashboardStats();
+    showToast('Absensi berhasil disimpan ke database Supabase!', 'success');
+    
+    const jamMasukEl = document.getElementById('mobile-jam-masuk');
+    if(jamMasukEl) jamMasukEl.innerText = timeString;
+
+    switchMobileTab('izin');
+};
             if (error) {
                 console.error("Gagal menyimpan rekap absen ke Supabase:", error);
                 showToast("Gagal menyimpan data absensi ke server.", "error");
