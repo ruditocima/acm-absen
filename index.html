@@ -1679,26 +1679,27 @@
                 terlambat = `${lateMins} Menit`;
             }
 
-            const dbAbsen = {
+           const dbAbsen = {
                 date: pendingAbsenData.date,
                 name: pendingAbsenData.name,
                 basecamp: pendingAbsenData.basecamp,
                 time: timeString,
                 status: status,
                 late: terlambat,
-                selfie_url: selfieUrl 
+                selfie: selfieUrl
             };
-            
+
             rekapList.push(dbAbsen);
             await supabaseClient.from('rekap_list').insert([dbAbsen]);
 
             renderRekap();
             updateDashboardStats();
             closeSelfieModal();
-            showToast('Absensi berhasil direkam!', 'success');
-            switchMobileTab('izin');
+            showToast('Absensi berhasil dicatat!', 'success');
+            
+            const mobileJamMasuk = document.getElementById('mobile-jam-masuk');
+            if(mobileJamMasuk) mobileJamMasuk.innerText = timeString;
         }
-
         function renderRekap() {
             const tbody = document.getElementById('rekap-tbody');
             if(!tbody) return;
@@ -1715,38 +1716,52 @@
                     </td>
                     <td class="p-3 text-slate-300">${r.late}</td>
                     <td class="p-3">
-                        <img src="${r.selfie_url}" alt="Selfie" class="w-10 h-10 rounded-lg object-cover cursor-pointer border border-slate-700 hover:border-gold-500 transition" onclick="openImageZoom('${r.selfie_url}', 'Absen: ${r.name} (${r.date})')">
+                        <img src="${r.selfie}" alt="Selfie" class="w-10 h-10 rounded-lg object-cover cursor-pointer border border-slate-700 hover:border-gold-500 transition" onclick="openImageZoom('${r.selfie}', 'Selfie - ${r.name} (${r.time})')">
                     </td>
                 </tr>
             `).join('');
-        }        function renderBasecamps() {
+        }
+            
+        function updateDashboardStats() {
+            const totalEmp = employees.length;
+            const today = new Date().toISOString().split('T')[0];
+            const todayAbsen = rekapList.filter(r => r.date === today);
+            
+            const tepatWaktu = todayAbsen.filter(r => r.status === 'Hadir Tepat Waktu').length;
+            const terlambat = todayAbsen.filter(r => r.status === 'Terlambat').length;
+            const izinAlpha = totalEmp - todayAbsen.length;
+
+            const elTotal = document.getElementById('stat-total-karyawan');
+            const elTepat = document.getElementById('stat-tepat-waktu');
+            const elTerlambat = document.getElementById('stat-terlambat');
+            const elIzin = document.getElementById('stat-izin-alpha');
+
+            if(elTotal) elTotal.innerText = `${totalEmp} Orang`;
+            if(elTepat) elTepat.innerText = `${tepatWaktu} Orang`;
+            if(elTerlambat) elTerlambat.innerText = `${terlambat} Orang`;
+            if(elIzin) elIzin.innerText = `${Math.max(0, izinAlpha)} Orang`;
+        }
+        function renderBasecamps() {
             const container = document.getElementById('basecamp-container');
             if(!container) return;
-            container.innerHTML = basecamps.map((b, idx) => `
-                <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
-                    <h5 class="font-bold text-white text-xs">${b.name}</h5>
-                    <p class="text-[11px] text-slate-400">Lat/Lng: ${b.lat}, ${b.lng}</p>
-                    <p class="text-[11px] text-gold-400">Radius: ${b.radius} Meter</p>
+            container.innerHTML = basecamps.map((bc) => `
+                <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                    <h5 class="text-xs font-bold text-white">${bc.name}</h5>
+                    <p class="text-[11px] text-slate-400">Lat: ${bc.lat}, Lng: ${bc.lng}</p>
+                    <p class="text-[11px] text-gold-400 font-semibold">Radius: ${bc.radius} Meter</p>
                 </div>
             `).join('');
         }
-
         function renderAdminIzin() {
             const container = document.getElementById('admin-izin-container');
             if(!container) return;
-            if(izinList.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center text-xs py-4">Belum ada pengajuan izin.</p>`;
-                return;
-            }
-            container.innerHTML = izinList.map((i, index) => `
-                <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
+            container.innerHTML = izinList.length === 0 ? '<p class="text-xs text-slate-500 text-center py-4">Tidak ada pengajuan izin.</p>' : izinList.map((i) => `
+                <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                     <div>
-                        <p class="font-bold text-white">${i.name} - <span class="text-gold-400">${i.jenis}</span></p>
-                        <p class="text-slate-400 text-[11px] mt-0.5">${i.start} s.d. ${i.end} | Alasan: ${i.desc}</p>
+                        <span class="font-bold text-white">${i.name}</span> <span class="text-gold-400">(${i.jenis})</span>
+                        <p class="text-[11px] text-slate-400 mt-0.5">${i.start} s/d ${i.end} - "${i.desc}"</p>
                     </div>
-                    <div>
-                        <span class="px-2 py-1 rounded text-[10px] font-bold ${i.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">${i.status}</span>
-                    </div>
+                    <span class="px-2 py-1 rounded text-[10px] font-bold ${i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span>
                 </div>
             `).join('');
         }
@@ -1754,21 +1769,39 @@
         function renderMobileMyHistory() {
             const container = document.getElementById('mobile-my-history');
             if(!container) return;
-            const myName = activeEmployeeSession.name;
-            const myAbsen = rekapList.filter(r => r.name === myName);
-            const myIzin = izinList.filter(i => i.name === myName);
-
-            if(myAbsen.length === 0 && myIzin.length === 0) {
-                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
-                return;
-            }
-
-            container.innerHTML = `
-                ${myAbsen.map(a => `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center"><span>Absen: ${a.date} (${a.time})</span><span class="text-emerald-400 font-semibold">${a.status}</span></div>`).join('')}
-                ${myIzin.map(i => `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center"><span>Izin: ${i.jenis} (${i.start})</span><span class="text-amber-400 font-semibold">${i.status}</span></div>`).join('')}
-            `;
+            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name);
+            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
+            
+            let html = '';
+            myRekap.forEach(r => {
+                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                    <div><span class="text-white font-semibold">Absen: ${r.date}</span><p class="text-[10px] text-emerald-400">${r.time} (${r.status})</p></div>
+                    <img src="${r.selfie}" class="w-8 h-8 rounded object-cover cursor-pointer" onclick="openImageZoom('${r.selfie}')">
+                </div>`;
+            });
+            myIzin.forEach(i => {
+                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
+                    <span class="text-gold-400 font-semibold">Izin: ${i.jenis}</span><p class="text-[10px] text-slate-400">${i.start} s/d ${i.end}</p>
+                </div>`;
+            });
+            container.innerHTML = html || '<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>';
         }
-
+        function populateEmailRecipients() {}
+        function renderEmails() {}
+        function renderRoles() {}
+        function saveRole() {}
+        function openRoleModal() {}
+        function closeRoleModal() {}
+        function openAddBasecampModal() {}
+        function closeBasecampModal() {}
+        function saveBasecamp() {}
+        function filterRekap() {}
+        function resetRekapData() {}
+        function exportToExcel() {}
+        function sendAppEmail() {}
+        function closeEmailDetailModal() {}
+        function replyEmail() {}
+        
         function populateEmailRecipients() {
             const selects = ['m-email-recipient', 'd-email-recipient'];
             selects.forEach(selId => {
@@ -1900,23 +1933,7 @@
             document.getElementById('d-email-subject').value = 'Re: ' + activeSelectedEmail.subject;
         }
 
-        function updateDashboardStats() {
-            const totalEmp = employees.length;
-            const tepatWaktu = rekapList.filter(r => r.status === 'Hadir Tepat Waktu').length;
-            const terlambat = rekapList.filter(r => r.status === 'Terlambat').length;
-            const izinAlpha = izinList.length;
-
-            const elTotal = document.getElementById('stat-total-karyawan');
-            const elTepat = document.getElementById('stat-tepat-waktu');
-            const elTerlambat = document.getElementById('stat-terlambat');
-            const elIzin = document.getElementById('stat-izin-alpha');
-
-            if(elTotal) elTotal.innerText = `${totalEmp} Orang`;
-            if(elTepat) elTepat.innerText = `${tepatWaktu} Orang`;
-            if(elTerlambat) elTerlambat.innerText = `${terlambat} Orang`;
-            if(elIzin) elIzin.innerText = `${izinAlpha} Orang`;
-        }
-
+        
         function renderRoles() {}
         function openRoleModal() {}
         function closeRoleModal() {}
