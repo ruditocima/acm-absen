@@ -1643,45 +1643,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function submitAbsenWithSelfie() {
             if (!pendingAbsenData) return;
-            // --- GANTI DENGAN KODE INI ---
-const reader = new FileReader();
-reader.readAsDataURL(capturedBlob);
-reader.onloadend = async function() {
-    const base64data = reader.result; // Aman disimpan ke database (tidak menghasilkan ERR_FILE_NOT_FOUND)
+            async function submitAbsenWithSelfie() {
+            if (!pendingAbsenData) return;
+            if (!capturedBlob) {
+                showToast('Foto selfie belum diambil!', 'error');
+                return;
+            }
 
-    const dbAbsen = {
-        date: pendingAbsenData.date,
-        name: pendingAbsenData.name,
-        basecamp: pendingAbsenData.basecamp,
-        time: timeString,
-        status: status,
-        late: terlambat,
-        selfie_url: base64data // Menggunakan Base64 string pengganti blob URL
-    };
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const timeString = `${hours}:${minutes}:${seconds} WIB`;
+
+            // Hitung status ketepatan waktu (Batas jam 07:45:00 WIB)
+            const currentTotalSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+            const limitTotalSec = 7 * 3600 + 45 * 60;
+            
+            let status = 'Hadir';
+            let terlambat = 'Tepat Waktu';
+
+            if (currentTotalSec > limitTotalSec) {
+                status = 'Terlambat';
+                const diffSec = currentTotalSec - limitTotalSec;
+                const diffMin = Math.floor(diffSec / 60);
+                terlambat = `Terlambat ${diffMin} Menit`;
+            }
+            const reader = new FileReader();
+            reader.readAsDataURL(capturedBlob);
+            reader.onloadend = async function() {
+                    const dbAbsen = {
+                    date: pendingAbsenData.date,
+                    name: pendingAbsenData.name,
+                    basecamp: pendingAbsenData.basecamp,
+                    time: timeString,
+                    status: status,
+                    late: terlambat,
+                    selfie_url: base64data // Menggunakan string Base64 pengganti blob URL
+                };
 
     const { data, error } = await supabaseClient.from('rekap_list').insert([dbAbsen]).select();
-    if (error) {
-        console.error("Gagal menyimpan rekap absen ke Supabase:", error);
-        showToast("Gagal menyimpan data absensi ke server.", "error");
-        return;
-    }
+                if (error) {
+                    console.error("Gagal menyimpan rekap absen ke Supabase:", error);
+                    showToast("Gagal menyimpan data absensi ke server.", "error");
+                    return;
+                }
 
-    if (data && data.length > 0) {
-        rekapList.push(data[0]);
-    } else {
-        rekapList.push(dbAbsen);
-    }
+                if (data && data.length > 0) {
+                    rekapList.push(data[0]);
+                } else {
+                    rekapList.push(dbAbsen);
+                }
 
-    closeSelfieModal();
-    renderRekap();
-    updateDashboardStats();
-    showToast('Absensi berhasil disimpan ke database Supabase!', 'success');
-    
-    const jamMasukEl = document.getElementById('mobile-jam-masuk');
-    if(jamMasukEl) jamMasukEl.innerText = timeString;
+                closeSelfieModal();
+                renderRekap();
+                updateDashboardStats();
+                showToast('Absensi berhasil disimpan ke database!', 'success');
+                
+                const jamMasukEl = document.getElementById('mobile-jam-masuk');
+                if(jamMasukEl) jamMasukEl.innerText = timeString;
 
-    switchMobileTab('izin');
-};
+                switchMobileTab('izin');
+            };
+        }
             if (error) {
                 console.error("Gagal menyimpan rekap absen ke Supabase:", error);
                 showToast("Gagal menyimpan data absensi ke server.", "error");
