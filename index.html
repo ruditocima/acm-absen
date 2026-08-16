@@ -610,13 +610,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Role / Posisi</label>
-                    <select x-model="employeeForm.role" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
-                        <option value="Admin">Admin</option>
-                        <option value="Project Manager">Project Manager</option>
-                        <option value="SND">SND</option>
-                        <option value="Supervisor">Supervisor</option>
-                        <option value="Installer">Installer</option>
-                    </select>
+                    <input type="text" x-model="employeeForm.role" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Password</label>
@@ -630,467 +624,528 @@
         </div>
     </div>
 
-    <script>
-        // INISIALISASI SUPABASE CLIENT - GANTI DENGAN URL & KEY ASLI ANDA
-        const supabaseUrl = 'YOUR_SUPABASE_URL';
-        const supabaseKey = 'YOUR_SUPABASE_ANON_KEY';
-        const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
+    <!-- FOOTER -->
+    <footer class="text-center py-6 text-xs text-slate-500 border-t border-slate-900">
+        &copy; 2026 ACM - YOFC Team. All Rights Reserved.
+    </footer>
 
-        // HELPER FUNCTIONS
-        const getLocalDate = (date = new Date()) => {
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        const SUPABASE_URL = 'https://wtvwugzwjywnzughmcts.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0dnd1Z3p3anl3bnp1Z2htY3RzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5MzEyNjQsImV4cCI6MjEwMTUwNzI2NH0.iC2CNTEYKdVAtyvNSBAEw108SrKgNH__3zbOq0HP7jM';
+        
+        const { createClient } = supabase;
+        const _supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function getLocalDate(date = new Date()) {
             const year = date.getFullYear();
             const month = String(date.getMonth() + 1).padStart(2, '0');
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
-        };
+        }
 
-        const generateDeviceId = () => {
-            return 'device_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-        };
+        async function getOrCreateStableDeviceIdentifier() {
+            let deviceId = localStorage.getItem('bc_device_uuid');
+            if (deviceId) return deviceId;
 
-        const getOrCreateStableDeviceIdentifier = async () => {
-            let deviceId = localStorage.getItem('yofc_device_id');
-            if (!deviceId) {
-                deviceId = generateDeviceId();
-                localStorage.setItem('yofc_device_id', deviceId);
+            const fingerprintComponents = [
+                navigator.userAgent,
+                navigator.language,
+                screen.width + 'x' + screen.height,
+                new Date().getTimezoneOffset()
+            ].join('|||');
+
+            let hash = 0;
+            for (let i = 0; i < fingerprintComponents.length; i++) {
+                const char = fingerprintComponents.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash |= 0;
             }
+
+            deviceId = 'FP-' + Math.abs(hash).toString(36).toUpperCase() + '-' + Math.abs(screen.width * screen.height).toString(36).toUpperCase();
+            localStorage.setItem('bc_device_uuid', deviceId);
             return deviceId;
-        };
+        }
 
-        const parseTimeStr = (timeStr) => {
-            const match = timeStr.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
-            if (!match) return null;
-            return { h: parseInt(match[1]), m: parseInt(match[2]), s: match[3] ? parseInt(match[3]) : 0 };
-        };
+        async function checkIsMockLocation(coords) {
+            if (coords && coords.isMocked === true) return true;
+            return false;
+        }
 
-        const calculateDistance = (lat1, lon1, lat2, lon2) => {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI/180;
-            const φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180;
-            const Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        };
+        async function simulateServerSideValidation(payload) {
+            const { loginId, loginPass, currentCoords, gpsAccuracy, simulationMode, deviceId } = payload;
+            
+            const lat = currentCoords ? currentCoords.lat : 0;
+            const lng = currentCoords ? currentCoords.lng : 0;
+
+            const { data, error } = await _supabase.rpc('validate_and_checkin', {
+                p_login_id: loginId,
+                p_login_pass: loginPass,
+                p_lat: lat,
+                p_lng: lng,
+                p_accuracy: gpsAccuracy || 5,
+                p_simulation_mode: simulationMode,
+                p_device_id: deviceId
+            });
+
+            if (error) {
+                return { success: false, message: 'Gagal menghubungi server database: ' + error.message };
+            }
+
+            return data;
+        }
 
         function absensiApp() {
             return {
                 isAdminView: false,
-                isDesktopDevice: window.innerWidth > 768,
-                simulationMode: false,
-                
-                // Employee State
-                employeeTab: 'checkin',
-                loginId: '',
-                loginPass: '',
-                gpsStatus: 'Mencari sinyal GPS...',
-                gpsAccuracy: null,
-                currentCoords: null,
-                detectedBasecamp: null,
-                nearestDistanceText: '0 meter',
-                employeeLeaves: [],
-                leaveForm: { empId: '', type: 'Sakit', startDate: '', endDate: '', reason: '' },
-                employeeDeadlineText: '09.45 WIB',
-
-                // Admin State
                 isAdminLoggedIn: false,
                 adminLoginUser: '',
                 adminLoginPass: '',
                 adminTab: 'rekap',
-                timeGreeting: '',
-                currentUserName: '',
-                currentUserRole: '',
-                currentUserEmpId: '',
+                simulationMode: false,
+                isDesktopDevice: window.innerWidth >= 1024,
                 
-                // Data State
-                basecamps: [],
-                employees: [],
-                attendanceData: [],
-                leavesData: [],
-                messages: [],
+                currentUserRole: '',
+                currentEmpId: null,
+                isMasterAdmin: false,
 
-                // Filter State
-                filterStartDate: getLocalDate(),
+                get timeGreeting() {
+                    const hour = new Date().getHours();
+                    if (hour >= 4 && hour < 11) return 'Selamat Pagi';
+                    if (hour >= 11 && hour < 15) return 'Selamat Siang';
+                    if (hour >= 15 && hour < 18) return 'Selamat Sore';
+                    return 'Selamat Malam';
+                },
+
+                get currentUserName() {
+                    if (this.isMasterAdmin) return 'Master Admin';
+                    const emp = this.employees.find(e => e.id === this.currentEmpId);
+                    return emp ? emp.name : 'User';
+                },
+
+                get normalizedRole() {
+                    return (this.currentUserRole || '').trim().toLowerCase();
+                },
+                get isMasterOrPM() {
+                    if (this.isMasterAdmin) return true;
+                    const r = this.normalizedRole;
+                    return r === 'project manager' || r === 'pusat' || r === 'superadmin' || r.includes('project manager');
+                },
+                get isAdminOnly() {
+                    const r = this.normalizedRole;
+                    return r === 'admin' || (r.includes('admin') && !this.isMasterOrPM);
+                },
+                get isOperationalRole() {
+                    const r = this.normalizedRole;
+                    const operationalRoles = ['regional pm', 'project supervisor', 'fiber installer', 'snd engineer'];
+                    return operationalRoles.includes(r) || (!this.isMasterOrPM && !this.isAdminOnly && this.currentEmpId);
+                },
+
+                get canAccessRekap() {
+                    return true;
+                },
+                get canAccessIzin() {
+                    return true;
+                },
+                get canAccessMessages() {
+                    return this.isMasterOrPM;
+                },
+                get canAccessBasecamp() {
+                    return true;
+                },
+                get canAccessKaryawan() {
+                    return this.isMasterOrPM;
+                },
+
+                get canModifyBasecamp() {
+                    return this.isMasterOrPM;
+                },
+                get canModifyIzin() {
+                    return this.isMasterOrPM;
+                },
+                get canResetRekap() {
+                    return this.isMasterOrPM;
+                },
+
+                employeeTab: 'checkin',
+
+                loginId: '',
+                loginPass: '',
+                gpsStatus: 'Mendeteksi GPS...',
+                gpsAccuracy: null,
+                currentCoords: null,
+                detectedBasecamp: null,
+
+                leaveForm: {
+                    empId: '',
+                    type: 'Sakit',
+                    startDate: getLocalDate(),
+                    endDate: getLocalDate(),
+                    reason: ''
+                },
+
+                messageForm: {
+                    recipientId: 'ALL',
+                    message: ''
+                },
+
+                filterStartDate: (() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() - 30);
+                    return getLocalDate(d);
+                })(),
                 filterEndDate: getLocalDate(),
 
-                // Modals & Forms
+                map: null,
+                marker: null,
+                circle: null,
+
                 showBasecampModal: false,
                 editBasecampIndex: null,
-                basecampForm: { id: null, name: '', lat: 0, lng: 0, radius: 100 },
-                mapInstance: null,
-                mapMarker: null,
-                mapCircle: null,
+                basecampForm: { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 },
 
                 showEmployeeModal: false,
                 editEmployeeIndex: null,
-                employeeForm: { id: '', name: '', role: 'Installer', password: '', deviceId: null },
-                
-                messageForm: { recipientId: 'ALL', message: '' },
+                employeeForm: { id: '', name: '', role: '', password: '', deviceId: null },
 
-                init() {
-                    this.updateTimeGreeting();
-                    setInterval(() => this.updateTimeGreeting(), 60000);
-                    
-                    window.addEventListener('resize', () => {
-                        this.isDesktopDevice = window.innerWidth > 768;
-                    });
+                basecamps: [],
+                employees: [],
+                attendanceLogs: [],
+                leaves: [],
+                messages: [],
 
-                    this.loadInitialData();
+                async init() {
                     this.initGPS();
-
-                    this.$watch('loginId', (val) => {
-                        if(val) this.updateEmployeeDeadlineText(val);
-                        this.loadEmployeeLeaves(val);
-                    });
-                    
-                    this.$watch('simulationMode', (val) => {
-                         if(val) {
-                             this.gpsStatus = 'Simulasi Lokasi Aktif (Valid)';
-                             this.detectedBasecamp = { name: 'Basecamp Simulasi' };
-                             this.nearestDistanceText = 'Simulasi Mode';
-                         } else {
-                             this.initGPS();
-                         }
-                    });
+                    await getOrCreateStableDeviceIdentifier();
+                    await this.loadAttendanceData();
+                    await this.loadMessagesData();
                 },
 
-                // --- ROLE & ACCESS MANAGEMENT ---
-                get isAdminOnly() { return this.currentUserRole === 'Admin'; },
-                get isMasterOrPM() { return this.currentUserRole === 'Master Admin' || this.currentUserRole === 'Project Manager'; },
-                get isOperationalRole() { return ['SND', 'Supervisor', 'Installer'].includes(this.currentUserRole); },
-                get canAccessRekap() { return true; },
-                get canResetRekap() { return this.isMasterOrPM; },
-                get canAccessIzin() { return true; },
-                get canModifyIzin() { return this.isMasterOrPM; },
-                get canAccessMessages() { return this.currentUserRole === 'Master Admin' || this.currentUserRole === 'Project Manager'; },
-                get canAccessBasecamp() { return true; },
-                get canModifyBasecamp() { return this.isMasterOrPM; },
-                get canAccessKaryawan() { return this.currentUserRole === 'Master Admin'; },
-                
-                get filteredAttendance() {
-                    return this.attendanceData.filter(item => {
-                        const itemDateStr = item.date;
-                        const dateInRange = itemDateStr >= this.filterStartDate && itemDateStr <= this.filterEndDate;
-                        let roleAllowed = false;
-
-                        if (this.isMasterOrPM) {
-                            roleAllowed = true;
-                        } else if (this.isAdminOnly) {
-                            roleAllowed = true;
-                        } else if (this.isOperationalRole) {
-                            roleAllowed = (item.empId.toLowerCase() === this.currentUserEmpId.toLowerCase());
-                        }
-                        return dateInRange && roleAllowed;
-                    });
-                },
-
-                get displayedLeaves() {
-                    if (this.isMasterOrPM || this.isAdminOnly) {
-                        return this.leavesData;
+                get employeeDeadlineText() {
+                    if (!this.loginId) return '09.45 WIB / 09.10 WIB';
+                    const emp = this.employees.find(e => e.id.toLowerCase() === this.loginId.trim().toLowerCase());
+                    if (!emp) return '09.45 WIB';
+                    const r = (emp.role || '').trim().toLowerCase();
+                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
+                        return '09.10 WIB';
                     }
-                    return this.leavesData.filter(l => l.empId.toLowerCase() === this.currentUserEmpId.toLowerCase());
+                    return '09.45 WIB';
+                },
+
+                getLatenessMinutes(timestamp, role = '') {
+                    if (!timestamp) return 0;
+                    let match = timestamp.match(/(\d{2}):(\d{2})(?::(\d{2}))?/);
+                    let h = 0, m = 0;
+                    if (match) {
+                        h = parseInt(match[1], 10);
+                        m = parseInt(match[2], 10);
+                    } else {
+                        let d = new Date(timestamp);
+                        if (!isNaN(d.getTime())) {
+                            h = d.getHours();
+                            m = d.getMinutes();
+                        } else {
+                            return 0;
+                        }
+                    }
+                    const totalMinutes = h * 60 + m;
+                    
+                    const r = (role || '').trim().toLowerCase();
+                    let maxAllowedMinutes = 9 * 60 + 45;
+                    
+                    if (r === 'admin' || r === 'snd engineer' || r.includes('snd')) {
+                        maxAllowedMinutes = 9 * 60 + 10;
+                    } else if (r === 'regional pm' || r === 'project supervisor' || r === 'fiber installer') {
+                        maxAllowedMinutes = 9 * 60 + 45;
+                    }
+
+                    return Math.max(0, totalMinutes - maxAllowedMinutes);
+                },
+
+                formatLateness(timestamp, role = '') {
+                    const mins = this.getLatenessMinutes(timestamp, role);
+                    if (mins === 0) {
+                        return 'Tepat Waktu';
+                    }
+                    return `${mins} menit`;
+                },
+
+                async loadAttendanceData() {
+                    let { data: attData } = await _supabase.from('attendance').select('*').order('id', { ascending: false });
+                    if (attData) {
+                        this.attendanceLogs = attData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            role: item.role,
+                            basecamp: item.basecamp,
+                            timestamp: item.timestamp,
+                            date: item.date || getLocalDate(),
+                            accuracy: item.accuracy
+                        }));
+                    }
+
+                    let { data: leaveData } = await _supabase.from('leaves').select('*').order('id', { ascending: false });
+                    if (leaveData) {
+                        this.leaves = leaveData.map(item => ({
+                            id: item.id,
+                            empId: item.emp_id,
+                            name: item.name,
+                            type: item.type,
+                            startDate: item.start_date,
+                            endDate: item.end_date,
+                            reason: item.reason,
+                            status: item.status,
+                            timestamp: item.timestamp
+                        }));
+                    }
+
+                    let { data: bcData } = await _supabase.from('basecamps').select('*');
+                    if (bcData && bcData.length > 0) {
+                        this.basecamps = bcData;
+                    }
+
+                    let { data: empData } = await _supabase.from('employees').select('*');
+                    if (empData && empData.length > 0) {
+                        this.employees = empData.map(e => ({
+                            id: e.id,
+                            name: e.name,
+                            role: e.role,
+                            password: e.password,
+                            deviceId: e.device_id
+                        }));
+                    }
+                },
+
+                async loadMessagesData() {
+                    let { data, error } = await _supabase.from('messages').select('*').order('id', { ascending: false });
+                    if (data) {
+                        this.messages = data.map(m => ({
+                            id: m.id,
+                            senderId: m.sender_id,
+                            recipientId: m.recipient_id,
+                            message: m.message,
+                            timestamp: m.timestamp
+                        }));
+                    }
+                },
+
+                getEmployeeName(empId) {
+                    const emp = this.employees.find(e => e.id === empId);
+                    return emp ? emp.name : empId;
+                },
+
+                async sendMessage() {
+                    const newMsg = {
+                        sender_id: this.currentEmpId || 'PM',
+                        recipient_id: this.messageForm.recipientId,
+                        message: this.messageForm.message,
+                        timestamp: new Date().toLocaleString('id-ID')
+                    };
+
+                    const { error } = await _supabase.from('messages').insert([newMsg]);
+                    if (error) {
+                        alert('Gagal mengirim pesan: ' + error.message);
+                        return;
+                    }
+
+                    alert('Pesan berhasil dikirim!');
+                    this.messageForm.message = '';
+                    await this.loadMessagesData();
+                },
+
+                async deleteMessage(id) {
+                    if (confirm('Hapus pesan ini?')) {
+                        const { error } = await _supabase.from('messages').delete().eq('id', id);
+                        if (!error) {
+                            await this.loadMessagesData();
+                        } else {
+                            alert('Gagal menghapus pesan: ' + error.message);
+                        }
+                    }
+                },
+
+                async clearAllAttendance() {
+                    if (!this.canResetRekap) {
+                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk mereset data absensi.');
+                        return;
+                    }
+                    if (confirm('Apakah Anda yakin ingin menghapus seluruh data absensi?')) {
+                        const { error } = await _supabase.from('attendance').delete().neq('id', 0);
+                        if (!error) {
+                            this.attendanceLogs = [];
+                        } else {
+                            alert('Gagal menghapus data: ' + error.message);
+                        }
+                    }
+                },
+
+                initGPS() {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.watchPosition(
+                            async (position) => {
+                                const isMocked = position.coords.isMocked || await checkIsMockLocation(position.coords);
+                                this.currentCoords = { 
+                                    lat: position.coords.latitude, 
+                                    lng: position.coords.longitude,
+                                    isMocked: isMocked 
+                                };
+                                this.gpsAccuracy = Math.round(position.coords.accuracy);
+                                this.gpsStatus = isMocked ? 'Peringatan: Mock GPS!' : 'GPS Aktif & Terhubung';
+                                this.checkNearestBasecamp(this.currentCoords.lat, this.currentCoords.lng);
+                            },
+                            (error) => {
+                                this.gpsStatus = 'Gagal mendeteksi GPS.';
+                            },
+                            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+                        );
+                    } else {
+                        this.gpsStatus = 'Browser tidak mendukung GPS.';
+                    }
+                },
+
+                calculateDistance(lat1, lon1, lat2, lon2) {
+                    const R = 6371e3;
+                    const φ1 = lat1 * Math.PI/180;
+                    const φ2 = lat2 * Math.PI/180;
+                    const Δφ = (lat2-lat1) * Math.PI/180;
+                    const Δλ = (lon2-lon1) * Math.PI/180;
+                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                              Math.cos(φ1) * Math.cos(φ2) *
+                              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    return R * c;
+                },
+
+                checkNearestBasecamp(lat, lng) {
+                    let found = null;
+                    for (let bc of this.basecamps) {
+                        const dist = this.calculateDistance(lat, lng, bc.lat, bc.lng);
+                        if (dist <= bc.radius) {
+                            found = bc;
+                            break;
+                        }
+                    }
+                    this.detectedBasecamp = found;
+                },
+
+                get nearestDistanceText() {
+                    if (!this.currentCoords) return 'Menghitung...';
+                    let minDist = Infinity;
+                    let nearestName = '';
+                    let maxRadius = 500;
+                    for (let bc of this.basecamps) {
+                        const dist = this.calculateDistance(this.currentCoords.lat, this.currentCoords.lng, bc.lat, bc.lng);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            nearestName = bc.name;
+                            maxRadius = bc.radius;
+                        }
+                    }
+                    return `${nearestName}: ${Math.round(minDist)} meter (Max ${maxRadius}m)`;
                 },
 
                 switchRole() {
                     this.isAdminView = !this.isAdminView;
-                },
-
-                updateTimeGreeting() {
-                    const h = new Date().getHours();
-                    if(h < 11) this.timeGreeting = 'Selamat Pagi';
-                    else if(h < 15) this.timeGreeting = 'Selamat Siang';
-                    else if(h < 18) this.timeGreeting = 'Selamat Sore';
-                    else this.timeGreeting = 'Selamat Malam';
-                },
-
-                updateEmployeeDeadlineText(id) {
-                    const emp = this.employees.find(e => e.id.toLowerCase() === id.trim().toLowerCase());
-                    if (emp) {
-                         if (emp.role === 'Admin' || emp.role === 'SND') {
-                             this.employeeDeadlineText = '09.10 WIB';
-                         } else {
-                             this.employeeDeadlineText = '09.45 WIB';
-                         }
+                    if (this.isAdminView) {
+                        this.loadAttendanceData();
+                        this.loadMessagesData();
+                    } else {
+                        this.isAdminLoggedIn = false;
+                        this.currentUserRole = '';
+                        this.currentEmpId = null;
+                        this.isMasterAdmin = false;
                     }
                 },
 
-                getLatenessMinutes(timeStr, role) {
-                    const t = parseTimeStr(timeStr);
-                    if(!t) return 0;
-                    
-                    let deadline = { h: 9, m: 45 };
-                    if (role === 'Admin' || role === 'SND') {
-                        deadline = { h: 9, m: 10 };
-                    }
-                    
-                    const actualMins = (t.h * 60) + t.m;
-                    const deadlineMins = (deadline.h * 60) + deadline.m;
-                    return actualMins > deadlineMins ? actualMins - deadlineMins : 0;
-                },
-
-                formatLateness(timeStr, role) {
-                    const lateness = this.getLatenessMinutes(timeStr, role);
-                    if(lateness <= 0) return 'Tepat Waktu';
-                    const h = Math.floor(lateness / 60);
-                    const m = lateness % 60;
-                    if(h > 0) return `Telat ${h}j ${m}m`;
-                    return `Telat ${m}m`;
-                },
-
-                // --- DATA LOADING ---
-                async loadInitialData() {
-                    const { data: bcData } = await _supabase.from('basecamps').select('*');
-                    if (bcData) this.basecamps = bcData;
-
-                    const { data: empData } = await _supabase.from('employees').select('*');
-                    if (empData) this.employees = empData;
-                },
-
-                async loadAttendanceData() {
-                    const { data } = await _supabase.from('attendance')
-                        .select('*')
-                        .order('id', { ascending: false });
-                    
-                    if (data) {
-                        this.attendanceData = data.map(d => ({
-                            id: d.id,
-                            empId: d.emp_id,
-                            name: d.name,
-                            role: d.role,
-                            basecamp: d.basecamp,
-                            timestamp: d.timestamp,
-                            date: d.date,
-                            accuracy: d.accuracy
-                        }));
-                    }
-                },
-
-                async loadLeavesData() {
-                    const { data } = await _supabase.from('leaves')
-                        .select('*')
-                        .order('id', { ascending: false });
-                    
-                    if (data) {
-                        this.leavesData = data.map(d => ({
-                            id: d.id,
-                            empId: d.emp_id,
-                            name: d.name,
-                            type: d.type,
-                            startDate: d.start_date,
-                            endDate: d.end_date,
-                            reason: d.reason,
-                            status: d.status,
-                            timestamp: d.timestamp
-                        }));
-                        if(this.loginId) this.loadEmployeeLeaves(this.loginId);
-                    }
-                },
-                
-                async loadMessagesData() {
-                    const { data } = await _supabase.from('messages').select('*').order('id', { ascending: false });
-                    if(data) {
-                        this.messages = data.map(d => ({
-                             id: d.id,
-                             recipientId: d.recipient_id,
-                             message: d.message,
-                             timestamp: d.timestamp
-                        }));
-                    }
-                },
-
-                loadEmployeeLeaves(id) {
-                    if(!id) {
-                        this.employeeLeaves = [];
-                        return;
-                    }
-                    this.employeeLeaves = this.leavesData.filter(l => l.empId.toLowerCase() === id.trim().toLowerCase());
-                },
-
-                getEmployeeName(id) {
-                     const emp = this.employees.find(e => e.id === id);
-                     return emp ? emp.name : id;
-                },
-
-                // --- GPS & GEOFENCING ---
-                initGPS() {
-                    if (this.simulationMode) return;
-                    
-                    if (!("geolocation" in navigator)) {
-                        this.gpsStatus = "Browser tidak mendukung GPS";
-                        return;
-                    }
-
-                    navigator.geolocation.watchPosition(
-                        (position) => {
-                            if(this.simulationMode) return;
-
-                            const isMocked = position.coords.accuracy === 0 || 
-                                             position.coords.speed === 0 && position.coords.heading === 0 && position.coords.altitude === 0;
+                handleAdminLogin() {
+                    if (this.adminLoginUser === 'admin' && this.adminLoginPass === 'Ounyenk2018#') {
+                        this.isAdminLoggedIn = true;
+                        this.isMasterAdmin = true;
+                        this.currentUserRole = 'Master Admin';
+                        this.currentEmpId = null;
+                        this.adminLoginUser = '';
+                        this.adminLoginPass = '';
+                        this.adminTab = 'rekap';
+                        this.loadAttendanceData();
+                        this.loadMessagesData();
+                    } else {
+                        const emp = this.employees.find(e => e.id === this.adminLoginUser && e.password === this.adminLoginPass);
+                        if (emp) {
+                            this.isAdminLoggedIn = true;
+                            this.isMasterAdmin = false;
+                            this.currentUserRole = emp.role || 'Admin';
+                            this.currentEmpId = emp.id;
+                            this.adminLoginUser = '';
+                            this.adminLoginPass = '';
                             
-                            this.currentCoords = {
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude,
-                                isMocked: isMocked
-                            };
-                            this.gpsAccuracy = Math.round(position.coords.accuracy);
-                            
-                            if (isMocked) {
-                                this.gpsStatus = 'Aplikasi Fake GPS Terdeteksi!';
-                                this.detectedBasecamp = null;
-                                return;
+                            if (this.canAccessRekap) {
+                                this.adminTab = 'rekap';
+                            } else if (this.canAccessIzin) {
+                                this.adminTab = 'izin';
+                            } else {
+                                this.adminTab = 'basecamp';
                             }
 
-                            this.gpsStatus = `GPS Aktif (${this.gpsAccuracy}m)`;
-                            this.checkBasecampProximity();
-                        },
-                        (error) => {
-                            if(this.simulationMode) return;
-                            
-                            switch (error.code) {
-                                case error.PERMISSION_DENIED:
-                                    this.gpsStatus = "Izin Lokasi Ditolak";
-                                    alert("Mohon izinkan akses lokasi pada browser/HP Anda untuk melakukan absensi.");
-                                    break;
-                                case error.POSITION_UNAVAILABLE:
-                                    this.gpsStatus = "Sinyal GPS Hilang";
-                                    break;
-                                case error.TIMEOUT:
-                                    this.gpsStatus = "Pencarian GPS Timeout";
-                                    break;
-                            }
-                        },
-                        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-                    );
-                },
-
-                checkBasecampProximity() {
-                    if (!this.currentCoords || this.basecamps.length === 0) return;
-
-                    let nearestBc = null;
-                    let minDistance = Infinity;
-
-                    for (const bc of this.basecamps) {
-                        const dist = calculateDistance(this.currentCoords.lat, this.currentCoords.lng, bc.lat, bc.lng);
-                        if (dist < minDistance) {
-                            minDistance = dist;
-                            nearestBc = bc;
+                            this.loadAttendanceData();
+                            this.loadMessagesData();
+                        } else {
+                            alert('ID/Username atau Password salah!');
                         }
                     }
-
-                    this.nearestDistanceText = `${Math.round(minDistance)} meter`;
-
-                    if (nearestBc && minDistance <= nearestBc.radius) {
-                        this.detectedBasecamp = nearestBc;
-                    } else {
-                        this.detectedBasecamp = null;
-                    }
                 },
 
-                // --- PERBAIKAN: FUNGSI CHECK-IN ---
+                adminLogout() {
+                    this.isAdminLoggedIn = false;
+                    this.currentUserRole = '';
+                    this.currentEmpId = null;
+                    this.isMasterAdmin = false;
+                },
+
                 async handleCheckIn() {
                     if (!this.loginId || !this.loginPass) {
                         alert('Masukkan ID Karyawan dan Password!');
                         return;
                     }
 
-                    this.gpsStatus = 'Memproses Validasi...';
-
-                    // 1. Validasi Karyawan
-                    const empIdStr = this.loginId.trim().toLowerCase();
-                    const emp = this.employees.find(e => e.id.toLowerCase() === empIdStr && e.password === this.loginPass);
-                    
-                    if (!emp) {
-                        alert('Gagal: ID Karyawan atau Password salah!');
-                        this.gpsStatus = 'GPS Aktif & Terhubung';
-                        return;
-                    }
-
-                    // 2. Validasi Device (Anti-Tuyul)
                     const currentDeviceId = await getOrCreateStableDeviceIdentifier();
-                    if (emp.deviceId && emp.deviceId !== currentDeviceId && !this.simulationMode) {
-                        alert('Gagal: Akun ini telah terikat dengan perangkat/HP lain. Hubungi Admin untuk reset device.');
-                        this.gpsStatus = 'GPS Aktif & Terhubung';
-                        return;
-                    }
-
-                    // 3. Validasi GPS dan Jangkauan Basecamp
-                    if (!this.simulationMode) {
-                        if (!this.currentCoords) {
-                            alert('Gagal: Lokasi GPS belum ditemukan. Pastikan GPS aktif.');
-                            this.gpsStatus = 'GPS Aktif & Terhubung';
-                            return;
-                        }
-                        if (this.currentCoords.isMocked) {
-                            alert('Gagal: Aplikasi Fake GPS terdeteksi!');
-                            this.gpsStatus = 'Peringatan: Mock GPS!';
-                            return;
-                        }
-                        if (!this.detectedBasecamp) {
-                            alert('Gagal: Anda berada di luar jangkauan radius Basecamp.');
-                            this.gpsStatus = 'GPS Aktif & Terhubung';
-                            return;
-                        }
-                    }
-
-                    // 4. Update Device ID Karyawan jika belum terikat
-                    if (!emp.deviceId && !this.simulationMode) {
-                        const { error: updateErr } = await _supabase.from('employees').update({ device_id: currentDeviceId }).eq('id', emp.id);
-                        if (!updateErr) {
-                            emp.deviceId = currentDeviceId; // Update state lokal
-                        }
-                    }
-
-                    // 5. Simpan Data Absensi ke Supabase
-                    const now = new Date();
-                    // Format waktu ke DD/MM/YYYY HH:MM:SS
-                    const timestampStr = now.toLocaleString('id-ID').replace(/\./g, ':'); 
-                    const dateStr = getLocalDate(now);
-                    
-                    const newAttendance = {
-                        emp_id: emp.id,
-                        name: emp.name,
-                        role: emp.role,
-                        basecamp: this.detectedBasecamp ? this.detectedBasecamp.name : (this.simulationMode ? 'Mode Simulasi' : 'Luar Area'),
-                        timestamp: timestampStr,
-                        date: dateStr,
-                        accuracy: this.gpsAccuracy || 0
+                    const payload = {
+                        loginId: this.loginId,
+                        loginPass: this.loginPass,
+                        currentCoords: this.currentCoords,
+                        gpsAccuracy: this.gpsAccuracy,
+                        simulationMode: this.simulationMode,
+                        deviceId: currentDeviceId
                     };
 
-                    const { error: insertError } = await _supabase.from('attendance').insert([newAttendance]);
-                    
-                    if (insertError) {
-                        alert('Gagal menyimpan absensi ke database: ' + insertError.message);
+                    this.gpsStatus = 'Memproses Validasi Server...';
+                    const result = await simulateServerSideValidation(payload);
+
+                    if (!result.success) {
+                        alert(result.message);
                         this.gpsStatus = 'GPS Aktif & Terhubung';
                         return;
                     }
 
-                    // 6. Cek Pesan dari Project Manager
                     let pmMessageText = "";
                     let { data: msgData } = await _supabase.from('messages').select('*').order('id', { ascending: false });
                     if (msgData && msgData.length > 0) {
-                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === emp.id);
+                        const targetMsg = msgData.find(m => m.recipient_id === 'ALL' || m.recipient_id === this.loginId);
                         if (targetMsg) {
                             pmMessageText = `\n\n📢 PESAN DARI PROJECT MANAGER:\n"${targetMsg.message}"`;
                         }
                     }
 
-                    alert('Berhasil Check-in Kehadiran!' + pmMessageText);
-                    
-                    // Reset Form
+                    alert(result.message + pmMessageText);
                     this.loginId = '';
                     this.loginPass = '';
-                    this.gpsStatus = 'GPS Aktif & Terhubung';
-                    
-                    // Muat ulang data
                     await this.loadAttendanceData();
                 },
 
-                // --- KARYAWAN PENGAJUAN IZIN ---
                 async submitLeaveRequest() {
-                    const emp = this.employees.find(e => e.id.toLowerCase() === this.leaveForm.empId.trim().toLowerCase());
-                    if(!emp) {
-                        alert("ID Karyawan tidak ditemukan!");
+                    const emp = this.employees.find(e => e.id === this.leaveForm.empId);
+                    if (!emp) {
+                        alert('ID Karyawan tidak ditemukan!');
                         return;
                     }
 
@@ -1107,284 +1162,277 @@
 
                     const { error } = await _supabase.from('leaves').insert([newLeave]);
                     if (error) {
-                        alert("Gagal mengirim pengajuan: " + error.message);
-                    } else {
-                        alert("Pengajuan berhasil dikirim!");
-                        this.leaveForm = { empId: '', type: 'Sakit', startDate: '', endDate: '', reason: '' };
-                        await this.loadLeavesData();
-                    }
-                },
-
-                // --- ADMIN LOGIC ---
-                handleAdminLogin() {
-                    if (this.adminLoginUser === 'masteradmin' && this.adminLoginPass === 'master123!') {
-                        this.isAdminLoggedIn = true;
-                        this.currentUserName = 'Master System';
-                        this.currentUserRole = 'Master Admin';
-                        this.currentUserEmpId = 'SYS-01';
-                        this.loadAttendanceData();
-                        this.loadLeavesData();
-                        this.loadMessagesData();
+                        alert('Gagal mengirim pengajuan: ' + error.message);
                         return;
                     }
 
-                    const emp = this.employees.find(e => e.id.toLowerCase() === this.adminLoginUser.toLowerCase() && e.password === this.adminLoginPass);
+                    alert('Pengajuan berhasil dikirim.');
+                    this.leaveForm.reason = '';
+                    await this.loadAttendanceData();
+                },
+
+                async updateLeaveStatus(id, status) {
+                    if (!this.canModifyIzin) {
+                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only pada Persetujuan Izin.');
+                        return;
+                    }
                     
-                    if (emp) {
-                        this.isAdminLoggedIn = true;
-                        this.currentUserName = emp.name;
-                        this.currentUserRole = emp.role;
-                        this.currentUserEmpId = emp.id;
-                        this.loadAttendanceData();
-                        this.loadLeavesData();
-                        if (this.canAccessMessages) this.loadMessagesData();
-                    } else {
-                        alert("ID/Username atau Password Admin salah!");
-                    }
-                },
-
-                adminLogout() {
-                    this.isAdminLoggedIn = false;
-                    this.adminLoginUser = '';
-                    this.adminLoginPass = '';
-                    this.simulationMode = false;
-                    this.adminTab = 'rekap';
-                    this.currentUserRole = '';
-                    this.currentUserEmpId = '';
-                },
-
-                exportCSV() {
-                    if (this.filteredAttendance.length === 0) {
-                        alert("Tidak ada data untuk diexport");
+                    const leaveIndex = this.leaves.findIndex(l => l.id == id);
+                    if (leaveIndex === -1) {
+                        alert('Data tidak ditemukan!');
                         return;
                     }
 
-                    const headers = ["Waktu Server", "ID", "Nama", "Role", "Basecamp", "Keterlambatan (Menit)", "Status/Akurasi (m)"];
-                    const rows = this.filteredAttendance.map(item => [
-                        item.timestamp,
-                        item.empId,
-                        item.name,
-                        item.role,
-                        item.basecamp,
-                        this.getLatenessMinutes(item.timestamp, item.role),
-                        item.accuracy
-                    ]);
-
-                    let csvContent = "data:text/csv;charset=utf-8," 
-                        + headers.join(",") + "\n"
-                        + rows.map(e => e.join(",")).join("\n");
-
-                    const encodedUri = encodeURI(csvContent);
-                    const link = document.createElement("a");
-                    link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `Rekap_Absensi_${this.filterStartDate}_sd_${this.filterEndDate}.csv`);
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                },
-
-                async clearAllAttendance() {
-                    if(confirm("YAKIN INGIN MENGHAPUS SEMUA DATA ABSENSI? Data tidak dapat dikembalikan.")) {
-                        const { error } = await _supabase.from('attendance').delete().neq('id', 0);
-                        if(error) alert("Gagal mereset data: " + error.message);
-                        else {
-                            alert("Data Absensi berhasil direset!");
-                            this.loadAttendanceData();
+                    let previousStatus = this.leaves[leaveIndex].status;
+                    
+                    // Optimistic UI Update
+                    this.leaves[leaveIndex].status = status;
+                    this.leaves = [...this.leaves]; 
+                    
+                    try {
+                        const { data, error } = await _supabase
+                            .from('leaves')
+                            .update({ status: status })
+                            .eq('id', id)
+                            .select();
+                        
+                        if (error) {
+                            throw error;
                         }
+
+                        if (!data || data.length === 0) {
+                            throw new Error("Update ditolak oleh server (RLS aktif atau ID tidak ditemukan). Nonaktifkan RLS pada tabel leaves di Supabase.");
+                        }
+                        
+                        alert(`Pengajuan berhasil ${status}!`);
+                        
+                    } catch (err) {
+                        // Rollback jika terjadi kegagalan server
+                        if (leaveIndex !== -1) {
+                            this.leaves[leaveIndex].status = previousStatus;
+                            this.leaves = [...this.leaves];
+                        }
+                        alert('Terjadi kesalahan pada sistem: ' + err.message);
                     }
                 },
 
-                // --- KELOLA IZIN (ADMIN) ---
-                async updateLeaveStatus(id, newStatus) {
-                    const { error } = await _supabase.from('leaves').update({ status: newStatus }).eq('id', id);
-                    if(error) {
-                        alert("Gagal update status: " + error.message);
-                    } else {
-                        this.loadLeavesData();
-                    }
+                get employeeLeaves() {
+                    if (!this.leaveForm.empId) return [];
+                    return this.leaves.filter(l => l.empId === this.leaveForm.empId);
                 },
 
-                // --- KIRIM PESAN ---
-                async sendMessage() {
-                    const newMsg = {
-                        recipient_id: this.messageForm.recipientId,
-                        message: this.messageForm.message,
-                        timestamp: new Date().toLocaleString('id-ID')
-                    };
-                    const { error } = await _supabase.from('messages').insert([newMsg]);
-                    if(error) {
-                        alert("Gagal mengirim pesan: " + error.message);
-                    } else {
-                        alert("Pesan berhasil dikirim!");
-                        this.messageForm.message = '';
-                        this.loadMessagesData();
+                get displayedLeaves() {
+                    let items = this.leaves;
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        items = items.filter(l => l.empId === this.currentEmpId);
                     }
-                },
-                
-                async deleteMessage(id) {
-                    if(confirm("Hapus pesan ini?")) {
-                        const { error } = await _supabase.from('messages').delete().eq('id', id);
-                        if(!error) this.loadMessagesData();
-                    }
-                },
-
-                // --- MANAJEMEN BASECAMP (ADMIN) ---
-                openBasecampModal(index = null) {
-                    this.showBasecampModal = true;
-                    this.editBasecampIndex = index;
-                    
-                    if (index !== null) {
-                        const bc = this.basecamps[index];
-                        this.basecampForm = { ...bc };
-                    } else {
-                        this.basecampForm = { id: null, name: '', lat: -0.9254316, lng: 100.4187023, radius: 100 }; // Default Padang
-                    }
-
-                    setTimeout(() => {
-                        this.initMap();
-                    }, 300);
+                    return items;
                 },
 
                 initMap() {
-                    if (this.mapInstance) {
-                        this.mapInstance.remove();
+                    const lat = parseFloat(this.basecampForm.lat) || 0.50653;
+                    const lng = parseFloat(this.basecampForm.lng) || 101.42304;
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+
+                    if (!this.map) {
+                        this.map = L.map('basecampMap').setView([lat, lng], 15);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.map);
+                        this.marker = L.marker([lat, lng], { draggable: this.canModifyBasecamp }).addTo(this.map);
+                        this.circle = L.circle([lat, lng], { radius: radius, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.2 }).addTo(this.map);
+
+                        if (this.canModifyBasecamp) {
+                            this.marker.on('dragend', (e) => {
+                                const pos = e.target.getLatLng();
+                                this.basecampForm.lat = parseFloat(pos.lat.toFixed(6));
+                                this.basecampForm.lng = parseFloat(pos.lng.toFixed(6));
+                                this.updateMapVisuals();
+                            });
+                        }
+                    } else {
+                        this.map.invalidateSize();
+                        this.map.setView([lat, lng], 15);
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
                     }
+                },
 
-                    const mapDiv = document.getElementById('basecampMap');
-                    if(!mapDiv) return;
-
-                    const centerLat = this.basecampForm.lat || -0.9254316;
-                    const centerLng = this.basecampForm.lng || 100.4187023;
-                    
-                    this.mapInstance = L.map('basecampMap').setView([centerLat, centerLng], 16);
-                    
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 19,
-                        attribution: '© OpenStreetMap'
-                    }).addTo(this.mapInstance);
-
-                    this.mapMarker = L.marker([centerLat, centerLng], { 
-                        draggable: this.canModifyBasecamp 
-                    }).addTo(this.mapInstance);
-                    
-                    this.mapCircle = L.circle([centerLat, centerLng], {
-                        color: 'orange',
-                        fillColor: '#f59e0b',
-                        fillOpacity: 0.3,
-                        radius: this.basecampForm.radius || 100
-                    }).addTo(this.mapInstance);
-
-                    if (this.canModifyBasecamp) {
-                        this.mapMarker.on('dragend', (e) => {
-                            const pos = e.target.getLatLng();
-                            this.basecampForm.lat = pos.lat;
-                            this.basecampForm.lng = pos.lng;
-                            this.mapCircle.setLatLng(pos);
-                        });
-
-                        this.mapInstance.on('click', (e) => {
-                            this.basecampForm.lat = e.latlng.lat;
-                            this.basecampForm.lng = e.latlng.lng;
-                            this.mapMarker.setLatLng(e.latlng);
-                            this.mapCircle.setLatLng(e.latlng);
-                        });
+                updateMapVisuals() {
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
                     }
                 },
 
                 updateMapFromInputs() {
-                    if(this.mapInstance && this.mapMarker && this.mapCircle) {
-                        const lat = parseFloat(this.basecampForm.lat) || 0;
-                        const lng = parseFloat(this.basecampForm.lng) || 0;
-                        const radius = parseFloat(this.basecampForm.radius) || 100;
-                        
-                        const pos = [lat, lng];
-                        this.mapInstance.setView(pos);
-                        this.mapMarker.setLatLng(pos);
-                        this.mapCircle.setLatLng(pos);
-                        this.mapCircle.setRadius(radius);
-                    }
-                },
-
-                async saveBasecamp() {
                     if (!this.canModifyBasecamp) return;
-
-                    const bcData = {
-                        name: this.basecampForm.name,
-                        lat: parseFloat(this.basecampForm.lat),
-                        lng: parseFloat(this.basecampForm.lng),
-                        radius: parseFloat(this.basecampForm.radius)
-                    };
-
-                    if (this.editBasecampIndex !== null) {
-                        const id = this.basecamps[this.editBasecampIndex].id;
-                        await _supabase.from('basecamps').update(bcData).eq('id', id);
-                    } else {
-                        await _supabase.from('basecamps').insert([bcData]);
+                    const lat = parseFloat(this.basecampForm.lat);
+                    const lng = parseFloat(this.basecampForm.lng);
+                    const radius = parseInt(this.basecampForm.radius) || 500;
+                    if (!isNaN(lat) && !isNaN(lng) && this.map) {
+                        this.marker.setLatLng([lat, lng]);
+                        this.circle.setLatLng([lat, lng]);
+                        this.circle.setRadius(radius);
+                        this.map.setView([lat, lng], this.map.getZoom());
                     }
-
-                    this.showBasecampModal = false;
-                    this.loadInitialData();
                 },
-                
+
+                openBasecampModal() {
+                    if (!this.canModifyBasecamp) return;
+                    this.editBasecampIndex = null;
+                    this.basecampForm = { name: 'HO Pekanbaru', lat: 0.50653, lng: 101.42304, radius: 500 };
+                    this.showBasecampModal = true;
+                    this.$nextTick(() => { this.initMap(); });
+                },
                 editBasecamp(index) {
-                    this.openBasecampModal(index);
+                    this.editBasecampIndex = index;
+                    this.basecampForm = { ...this.basecamps[index] };
+                    this.showBasecampModal = true;
+                    this.$nextTick(() => { this.initMap(); });
                 },
-
+                async saveBasecamp() {
+                    if (!this.canModifyBasecamp) {
+                        alert('Akses Dibatasi: Anda memiliki hak akses Read Only untuk Basecamp.');
+                        this.showBasecampModal = false;
+                        return;
+                    }
+                    if (this.editBasecampIndex !== null) {
+                        const targetId = this.basecamps[this.editBasecampIndex].id;
+                        const { error } = await _supabase.from('basecamps').update({
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        }).eq('id', targetId);
+                        if (error) {
+                            alert('Gagal mengupdate basecamp: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        const newBc = {
+                            name: this.basecampForm.name,
+                            lat: parseFloat(this.basecampForm.lat),
+                            lng: parseFloat(this.basecampForm.lng),
+                            radius: parseInt(this.basecampForm.radius)
+                        };
+                        const { error } = await _supabase.from('basecamps').insert([newBc]);
+                        if (error) {
+                            alert('Gagal menambah basecamp: ' + error.message);
+                            return;
+                        }
+                    }
+                    this.showBasecampModal = false;
+                    await this.loadAttendanceData();
+                },
                 async deleteBasecamp(index) {
-                    if (confirm("Hapus basecamp ini?")) {
-                        const id = this.basecamps[index].id;
-                        await _supabase.from('basecamps').delete().eq('id', id);
-                        this.loadInitialData();
+                    if (!this.canModifyBasecamp) {
+                        alert('Akses Dibatasi: Anda tidak memiliki hak akses untuk menghapus basecamp.');
+                        return;
+                    }
+                    if (confirm('Hapus basecamp ini?')) {
+                        const targetId = this.basecamps[index].id;
+                        const { error } = await _supabase.from('basecamps').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus basecamp: ' + error.message);
+                        }
                     }
                 },
 
-                // --- MANAJEMEN KARYAWAN (ADMIN) ---
-                openEmployeeModal(index = null) {
+                openEmployeeModal() {
+                    this.editEmployeeIndex = null;
+                    this.employeeForm = { id: '', name: '', role: '', password: '', deviceId: null };
                     this.showEmployeeModal = true;
-                    this.editEmployeeIndex = index;
-                    if (index !== null) {
-                        this.employeeForm = { ...this.employees[index] };
-                    } else {
-                        this.employeeForm = { id: '', name: '', role: 'Installer', password: '', deviceId: null };
-                    }
                 },
-
-                async saveEmployee() {
-                    const empData = {
-                        id: this.employeeForm.id,
-                        name: this.employeeForm.name,
-                        role: this.employeeForm.role,
-                        password: this.employeeForm.password
-                    };
-
-                    if (this.editEmployeeIndex !== null) {
-                        await _supabase.from('employees').update(empData).eq('id', this.employeeForm.id);
-                    } else {
-                        await _supabase.from('employees').insert([empData]);
-                    }
-
-                    this.showEmployeeModal = false;
-                    this.loadInitialData();
-                },
-
                 editEmployee(index) {
-                    this.openEmployeeModal(index);
+                    this.editEmployeeIndex = index;
+                    this.employeeForm = { ...this.employees[index] };
+                    this.showEmployeeModal = true;
                 },
-
-                async resetDevice(index) {
-                    if(confirm("Anda yakin ingin mereset pengikatan device untuk karyawan ini? Karyawan akan bisa login di HP baru.")) {
-                        const id = this.employees[index].id;
-                        await _supabase.from('employees').update({ device_id: null }).eq('id', id);
-                        this.loadInitialData();
+                async saveEmployee() {
+                    if (this.editEmployeeIndex !== null) {
+                        const targetEmpId = this.employees[this.editEmployeeIndex].id;
+                        const { error } = await _supabase.from('employees').update({
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password
+                        }).eq('id', targetEmpId);
+                        if (error) {
+                            alert('Gagal mengupdate karyawan: ' + error.message);
+                            return;
+                        }
+                    } else {
+                        const newEmp = {
+                            id: this.employeeForm.id,
+                            name: this.employeeForm.name,
+                            role: this.employeeForm.role,
+                            password: this.employeeForm.password,
+                            device_id: null
+                        };
+                        const { error } = await _supabase.from('employees').insert([newEmp]);
+                        if (error) {
+                            alert('Gagal menambah karyawan: ' + error.message);
+                            return;
+                        }
                     }
+                    this.showEmployeeModal = false;
+                    await this.loadAttendanceData();
                 },
-
                 async deleteEmployee(index) {
-                    if (confirm("Hapus data karyawan ini?")) {
-                        const id = this.employees[index].id;
-                        await _supabase.from('employees').delete().eq('id', id);
-                        this.loadInitialData();
+                    if (confirm('Hapus karyawan ini?')) {
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').delete().eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                        } else {
+                            alert('Gagal menghapus karyawan: ' + error.message);
+                        }
                     }
+                },
+                async resetDevice(index) {
+                    if (confirm('Reset perangkat terikat?')) {
+                        const targetId = this.employees[index].id;
+                        const { error } = await _supabase.from('employees').update({ device_id: null }).eq('id', targetId);
+                        if (!error) {
+                            await this.loadAttendanceData();
+                            alert('Device berhasil direset.');
+                        } else {
+                            alert('Gagal mereset device: ' + error.message);
+                        }
+                    }
+                },
+
+                get filteredAttendance() {
+                    let logs = this.attendanceLogs;
+                    if (this.isOperationalRole && !this.isMasterOrPM && !this.isAdminOnly) {
+                        logs = logs.filter(item => item.empId === this.currentEmpId);
+                    }
+                    return logs.filter(item => {
+                        const itemDate = item.date || getLocalDate();
+                        if (this.filterStartDate && this.filterEndDate) {
+                            return itemDate >= this.filterStartDate && itemDate <= this.filterEndDate;
+                        }
+                        return true;
+                    });
+                },
+
+                exportCSV() {
+                    let csvContent = "data:text/csv;charset=utf-8,ID,Nama,Role,Basecamp,Tanggal Waktu,Terlambat,Akurasi GPS\n";
+                    this.filteredAttendance.forEach(row => {
+                        let latenessText = this.formatLateness(row.timestamp, row.role);
+                        csvContent += `"${row.empId}","${row.name}","${row.role}","${row.basecamp}","${row.timestamp}","${latenessText}","${row.accuracy}m"\r\n`;
+                    });
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `rekap_absensi_${this.filterStartDate}_sampai_${this.filterEndDate}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
                 }
             }
         }
