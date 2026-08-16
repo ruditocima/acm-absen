@@ -1694,9 +1694,55 @@
 
             renderRekap();
             updateDashboardStats();
+            renderMobileMyHistory();
             closeSelfieModal();
-            showToast('Absensi berhasil dicatat!', 'success');
-            
+            showToast('Absensi berhasil disimpan!', 'success');
+            pendingAbsenData = null;
+        }
+          function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if (!container) return;
+            const myName = activeEmployeeSession.name;
+            if (!myName || myName === 'Tamu') {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Silakan login untuk melihat riwayat.</p>`;
+                return;
+            }
+
+            const myRekap = rekapList.filter(r => r.name === myName);
+            const myIzin = izinList.filter(i => i.name === myName);
+
+            let html = '';
+            if (myRekap.length === 0 && myIzin.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+                return;
+            }
+
+            myRekap.forEach(r => {
+                html += `
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="text-gold-400 font-semibold block">Absen: ${r.date} (${r.time})</span>
+                            <span class="text-[10px] text-slate-400">${r.basecamp}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${r.status === 'Hadir Tepat Waktu' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">${r.status}</span>
+                    </div>
+                `;
+            });
+
+            myIzin.forEach(i => {
+                html += `
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="text-blue-400 font-semibold block">Izin: ${i.jenis} (${i.start} s/d ${i.end})</span>
+                            <span class="text-[10px] text-slate-400">${i.desc}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${i.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400' : i.status === 'Rejected' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}">${i.status}</span>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }  
             const mobileJamMasuk = document.getElementById('mobile-jam-masuk');
             if(mobileJamMasuk) mobileJamMasuk.innerText = timeString;
         }
@@ -1766,26 +1812,6 @@
             `).join('');
         }
 
-        function renderMobileMyHistory() {
-            const container = document.getElementById('mobile-my-history');
-            if(!container) return;
-            const myRekap = rekapList.filter(r => r.name === activeEmployeeSession.name);
-            const myIzin = izinList.filter(i => i.name === activeEmployeeSession.name);
-            
-            let html = '';
-            myRekap.forEach(r => {
-                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
-                    <div><span class="text-white font-semibold">Absen: ${r.date}</span><p class="text-[10px] text-emerald-400">${r.time} (${r.status})</p></div>
-                    <img src="${r.selfie}" class="w-8 h-8 rounded object-cover cursor-pointer" onclick="openImageZoom('${r.selfie}')">
-                </div>`;
-            });
-            myIzin.forEach(i => {
-                html += `<div class="bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-                    <span class="text-gold-400 font-semibold">Izin: ${i.jenis}</span><p class="text-[10px] text-slate-400">${i.start} s/d ${i.end}</p>
-                </div>`;
-            });
-            container.innerHTML = html || '<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>';
-        }
         function populateEmailRecipients() {}
         function renderEmails() {}
         function renderRoles() {}
