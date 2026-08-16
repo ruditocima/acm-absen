@@ -833,7 +833,78 @@
 
         let generatedOTP = null;
         let otpExpiryTime = null;
+// ==========================================
+// SUPABASE REALTIME SUBSCRIPTION MODULE
+// ==========================================
 
+function initSupabaseRealtime() {
+    // Pastikan objek supabase tersedia
+    if (typeof supabase === 'undefined') {
+        console.warn('Supabase client belum diinisialisasi.');
+        return;
+    }
+
+    // 1. Channel untuk Tabel Izin / Cuti (Contoh nama tabel: 'leaves' atau 'izin')
+    // Sesuaikan nama tabel dengan skema database Anda yang sebenarnya
+    supabase
+        .channel('realtime-leaves-channel')
+        .on(
+            'postgres_changes',
+            {
+                event: '*', // Mendengarkan semua event: INSERT, UPDATE, DELETE
+                schema: 'public',
+                table: 'leaves' // Ganti dengan nama tabel izin Anda jika berbeda
+            },
+            (payload) => {
+                console.log('Perubahan data izin terdeteksi:', payload);
+                // Panggil fungsi yang sudah ada di kode Anda untuk memuat ulang data izin
+                if (typeof loadLeaveData === 'function') {
+                    loadLeaveData();
+                } else if (typeof fetchIzin === 'function') {
+                    fetchIzin();
+                }
+                // Tampilkan notifikasi ringan jika diinginkan
+                if (typeof showToast === 'function') {
+                    showToast('Data izin diperbarui secara real-time.', 'info');
+                }
+            }
+        )
+        .subscribe();
+
+    // 2. Channel untuk Tabel Pesan / Email Masuk (Contoh nama tabel: 'messages' atau 'emails')
+    supabase
+        .channel('realtime-messages-channel')
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT', // Biasanya pesan masuk fokus pada penambahan data baru
+                schema: 'public',
+                table: 'messages' // Ganti dengan nama tabel pesan/email Anda jika berbeda
+            },
+            (payload) => {
+                console.log('Pesan/Email masuk baru terdeteksi:', payload);
+                // Panggil fungsi yang sudah ada di kode Anda untuk memuat ulang pesan
+                if (typeof loadMessages === 'function') {
+                    loadMessages();
+                } else if (typeof fetchEmails === 'function') {
+                    fetchEmails();
+                }
+                // Tampilkan notifikasi ringan
+                if (typeof showToast === 'function') {
+                    showToast('Pesan atau email baru diterima!', 'success');
+                }
+            }
+        )
+        .subscribe();
+}
+
+// Jalankan inisialisasi realtime setelah DOM atau koneksi siap
+document.addEventListener('DOMContentLoaded', () => {
+    // Beri jeda sedikit untuk memastikan klien supabase siap
+    setTimeout(() => {
+        initSupabaseRealtime();
+    }, 1000);
+});
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
             if (!container) return;
