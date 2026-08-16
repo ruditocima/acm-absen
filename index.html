@@ -1580,21 +1580,41 @@
         function captureSelfie() {
             const video = document.getElementById('selfie-video');
             const canvas = document.getElementById('selfie-canvas');
-            canvas.width = video.videoWidth || 320; canvas.height = video.videoHeight || 240;
+            const preview = document.getElementById('selfie-preview');
+            
+            if (!video || !canvas || !preview) return;
+
+            canvas.width = video.videoWidth || 320; 
+            canvas.height = video.videoHeight || 240;
             const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-            canvas.toBlob(blob => {
-                capturedBlob = blob;
-                const imageUrl = URL.createObjectURL(blob);
-                document.getElementById('selfie-preview').src = imageUrl;
-                document.getElementById('selfie-preview').classList.remove('hidden');
+            try {
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                preview.src = dataUrl;
+                preview.classList.remove('hidden');
                 video.classList.add('hidden');
+
+                canvas.toBlob(blob => {
+                    capturedBlob = blob || dataURLtoBlob(dataUrl);
+                }, 'image/jpeg', 0.85);
 
                 document.getElementById('btn-capture').classList.add('hidden');
                 document.getElementById('btn-retake').classList.remove('hidden');
                 document.getElementById('btn-submit-absen').classList.remove('hidden');
-            }, 'image/jpeg', 0.85);
+            } catch (err) {
+                console.error('Capture error:', err);
+                showToast('Gagal mengambil foto. Silakan coba lagi.', 'error');
+            }
+        }
+
+        function dataURLtoBlob(dataurl) {
+            let arr = dataurl.split(','), mime = arr[0].match(/:(.*?);/)[1],
+                bstr = atob(arr[1]), n = bstr.length, u8arr = new Uint8Array(n);
+            while(n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+            return new Blob([u8arr], {type:mime});
         }
 
         function retakeSelfie() {
@@ -1627,6 +1647,11 @@
             try {
                 if (capturedBlob) {
                     selfieUrl = await blobToBase64(capturedBlob);
+                } else {
+                    const preview = document.getElementById('selfie-preview');
+                    if (preview && preview.src && preview.src.startsWith('data:')) {
+                        selfieUrl = preview.src;
+                    }
                 }
             } catch (err) {
                 console.error('Error converting selfie blob:', err);
@@ -1659,9 +1684,11 @@
             rekapList.push(newAbsen);
             localStorage.setItem('local_rekap_list', JSON.stringify(rekapList));
             
-            supabaseClient.from('rekap_list').insert([newAbsen]).catch(err => {
+            try {
+                await supabaseClient.from('rekap_list').insert([newAbsen]);
+            } catch (err) {
                 console.log('Supabase rekap sync notice:', err);
-            });
+            }
             
             const jamMasukEl = document.getElementById('mobile-jam-masuk');
             if (jamMasukEl) jamMasukEl.innerText = timeString;
@@ -1681,90 +1708,451 @@
 
         function resetRekapData() {
             if (!isMasterAdmin()) { return showToast('Akses Ditolak! Hanya Master Admin yang dapat mereset rekap.', 'error'); }
-            showConfirm('Reset Rekap Absensi', 'Apakah Anda yakin ingin menghapus seluruh data rekap absensi?', async () => {
+            showConfirm('Reset Rekap Absensi', 'Apakah Anda yakin ingin menghapus seluruh riwayat rekap absensi?', async () => {
                 rekapList = [];
                 localStorage.removeItem('local_rekap_list');
-                await supabaseClient.from('rekap_list').delete().neq('date', '1970-01-01').catch(e => console.log(e));
+                await supabaseClient.from('rekap_list').delete().neq('date', '1970-01-01');
                 renderRekap();
                 updateDashboardStats();
-                showToast('Data rekap absensi berhasil di-reset.', 'success');
-            }, true);
+                showToast('Rekap absensi berhasil direset.', 'success');
+            });
+        }
+
+        function renderRoles() {
+            const tbody = document.getElementById('role-tbody');
+            if(!tbody) return;
+            tbody.innerHTML = roles.map((r, index) => `
+                <tr class="hover:bg-slate-900/50">
+                    <td class="p-3 font-mono text-gold-400">${r.id}</td>
+                    <td class="p-3 font-semibold text-white">${r.name}</td>
+                    <td class="p-3 text-slate-300">${r.access}</td>
+                    <td class="p-3">
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="openEditRoleModal(${index})" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-pen"></i> Edit</button>
+                            <button onclick="deleteRole(${index})" class="px-2 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+
+            const roleSelect = document.getElementById('inp-role');
+            if(roleSelect) {
+                roleSelect.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+            }
         }
 
         function renderRekap() {
             const tbody = document.getElementById('rekap-tbody');
             if(!tbody) return;
-            
-            let filtered = rekapList;
+
             const startDate = document.getElementById('rekap-start-date')?.value;
             const endDate = document.getElementById('rekap-end-date')?.value;
-            
+
+            let filtered = rekapList;
             if (startDate && endDate) {
-                filtered = rekapList.filter(r => r.date >= startDate && r.date <= endDate);
+                filtered = rekapList.filter(item => item.date >= startDate && item.date <= endDate);
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">Belum ada data rekap absensi.</td></tr>`;
+                return;
             }
 
             tbody.innerHTML = filtered.map(r => `
                 <tr class="hover:bg-slate-900/50">
-                    <td class="p-3 font-mono text-slate-400">${r.date}</td>
+                    <td class="p-3 font-mono text-slate-300">${r.date}</td>
                     <td class="p-3 font-semibold text-white">${r.name}</td>
                     <td class="p-3 text-slate-300">${r.basecamp}</td>
                     <td class="p-3 font-mono text-emerald-400">${r.time}</td>
                     <td class="p-3">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status.includes('Tepat') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Hadir Tepat Waktu' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
                             ${r.status}
                         </span>
                     </td>
-                    <td class="p-3 text-slate-300">${r.terlambat}</td>
+                    <td class="p-3 font-mono text-slate-300">${r.terlambat}</td>
                     <td class="p-3">
-                        <img src="${r.selfie}" alt="Selfie" class="w-10 h-10 rounded-lg object-cover cursor-pointer border border-slate-700 hover:border-gold-500 transition shadow" onclick="openImageZoom('${r.selfie}', 'Selfie ${r.name} - ${r.time}')">
+                        <img src="${r.selfie}" alt="Selfie" class="w-9 h-9 rounded-lg object-cover border border-slate-700 cursor-pointer hover:border-gold-500 transition shadow" onclick="openImageZoom('${r.selfie}', 'Absensi: ${r.name} (${r.date} - ${r.time})')">
                     </td>
                 </tr>
-            `).join('') || `<tr><td colspan="7" class="text-center py-6 text-slate-500">Belum ada data rekap absensi.</td></tr>`;
+            `).join('');
         }
 
-        function exportToExcel() {
-            if (rekapList.length === 0) { showToast('Tidak ada data untuk diexport.', 'warning'); return; }
-            const worksheet = XLSX.utils.json_to_sheet(rekapList);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
-            XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
-            showToast('File Excel berhasil diunduh.', 'success');
-        }
-
-        // ==================== BASECAMP FUNCTIONS ==================== //
-        function renderBasecamps() {
-            const container = document.getElementById('basecamp-container');
+        function renderAdminIzin() {
+            const container = document.getElementById('admin-izin-container');
+            const badge = document.getElementById('tab-izin-counter-badge');
+            const sidebarBadge = document.getElementById('sidebar-izin-badge');
             if(!container) return;
-            
-            container.innerHTML = basecamps.map((bc, index) => `
-                <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
+
+            const myRole = activeEmployeeSession.role;
+            const myName = activeEmployeeSession.name;
+            const isAtasan = isMasterAdmin() || myRole.includes('Admin') || myRole.includes('Manajer') || employees.some(e => e.atasan === myName);
+
+            const relevantIzin = isMasterAdmin() ? izinList : izinList.filter(i => i.atasan === myName || isAtasan);
+            const pendingList = relevantIzin.filter(i => i.status === 'Pending');
+
+            if(badge) {
+                if(pendingList.length > 0) {
+                    badge.innerText = `${pendingList.length} Pengajuan Pending`;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+            if(sidebarBadge) {
+                if(pendingList.length > 0) {
+                    sidebarBadge.innerText = pendingList.length;
+                    sidebarBadge.classList.remove('hidden');
+                } else {
+                    sidebarBadge.classList.add('hidden');
+                }
+            }
+
+            if(relevantIzin.length === 0) {
+                container.innerHTML = `<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin dari karyawan.</p>`;
+                return;
+            }
+
+            container.innerHTML = relevantIzin.map((i, index) => `
+                <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
                     <div class="flex justify-between items-start">
-                        <h5 class="text-xs font-bold text-white">${bc.name}</h5>
-                        <span class="text-[10px] text-gold-400 bg-gold-500/10 px-2 py-0.5 rounded border border-gold-500/20">${bc.radius}m</span>
+                        <div>
+                            <span class="text-gold-400 font-bold">${i.name}</span>
+                            <span class="text-slate-400 ml-2">(${i.jenis})</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : i.status === 'Ditolak' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">
+                            ${i.status}
+                        </span>
                     </div>
-                    <p class="text-[11px] text-slate-400 font-mono">Lat: ${bc.lat}, Lng: ${bc.lng}</p>
-                    ${isMasterAdmin() ? `
-                        <div class="flex gap-2 pt-2 border-t border-slate-800">
-                            <button onclick="openEditBasecampModal(${index})" class="flex-1 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition">Edit</button>
-                            <button onclick="deleteBasecamp(${index})" class="flex-1 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition">Hapus</button>
+                    <p class="text-slate-300"><b>Durasi:</b> ${i.start} s/d ${i.end}</p>
+                    <p class="text-slate-300"><b>Alasan:</b> ${i.desc}</p>
+                    <p class="text-[11px] text-slate-500">Atasan Dituju: ${i.atasan}</p>
+                    ${i.status === 'Pending' ? `
+                        <div class="flex gap-2 pt-2">
+                            <button onclick="approveIzin(${index})" class="px-3 py-1 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:bg-emerald-400 transition">Setujui</button>
+                            <button onclick="rejectIzin(${index})" class="px-3 py-1 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:bg-rose-400 transition">Tolak</button>
                         </div>
                     ` : ''}
                 </div>
             `).join('');
+        }
 
-            if (!bcMap && document.getElementById('basecamp-map')) {
-                bcMap = L.map('basecamp-map').setView([0.5071, 101.4478], 12);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
+        async function approveIzin(index) {
+            izinList[index].status = 'Disetujui';
+            await supabaseClient.from('izin_list').update({ status: 'Disetujui' }).eq('id', izinList[index].id);
+            renderAdminIzin();
+            showToast('Izin berhasil disetujui.', 'success');
+        }
+
+        async function rejectIzin(index) {
+            izinList[index].status = 'Ditolak';
+            await supabaseClient.from('izin_list').update({ status: 'Ditolak' }).eq('id', izinList[index].id);
+            renderAdminIzin();
+            showToast('Izin ditolak.', 'warning');
+        }
+
+        function renderMobileMyHistory() {
+            const container = document.getElementById('mobile-my-history');
+            if(!container) return;
+
+            const myName = activeEmployeeSession.name;
+            if(myName === 'Tamu') {
+                container.innerHTML = `<p class="text-slate-500 text-center py-2">Silakan login untuk melihat riwayat.</p>`;
+                return;
             }
-            if (bcMap) {
-                basecamps.forEach(bc => {
-                    L.marker([bc.lat, bc.lng]).addTo(bcMap).bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
-                });
+
+            const myRekap = rekapList.filter(r => r.name === myName);
+            const myIzin = izinList.filter(i => i.name === myName);
+
+            let html = '';
+            if(myRekap.length > 0) {
+                html += `<h4 class="text-[11px] font-bold text-gold-400 uppercase tracking-wider mb-1">Riwayat Absensi</h4>`;
+                html += myRekap.map(r => `
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-white block">${r.date} - ${r.time}</span>
+                            <span class="text-[11px] text-slate-400">${r.basecamp}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Hadir Tepat Waktu' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}">${r.status}</span>
+                    </div>
+                `).join('');
+            }
+
+            if(myIzin.length > 0) {
+                html += `<h4 class="text-[11px] font-bold text-gold-400 uppercase tracking-wider mt-3 mb-1">Riwayat Pengajuan Izin</h4>`;
+                html += myIzin.map(i => `
+                    <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="font-bold text-white block">${i.jenis} (${i.start} s/d ${i.end})</span>
+                            <span class="text-[11px] text-slate-400">${i.desc}</span>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400' : i.status === 'Ditolak' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}">${i.status}</span>
+                    </div>
+                `).join('');
+            }
+
+            container.innerHTML = html || `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+        }
+
+        function updateDashboardStats() {
+            const totalEmp = employees.length;
+            const today = getLocalDateString();
+            const todayRekap = rekapList.filter(r => r.date === today);
+
+            const tepatWaktu = todayRekap.filter(r => r.status === 'Hadir Tepat Waktu').length;
+            const terlambat = todayRekap.filter(r => r.status === 'Terlambat').length;
+            const izinAlpha = totalEmp - todayRekap.length;
+
+            const elTotal = document.getElementById('stat-total-karyawan');
+            const elTepat = document.getElementById('stat-tepat-waktu');
+            const elTerlambat = document.getElementById('stat-terlambat');
+            const elIzinAlpha = document.getElementById('stat-izin-alpha');
+
+            if(elTotal) elTotal.innerText = `${totalEmp} Orang`;
+            if(elTepat) elTepat.innerText = `${tepatWaktu} Orang`;
+            if(elTerlambat) elTerlambat.innerText = `${terlambat} Orang`;
+            if(elIzinAlpha) elIzinAlpha.innerText = `${Math.max(0, izinAlpha)} Orang`;
+        }
+
+        function populateEmailRecipients() {
+            const mSelect = document.getElementById('m-email-recipient');
+            const dSelect = document.getElementById('d-email-recipient');
+            
+            const options = `<option value="BROADCAST">📢 BROADCAST (Kirim ke Seluruh Karyawan)</option>` + 
+                employees.map(e => `<option value="${e.id}">${e.name} (${e.id})</option>`).join('');
+
+            if(mSelect) mSelect.innerHTML = options;
+            if(dSelect) dSelect.innerHTML = options;
+        }
+
+        function renderEmails() {
+            const mInbox = document.getElementById('mobile-inbox-list');
+            const mSent = document.getElementById('mobile-sent-list');
+            const dInbox = document.getElementById('desktop-inbox-tbody');
+            const dSent = document.getElementById('desktop-sent-tbody');
+
+            const myEmail = activeEmployeeSession && activeEmployeeSession.id ? activeEmployeeSession.id : '';
+            const readIds = getReadEmailIds();
+
+            const inboxItems = emailsList.filter(e => e.receiver === myEmail || e.receiver === 'BROADCAST');
+            const sentItems = emailsList.filter(e => e.sender === myEmail);
+
+            if(mInbox) {
+                if(inboxItems.length === 0) {
+                    mInbox.innerHTML = `<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>`;
+                } else {
+                    mInbox.innerHTML = inboxItems.map(e => {
+                        const isRead = readIds.includes(e.id) || e.read;
+                        return `
+                            <div onclick="openEmailDetailModal('${e.id}')" class="glass-card p-3 rounded-xl border ${isRead ? 'border-slate-800' : 'border-gold-500/50 bg-gold-500/5'} cursor-pointer hover:border-gold-400 transition space-y-1">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold text-white">${getEmployeeDisplayName(e.sender)}</span>
+                                    <span class="text-[10px] text-slate-400 font-mono">${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                </div>
+                                <p class="font-semibold text-gold-400">${e.subject}</p>
+                                <p class="text-slate-300 truncate">${e.message}</p>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            }
+
+            if(mSent) {
+                if(sentItems.length === 0) {
+                    mSent.innerHTML = `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>`;
+                } else {
+                    mSent.innerHTML = sentItems.map(e => `
+                        <div onclick="openEmailDetailModal('${e.id}')" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition space-y-1">
+                            <div class="flex justify-between items-center">
+                                <span class="font-bold text-white">Kepada: ${getEmployeeDisplayName(e.receiver)}</span>
+                                <span class="text-[10px] text-slate-400 font-mono">${new Date(e.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                            <p class="font-semibold text-gold-400">${e.subject}</p>
+                            <p class="text-slate-300 truncate">${e.message}</p>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            if(dInbox) {
+                if(inboxItems.length === 0) {
+                    dInbox.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>`;
+                } else {
+                    dInbox.innerHTML = inboxItems.map(e => {
+                        const isRead = readIds.includes(e.id) || e.read;
+                        return `
+                            <tr class="hover:bg-slate-900/50 ${isRead ? '' : 'font-semibold bg-gold-500/5'}">
+                                <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString()}</td>
+                                <td class="p-3 text-white">${getEmployeeDisplayName(e.sender)}</td>
+                                <td class="p-3 text-gold-400">${e.subject}</td>
+                                <td class="p-3 text-slate-300">${e.receiver === 'BROADCAST' ? 'Broadcast' : 'Pribadi'}</td>
+                                <td class="p-3">
+                                    <button onclick="openEmailDetailModal('${e.id}')" class="px-3 py-1 bg-gold-500/20 text-gold-400 hover:bg-gold-500/30 rounded text-xs font-semibold transition">Buka</button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            }
+
+            if(dSent) {
+                if(sentItems.length === 0) {
+                    dSent.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>`;
+                } else {
+                    dSent.innerHTML = sentItems.map(e => `
+                        <tr class="hover:bg-slate-900/50">
+                            <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString()}</td>
+                            <td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td>
+                            <td class="p-3 text-gold-400">${e.subject}</td>
+                            <td class="p-3">
+                                <button onclick="openEmailDetailModal('${e.id}')" class="px-3 py-1 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded text-xs font-semibold transition">Detail</button>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            }
+            updateEmailBadges();
+        }
+
+        async function sendAppEmail(viewMode) {
+            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
+
+            const recipient = document.getElementById(viewMode === 'mobile' ? 'm-email-recipient' : 'd-email-recipient').value;
+            const subject = document.getElementById(viewMode === 'mobile' ? 'm-email-subject' : 'd-email-subject').value.trim();
+            const message = document.getElementById(viewMode === 'mobile' ? 'm-email-message' : 'd-email-message').value.trim();
+
+            if (!subject || !message) { showToast('Subjek dan isi pesan wajib diisi!', 'error'); return; }
+
+            const newEmail = {
+                id: 'MAIL-' + Date.now(),
+                sender: activeEmployeeSession.id,
+                sender_name: activeEmployeeSession.name,
+                recipient: recipient,
+                subject: subject,
+                message: message,
+                created_at: new Date().toISOString()
+            };
+
+            emailsList.unshift({ ...newEmail, read: true });
+            await supabaseClient.from('emails').insert([{
+                id: newEmail.id,
+                sender: newEmail.sender,
+                sender_name: newEmail.sender_name,
+                recipient: newEmail.recipient,
+                subject: newEmail.subject,
+                message: newEmail.message
+            }]);
+
+            showToast('Pesan berhasil dikirim!', 'success');
+            
+            document.getElementById(viewMode === 'mobile' ? 'm-email-subject' : 'd-email-subject').value = '';
+            document.getElementById(viewMode === 'mobile' ? 'm-email-message' : 'd-email-message').value = '';
+
+            renderEmails();
+            if(viewMode === 'mobile') switchMobileEmailSub('inbox');
+            else switchDesktopEmailSub('inbox');
+        }
+
+        function openEmailDetailModal(emailId) {
+            const email = emailsList.find(e => e.id === emailId);
+            if(!email) return;
+
+            activeSelectedEmail = email;
+            markEmailAsRead(emailId);
+
+            document.getElementById('detail-email-sender').innerText = getEmployeeDisplayName(email.sender);
+            document.getElementById('detail-email-receiver').innerText = getEmployeeDisplayName(email.receiver);
+            document.getElementById('detail-email-time').innerText = new Date(email.created_at).toLocaleString();
+            document.getElementById('detail-email-subject').innerText = email.subject;
+            document.getElementById('detail-email-message').innerText = email.message;
+
+            document.getElementById('email-detail-modal').classList.remove('hidden');
+        }
+
+        function closeEmailDetailModal() {
+            document.getElementById('email-detail-modal').classList.add('hidden');
+            activeSelectedEmail = null;
+        }
+
+        function replyEmail() {
+            if(!activeSelectedEmail) return;
+            const senderId = activeSelectedEmail.sender;
+            const subject = 'Re: ' + activeSelectedEmail.subject;
+            
+            closeEmailDetailModal();
+            if(document.getElementById('view-mobile').classList.contains('hidden')) {
+                switchDesktopTab('email');
+                switchDesktopEmailSub('compose');
+                document.getElementById('d-email-recipient').value = senderId;
+                document.getElementById('d-email-subject').value = subject;
+                document.getElementById('d-email-message').focus();
+            } else {
+                switchMobileTab('email');
+                switchMobileEmailSub('compose');
+                document.getElementById('m-email-recipient').value = senderId;
+                document.getElementById('m-email-subject').value = subject;
+                document.getElementById('m-email-message').focus();
             }
         }
 
+        function openRoleModal() {
+            document.getElementById('role-modal-title').innerText = "Tambah Role Baru";
+            document.getElementById('role-edit-index').value = "-1";
+            document.getElementById('inp-role-id').value = "";
+            document.getElementById('inp-role-name').value = "";
+            document.getElementById('inp-role-access').value = "";
+            document.getElementById('role-modal').classList.remove('hidden');
+        }
+
+        function openEditRoleModal(index) {
+            const r = roles[index];
+            document.getElementById('role-modal-title').innerText = "Edit Role";
+            document.getElementById('role-edit-index').value = index;
+            document.getElementById('inp-role-id').value = r.id;
+            document.getElementById('inp-role-name').value = r.name;
+            document.getElementById('inp-role-access').value = r.access;
+            document.getElementById('role-modal').classList.remove('hidden');
+        }
+
+        function closeRoleModal() {
+            document.getElementById('role-modal').classList.add('hidden');
+        }
+
+        async function saveRole() {
+            const index = parseInt(document.getElementById('role-edit-index').value);
+            const id = document.getElementById('inp-role-id').value.trim();
+            const name = document.getElementById('inp-role-name').value.trim();
+            const access = document.getElementById('inp-role-access').value.trim();
+
+            if (!id || !name) { showToast('ID dan Nama Role wajib diisi!', 'error'); return; }
+
+            if (index === -1) {
+                const newRole = { id, name, access };
+                roles.push(newRole);
+                await supabaseClient.from('roles').insert([newRole]);
+                showToast('Role berhasil ditambahkan.', 'success');
+            } else {
+                roles[index].name = name;
+                roles[index].access = access;
+                await supabaseClient.from('roles').update({ name, access }).eq('id', id);
+                showToast('Role berhasil diperbarui.', 'success');
+            }
+
+            closeRoleModal();
+            renderRoles();
+        }
+
+        async function deleteRole(index) {
+            if (!isMasterAdmin()) { showToast('Akses Ditolak!', 'error'); return; }
+            showConfirm('Hapus Role', `Hapus role ${roles[index].name}?`, async () => {
+                const rId = roles[index].id;
+                roles.splice(index, 1);
+                await supabaseClient.from('roles').delete().eq('id', rId);
+                renderRoles();
+                showToast('Role berhasil dihapus.', 'success');
+            });
+        }
+
         function openAddBasecampModal() {
-            if (!isMasterAdmin()) { return showToast('Akses Ditolak!', 'error'); }
             document.getElementById('bc-modal-title').innerText = "Tambah Basecamp";
             document.getElementById('bc-edit-index').value = "-1";
             document.getElementById('bc-inp-name').value = "";
@@ -1794,21 +2182,19 @@
             const name = document.getElementById('bc-inp-name').value.trim();
             const lat = parseFloat(document.getElementById('bc-inp-lat').value);
             const lng = parseFloat(document.getElementById('bc-inp-lng').value);
-            const radius = parseInt(document.getElementById('bc-inp-radius').value);
+            const radius = parseInt(document.getElementById('bc-inp-radius').value) || 1500;
 
-            if (!name || isNaN(lat) || isNaN(lng) || isNaN(radius)) {
-                showToast('Harap isi semua kolom basecamp dengan benar!', 'error');
-                return;
-            }
+            if (!name || isNaN(lat) || isNaN(lng)) { showToast('Nama, Latitude, dan Longitude wajib diisi!', 'error'); return; }
 
-            const bcData = { name, lat, lng, radius };
             if (index === -1) {
-                basecamps.push(bcData);
-                await supabaseClient.from('basecamps').insert([bcData]);
-                showToast('Basecamp baru berhasil ditambahkan.', 'success');
+                const newBc = { id: 'BC-' + Date.now(), name, lat, lng, radius };
+                basecamps.push(newBc);
+                await supabaseClient.from('basecamps').insert([newBc]);
+                showToast('Basecamp berhasil ditambahkan.', 'success');
             } else {
-                basecamps[index] = bcData;
-                await supabaseClient.from('basecamps').update(bcData).eq('name', basecamps[index].name);
+                const bc = basecamps[index];
+                bc.name = name; bc.lat = lat; bc.lng = lng; bc.radius = radius;
+                await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', bc.id);
                 showToast('Basecamp berhasil diperbarui.', 'success');
             }
 
@@ -1816,358 +2202,70 @@
             renderBasecamps();
         }
 
-        function deleteBasecamp(index) {
-            if (!isMasterAdmin()) return;
+        async function deleteBasecamp(index) {
+            if (!isMasterAdmin()) { showToast('Akses Ditolak!', 'error'); return; }
             showConfirm('Hapus Basecamp', `Hapus basecamp ${basecamps[index].name}?`, async () => {
-                const target = basecamps[index];
+                const bcId = basecamps[index].id;
                 basecamps.splice(index, 1);
-                await supabaseClient.from('basecamps').delete().eq('name', target.name);
+                await supabaseClient.from('basecamps').delete().eq('id', bcId);
                 renderBasecamps();
-                showToast('Basecamp berhasil dihapus.', 'success');
-            }, true);
+                showToast('Basecamp dihapus.', 'success');
+            });
         }
 
-        // ==================== IZIN & APPROVAL FUNCTIONS ==================== //
-        function renderAdminIzin() {
-            const container = document.getElementById('admin-izin-container');
-            const badge = document.getElementById('tab-izin-counter-badge');
-            const sidebarBadge = document.getElementById('sidebar-izin-badge');
+        function renderBasecamps() {
+            const container = document.getElementById('basecamp-container');
             if(!container) return;
-
-            const mySubordinatesIzin = izinList.filter(i => isMasterAdmin() || i.atasan === activeEmployeeSession.name);
-            const pendingCount = mySubordinatesIzin.filter(i => i.status === 'Pending').length;
-
-            if (badge) {
-                if (pendingCount > 0) {
-                    badge.innerText = `${pendingCount} Pengajuan Pending`;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-            if (sidebarBadge) {
-                if (pendingCount > 0) {
-                    sidebarBadge.innerText = pendingCount;
-                    sidebarBadge.classList.remove('hidden');
-                } else {
-                    sidebarBadge.classList.add('hidden');
-                }
-            }
-
-            container.innerHTML = mySubordinatesIzin.map((i, index) => `
-                <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
-                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
-                        <span class="font-bold text-white"><i class="fa-solid fa-user text-gold-400"></i> ${i.name}</span>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${i.status === 'Disetujui' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : i.status === 'Ditolak' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">${i.status}</span>
-                    </div>
-                    <p class="text-slate-300"><b>Jenis:</b> ${i.jenis} (${i.start} s.d ${i.end})</p>
-                    <p class="text-slate-400"><b>Alasan:</b> ${i.desc}</p>
-                    ${i.status === 'Pending' ? `
-                        <div class="flex gap-2 pt-2">
-                            <button onclick="approveIzin(${i.id})" class="px-3 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded font-semibold transition">Setujui</button>
-                            <button onclick="rejectIzin(${i.id})" class="px-3 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded font-semibold transition">Tolak</button>
+            container.innerHTML = basecamps.map((bc, index) => `
+                <div class="glass-card p-4 rounded-2xl space-y-2 border border-slate-800">
+                    <div class="flex justify-between items-start">
+                        <h5 class="text-xs font-bold text-white">${bc.name}</h5>
+                        <div class="flex gap-1">
+                            ${isMasterAdmin() ? `<button onclick="openEditBasecampModal(${index})" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 bg-blue-500/10 rounded"><i class="fa-solid fa-pen"></i></button>` : ''}
+                            ${isMasterAdmin() ? `<button onclick="deleteBasecamp(${index})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 bg-rose-500/10 rounded"><i class="fa-solid fa-trash"></i></button>` : ''}
                         </div>
-                    ` : ''}
+                    </div>
+                    <p class="text-[11px] text-slate-400"><i class="fa-solid fa-location-dot text-gold-400"></i> Lat/Lng: ${bc.lat}, ${bc.lng}</p>
+                    <p class="text-[11px] text-slate-400"><i class="fa-solid fa-circle-nodes text-emerald-400"></i> Radius: ${bc.radius} Meter</p>
                 </div>
-            `).join('') || `<p class="text-slate-500 text-center py-4">Tidak ada pengajuan izin dari bawahan.</p>`;
-        }
-
-        async function approveIzin(id) {
-            const izin = izinList.find(i => i.id === id);
-            if (izin) {
-                izin.status = 'Disetujui';
-                await supabaseClient.from('izin_list').update({ status: 'Disetujui' }).eq('id', id);
-                renderAdminIzin();
-                showToast('Permohonan izin disetujui.', 'success');
-            }
-        }
-
-        async function rejectIzin(id) {
-            const izin = izinList.find(i => i.id === id);
-            if (izin) {
-                izin.status = 'Ditolak';
-                await supabaseClient.from('izin_list').update({ status: 'Ditolak' }).eq('id', id);
-                renderAdminIzin();
-                showToast('Permohonan izin ditolak.', 'warning');
-            }
-        }
-
-        function renderMobileMyHistory() {
-            const container = document.getElementById('mobile-my-history');
-            if (!container) return;
-            const myHistory = izinList.filter(i => i.name === activeEmployeeSession.name);
-
-            container.innerHTML = myHistory.map(i => `
-                <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 space-y-1">
-                    <div class="flex justify-between font-semibold text-white">
-                        <span>${i.jenis}</span>
-                        <span class="${i.status === 'Disetujui' ? 'text-emerald-400' : i.status === 'Ditolak' ? 'text-rose-400' : 'text-amber-400'}">${i.status}</span>
-                    </div>
-                    <p class="text-[11px] text-slate-400">${i.start} s.d ${i.end} | Ke: ${i.atasan}</p>
-                    <p class="text-[11px] text-slate-300">${i.desc}</p>
-                </div>
-            `).join('') || `<p class="text-slate-500 text-center py-2">Belum ada riwayat izin tercatat.</p>`;
-        }
-
-        // ==================== EMAIL & BROADCAST FUNCTIONS ==================== //
-        function populateEmailRecipients() {
-            ['m-email-recipient', 'd-email-recipient'].forEach(selId => {
-                const sel = document.getElementById(selId);
-                if (sel) {
-                    sel.innerHTML = `<option value="BROADCAST">📢 BROADCAST (Kirim ke Seluruh Karyawan)</option>` +
-                        employees.filter(e => e.id !== activeEmployeeSession.id).map(e => `<option value="${e.id}">${e.name} (${e.role})</option>`).join('');
-                }
-            });
-        }
-
-        async function sendAppEmail(mode) {
-            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
-
-            const recipient = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-recipient`).value;
-            const subject = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value.trim();
-            const message = document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value.trim();
-
-            if (!subject || !message) { showToast('Subjek dan isi pesan wajib diisi!', 'error'); return; }
-
-            const newEmail = {
-                id: Date.now(),
-                sender: activeEmployeeSession.id,
-                sender_name: activeEmployeeSession.name,
-                recipient: recipient,
-                subject: subject,
-                message: message,
-                created_at: new Date().toISOString()
-            };
-
-            emailsList.unshift({
-                ...newEmail,
-                receiver: recipient,
-                read: false
-            });
-
-            await supabaseClient.from('emails').insert([{
-                sender: newEmail.sender,
-                sender_name: newEmail.sender_name,
-                recipient: newEmail.recipient,
-                subject: newEmail.subject,
-                message: newEmail.message
-            }]);
-
-            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-subject`).value = '';
-            document.getElementById(`${mode === 'mobile' ? 'm' : 'd'}-email-message`).value = '';
-
-            showToast('Pesan berhasil dikirim!', 'success');
-            renderEmails();
-            if (mode === 'mobile') switchMobileEmailSub('inbox');
-            else switchDesktopEmailSub('inbox');
-        }
-
-        function renderEmails() {
-            const userEmail = activeEmployeeSession.id;
-            
-            // Render Mobile Inbox
-            const mInboxList = document.getElementById('mobile-inbox-list');
-            if (mInboxList) {
-                const inbox = emailsList.filter(e => e.receiver === userEmail || e.receiver === 'BROADCAST');
-                mInboxList.innerHTML = inbox.map(e => {
-                    const isRead = e.read || getReadEmailIds().includes(e.id);
-                    return `
-                        <div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border ${isRead ? 'border-slate-800' : 'border-gold-500/40 bg-gold-500/5'} cursor-pointer hover:border-gold-500 transition space-y-1">
-                            <div class="flex justify-between items-center text-[10px] text-slate-400">
-                                <span>Dari: <b class="text-white">${e.sender_name}</b></span>
-                                <span>${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
-                            </div>
-                            <h4 class="font-bold text-white text-xs">${e.subject}</h4>
-                            <p class="text-slate-300 truncate">${e.message}</p>
-                        </div>
-                    `;
-                }).join('') || `<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>`;
-            }
-
-            // Render Mobile Sent
-            const mSentList = document.getElementById('mobile-sent-list');
-            if (mSentList) {
-                const sent = emailsList.filter(e => e.sender === userEmail);
-                mSentList.innerHTML = sent.map(e => `
-                    <div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition space-y-1">
-                        <div class="flex justify-between items-center text-[10px] text-slate-400">
-                            <span>Kepada: <b class="text-white">${getEmployeeDisplayName(e.receiver)}</b></span>
-                            <span>${new Date(e.created_at).toLocaleTimeString('id-ID', {hour: '2-digit', minute:'2-digit'})}</span>
-                        </div>
-                        <h4 class="font-bold text-white text-xs">${e.subject}</h4>
-                        <p class="text-slate-300 truncate">${e.message}</p>
-                    </div>
-                `).join('') || `<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>`;
-            }
-
-            // Render Desktop Inbox
-            const dInboxTbody = document.getElementById('desktop-inbox-tbody');
-            if (dInboxTbody) {
-                const inbox = emailsList.filter(e => e.receiver === userEmail || e.receiver === 'BROADCAST');
-                dInboxTbody.innerHTML = inbox.map(e => {
-                    const isRead = e.read || getReadEmailIds().includes(e.id);
-                    return `
-                        <tr class="hover:bg-slate-900/50 ${isRead ? '' : 'font-bold bg-gold-500/5'}">
-                            <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString('id-ID')}</td>
-                            <td class="p-3 text-white">${e.sender_name}</td>
-                            <td class="p-3 text-white">${e.subject}</td>
-                            <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-gold-400">${e.receiver === 'BROADCAST' ? 'Broadcast' : 'Pesan Pribadi'}</span></td>
-                            <td class="p-3"><button onclick="openEmailDetail(${e.id})" class="px-3 py-1 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold rounded text-xs transition">Buka</button></td>
-                        </tr>
-                    `;
-                }).join('') || `<tr><td colspan="5" class="text-center py-4 text-slate-500">Kotak masuk kosong.</td></tr>`;
-            }
-
-            // Render Desktop Sent
-            const dSentTbody = document.getElementById('desktop-sent-tbody');
-            if (dSentTbody) {
-                const sent = emailsList.filter(e => e.sender === userEmail);
-                dSentTbody.innerHTML = sent.map(e => `
-                    <tr class="hover:bg-slate-900/50">
-                        <td class="p-3 font-mono text-slate-400">${new Date(e.created_at).toLocaleString('id-ID')}</td>
-                        <td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td>
-                        <td class="p-3 text-white">${e.subject}</td>
-                        <td class="p-3"><button onclick="openEmailDetail(${e.id})" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition">Lihat Detail</button></td>
-                    </tr>
-                `).join('') || `<tr><td colspan="4" class="text-center py-4 text-slate-500">Belum ada pesan terkirim.</td></tr>`;
-            }
-
-            updateEmailBadges();
-        }
-
-        function openEmailDetail(emailId) {
-            const email = emailsList.find(e => e.id === emailId);
-            if (!email) return;
-            activeSelectedEmail = email;
-
-            markEmailAsRead(email.id);
-
-            document.getElementById('detail-email-sender').innerText = email.sender_name;
-            document.getElementById('detail-email-receiver').innerText = getEmployeeDisplayName(email.receiver);
-            document.getElementById('detail-email-time').innerText = new Date(email.created_at).toLocaleString('id-ID');
-            document.getElementById('detail-email-subject').innerText = email.subject;
-            document.getElementById('detail-email-message').innerText = email.message;
-
-            document.getElementById('email-detail-modal').classList.remove('hidden');
-        }
-
-        function closeEmailDetailModal() {
-            document.getElementById('email-detail-modal').classList.add('hidden');
-            activeSelectedEmail = null;
-        }
-
-        function replyEmail() {
-            if (!activeSelectedEmail) return;
-            const senderEmail = activeSelectedEmail.sender;
-            const sub = "Re: " + activeSelectedEmail.subject;
-            
-            closeEmailDetailModal();
-            
-            if (document.getElementById('view-mobile').classList.contains('hidden')) {
-                switchDesktopTab('email');
-                switchDesktopEmailSub('compose');
-                document.getElementById('d-email-recipient').value = senderEmail;
-                document.getElementById('d-email-subject').value = sub;
-                document.getElementById('d-email-message').focus();
-            } else {
-                switchMobileTab('email');
-                switchMobileEmailSub('compose');
-                document.getElementById('m-email-recipient').value = senderEmail;
-                document.getElementById('m-email-subject').value = sub;
-                document.getElementById('m-email-message').focus();
-            }
-        }
-
-        // ==================== DASHBOARD STATS ==================== //
-        function updateDashboardStats() {
-            const totalKaryawanEl = document.getElementById('stat-total-karyawan');
-            const tepatWaktuEl = document.getElementById('stat-tepat-waktu');
-            const terlambatEl = document.getElementById('stat-terlambat');
-            const izinAlphaEl = document.getElementById('stat-izin-alpha');
-
-            if (!totalKaryawanEl) return;
-
-            const total = employees.length;
-            const todayStr = getLocalDateString();
-            const todayAbsen = rekapList.filter(r => r.date === todayStr);
-
-            const tepat = todayAbsen.filter(r => r.status.includes('Tepat')).length;
-            const terlambat = todayAbsen.filter(r => r.status.includes('Terlambat')).length;
-            const izin = izinList.filter(i => i.status === 'Disetujui' && i.start <= todayStr && i.end >= todayStr).length;
-
-            totalKaryawanEl.innerText = `${total} Orang`;
-            tepatWaktuEl.innerText = `${tepat} Orang`;
-            terlambatEl.innerText = `${terlambat} Orang`;
-            izinAlphaEl.innerText = `${izin} Orang`;
-        }
-
-        // ==================== ROLE MANAGEMENT ==================== //
-        function renderRoles() {
-            const tbody = document.getElementById('role-tbody');
-            if(!tbody) return;
-            tbody.innerHTML = roles.map((r, index) => `
-                <tr class="hover:bg-slate-900/50">
-                    <td class="p-3 font-mono text-white">${r.code}</td>
-                    <td class="p-3 font-semibold text-white">${r.name}</td>
-                    <td class="p-3 text-slate-300">${r.access}</td>
-                    <td class="p-3">
-                        <button onclick="openEditRoleModal(${index})" class="px-2 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition">Edit</button>
-                    </td>
-                </tr>
             `).join('');
 
-            const roleSelect = document.getElementById('inp-role');
-            if(roleSelect) {
-                roleSelect.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
+            if (!bcMap && document.getElementById('basecamp-map')) {
+                bcMap = L.map('basecamp-map').setView([0.5071, 101.4478], 12);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(bcMap);
+            }
+
+            if (bcMap) {
+                bcMap.eachLayer((layer) => {
+                    if (layer instanceof L.Marker || layer instanceof L.Circle) {
+                        bcMap.removeLayer(layer);
+                    }
+                });
+
+                basecamps.forEach(bc => {
+                    const marker = L.marker([bc.lat, bc.lng]).addTo(bcMap);
+                    marker.bindPopup(`<b>${bc.name}</b><br>Radius: ${bc.radius}m`);
+                    L.circle([bc.lat, bc.lng], {
+                        color: '#d4af37',
+                        fillColor: '#d4af37',
+                        fillOpacity: 0.2,
+                        radius: bc.radius
+                    }).addTo(bcMap);
+                });
+                bcMap.invalidateSize();
             }
         }
 
-        function openRoleModal() {
-            if (!isMasterAdmin()) { return showToast('Akses Ditolak!', 'error'); }
-            document.getElementById('role-modal-title').innerText = "Tambah Role Baru";
-            document.getElementById('role-edit-index').value = "-1";
-            document.getElementById('inp-role-id').value = "";
-            document.getElementById('inp-role-name').value = "";
-            document.getElementById('inp-role-access').value = "";
-            document.getElementById('role-modal').classList.remove('hidden');
-        }
-
-        function openEditRoleModal(index) {
-            if (!isMasterAdmin()) { return showToast('Akses Ditolak!', 'error'); }
-            const r = roles[index];
-            document.getElementById('role-modal-title').innerText = "Edit Role";
-            document.getElementById('role-edit-index').value = index;
-            document.getElementById('inp-role-id').value = r.code;
-            document.getElementById('inp-role-name').value = r.name;
-            document.getElementById('inp-role-access').value = r.access;
-            document.getElementById('role-modal').classList.remove('hidden');
-        }
-
-        function closeRoleModal() {
-            document.getElementById('role-modal').classList.add('hidden');
-        }
-
-        async function saveRole() {
-            const index = parseInt(document.getElementById('role-edit-index').value);
-            const code = document.getElementById('inp-role-id').value.trim();
-            const name = document.getElementById('inp-role-name').value.trim();
-            const access = document.getElementById('inp-role-access').value.trim();
-
-            if (!code || !name) { showToast('Kode dan Nama Role wajib diisi!', 'error'); return; }
-
-            const roleObj = { code, name, access };
-            if (index === -1) {
-                roles.push(roleObj);
-                await supabaseClient.from('roles').insert([roleObj]);
-                showToast('Role baru berhasil ditambahkan.', 'success');
-            } else {
-                roles[index] = roleObj;
-                await supabaseClient.from('roles').update(roleObj).eq('code', code);
-                showToast('Role berhasil diperbarui.', 'success');
-            }
-
-            closeRoleModal();
-            renderRoles();
+        function exportToExcel() {
+            if (rekapList.length === 0) { showToast('Tidak ada data rekap untuk diexport.', 'warning'); return; }
+            const worksheet = XLSX.utils.json_to_sheet(rekapList);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
+            XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
+            showToast('File Excel berhasil diunduh.', 'success');
         }
     </script>
 </body>
