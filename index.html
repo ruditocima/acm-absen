@@ -839,32 +839,26 @@
 
 function initSupabaseRealtime() {
     // Pastikan supabaseClient sudah diinisialisasi
-    if (typeof supabaseClient === 'undefined') {
-        console.warn('Supabase client belum diinisialisasi.');
-        return;
-    }
-
+    if (typeof supabaseClient === 'undefined') return;
+        
     // 1. Channel untuk Tabel Izin / Cuti
     supabaseClient
-        .channel('realtime-leaves-channel')
+        .channel('realtime-rekap-channel')
         .on(
             'postgres_changes',
             {
-                event: '*', 
+                event: 'INSERT', // Atau '*' jika ingin memantau update/delete juga
                 schema: 'public',
-                table: 'izin_list' // Sesuaikan dengan nama tabel di database Anda
+                table: 'rekap_list' // Pastikan nama tabel di Supabase persis sama
             },
             (payload) => {
-                console.log('Perubahan data izin terdeteksi:', payload);
-                if (typeof renderAdminIzin === 'function') {
-                    renderAdminIzin();
-                }
-                if (typeof showToast === 'function') {
-                    showToast('Data izin diperbarui secara real-time.', 'info');
-                }
+                console.log('Rekap baru terdeteksi:', payload);
+                // Panggil fungsi untuk mengambil ulang data atau memperbarui UI
+                fetchAllDataFromSupabase(); 
             }
         )
         .subscribe();
+}
 
     // 2. Channel untuk Tabel Pesan / Email
     supabaseClient
@@ -1066,7 +1060,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (bData && bData.length > 0) basecamps = bData;
 
                 const { data: rkData } = await supabaseClient.from('rekap_list').select('*');
-                if (rkData) rekapList = rkData;
+if (rkData) {
+    rekapList = rkData;
+    console.log("Data rekap berhasil dimuat:", rkData); // Tambahkan log ini
+} else {
+    console.warn("Data rekap kosong atau gagal diambil.");
+}
 
                 const { data: iData } = await supabaseClient.from('izin_list').select('*');
                 if (iData) izinList = iData;
