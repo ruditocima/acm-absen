@@ -1388,59 +1388,75 @@
         }
 
         async function verifyOTP() {
-            const otpInput = document.getElementById('reg-otp-input').value.trim();
-            
-            if (!otpInput || otpInput.length !== 6) { 
-                return showToast('Masukkan 6 digit OTP yang valid.', 'error'); 
-            }
+    const otpInput = document.getElementById('reg-otp-input').value.trim();
+    
+    if (!otpInput || otpInput.length !== 6) { 
+        return showToast('Masukkan 6 digit OTP yang valid.', 'error'); 
+    }
 
-            try {
-                // 1. Cek OTP ke Supabase Database (`otp_verifications`)
-                const { data: otpData, error: otpError } = await supabaseClient
-                    .from('otp_verifications')
-                    .select('*')
-                    .eq('email', tempRegData.email)
-                    .eq('otp_code', otpInput)
-                    .gte('expires_at', new Date().toISOString()) // Pastikan belum kedaluwarsa
-                    .single();
+    if (!tempRegData || !tempRegData.email) {
+        return showToast('Data registrasi tidak ditemukan. Silakan kirim ulang OTP.', 'error');
+    }
 
-                if (otpError || !otpData) {
-                    return showToast('Kode OTP salah atau sudah kedaluwarsa!', 'error');
-                }
+    try {
+        // Ambil data OTP berdasarkan email
+        const { data: otpData, error: otpError } = await supabaseClient
+            .from('otp_verifications')
+            .select('*')
+            .eq('email', tempRegData.email.trim())
+            .eq('otp_code', otpInput)
+            .single();
 
-                // 2. Jika OTP Benar, daftarkan akun ke tabel `employees`
-                const hashedPassword = await hashPassword(tempRegData.pass);
-                const newEmp = {
-                    id: tempRegData.email, 
-                    name: tempRegData.nama, 
-                    position: 'Staff',
-                    role: 'Karyawan / Field', 
-                    atasan: 'Master Admin',
-                    password: hashedPassword, 
-                    status: 'Pending', 
-                    device_id: 'Unbound' 
-                };
-
-                const { error: insertError } = await supabaseClient.from('employees').insert([newEmp]);
-                if (insertError) throw insertError;
-
-                // 3. Hapus data OTP yang sudah digunakan
-                await supabaseClient.from('otp_verifications').delete().eq('id', otpData.id);
-
-                employees.push({ ...newEmp, deviceId: newEmp.device_id });
-                
-                showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
-                renderEmployees(); 
-                updateDashboardStats();
-                
-                document.getElementById('reg-otp-input').value = '';
-                toggleAuthMode('login');
-
-            } catch (err) {
-                console.error("Verifikasi Error:", err);
-                showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
-            }
+        if (otpError || !otpData) {
+            return showToast('Kode OTP salah!', 'error');
         }
+
+        // Cek masa kedaluwarsa secara manual di JavaScript untuk menghindari isu timezone ISO string
+        const currentTime = new Date().getTime();
+        const expiryTime = new Date(otpData.expires_at).getTime();
+
+        if (currentTime > expiryTime) {
+            return showToast('Kode OTP sudah kedaluwarsa! Silakan minta kode baru.', 'error');
+        }
+
+        // Jika OTP Benar, daftarkan akun ke tabel `employees`
+        const hashedPassword = await hashPassword(tempRegData.pass);
+        const newEmp = {
+            id: tempRegData.email.trim(), 
+            name: tempRegData.nama.trim(), 
+            position: 'Staff',
+            role: 'Karyawan / Field', 
+            atasan: 'Master Admin',
+            password: hashedPassword, 
+            status: 'Pending', 
+            device_id: 'Unbound' 
+        };
+
+        const { error: insertError } = await supabaseClient.from('employees').insert([newEmp]);
+        if (insertError) {
+            if (insertError.code === '23505') {
+                return showToast('Email ini sudah terdaftar di sistem.', 'error');
+            }
+            throw insertError;
+        }
+
+        // Hapus data OTP yang sudah digunakan
+        await supabaseClient.from('otp_verifications').delete().eq('id', otpData.id);
+
+        employees.push({ ...newEmp, deviceId: newEmp.device_id });
+        
+        showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
+        renderEmployees(); 
+        updateDashboardStats();
+        
+        document.getElementById('reg-otp-input').value = '';
+        toggleAuthMode('login');
+
+    } catch (err) {
+        console.error("Verifikasi Error:", err);
+        showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
+    }
+}
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
