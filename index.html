@@ -1351,97 +1351,96 @@
         }
 
         async function requestOTP() {
-    const email = document.getElementById('reg-email').value.trim();
-    const nama = document.getElementById('reg-nama').value.trim();
-    const pass = document.getElementById('reg-pass').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const nama = document.getElementById('reg-nama').value.trim();
+            const pass = document.getElementById('reg-pass').value.trim();
 
-    if (!email || !nama || !pass || !email.includes('@gmail.com')) { 
-        showToast('Harap isi semua kolom dengan benar (Gunakan Gmail)!', 'error'); 
-        return; 
-    }
-    
-    // Simpan data sementara
-    tempRegData = { email, nama, pass };
+            if (!email || !nama || !pass || !email.includes('@gmail.com')) { 
+                showToast('Harap isi semua kolom dengan benar (Gunakan Gmail)!', 'error'); 
+                return; 
+            }
+            
+            // Simpan data sementara
+            tempRegData = { email, nama, pass };
 
-    showToast('Sedang mengirim kode OTP ke email Anda...', 'info');
+            showToast('Sedang mengirim kode OTP ke email Anda...', 'info');
 
-    try {
-        // Panggil Edge Function Supabase
-        // Ganti 'send-otp-email' dengan nama Edge Function Anda yang sebenarnya
-        const { data, error } = await supabaseClient.functions.invoke('send-otp', {
-            body: { email: email, nama: nama }
-        });
+            try {
+                // Memanggil Edge Function Supabase 'send-otp'
+                const { data, error } = await supabaseClient.functions.invoke('send-otp', {
+                    body: { email: email, nama: nama }
+                });
 
-        if (error) throw error;
+                if (error) throw error;
 
-        // Update UI untuk masuk ke langkah verifikasi
-        const instElem = document.getElementById('otp-instruction-text');
-        if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke <b>${email}</b>.`;
-        showToast('Kode OTP berhasil terkirim!', 'success');
-        
-        document.getElementById('reg-step-1').classList.add('hidden');
-        document.getElementById('reg-step-2').classList.remove('hidden');
+                // Update UI untuk masuk ke langkah verifikasi
+                const instElem = document.getElementById('otp-instruction-text');
+                if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke <b>${email}</b>.`;
+                showToast('Kode OTP berhasil terkirim!', 'success');
+                
+                document.getElementById('reg-step-1').classList.add('hidden');
+                document.getElementById('reg-step-2').classList.remove('hidden');
 
-    } catch (err) {
-        console.error("Error memanggil Edge Function:", err);
-        showToast('Gagal mengirim OTP. Silakan coba lagi.', 'error');
-    }
-}
-        async function verifyOTP() {
-    const otpInput = document.getElementById('reg-otp-input').value.trim();
-    
-    if (!otpInput || otpInput.length !== 6) { 
-        return showToast('Masukkan 6 digit OTP yang valid.', 'error'); 
-    }
-
-    try {
-        // 1. Cek OTP ke Supabase Database
-        const { data: otpData, error: otpError } = await supabaseClient
-            .from('otp_verifications')
-            .select('*')
-            .eq('email', tempRegData.email)
-            .eq('otp_code', otpInput)
-            .gte('expires_at', new Date().toISOString()) // Pastikan belum expired
-            .single();
-
-        if (otpError || !otpData) {
-            return showToast('Kode OTP salah atau sudah kedaluwarsa!', 'error');
+            } catch (err) {
+                console.error("Error memanggil Edge Function:", err);
+                showToast('Gagal mengirim OTP. Pastikan Edge Function "send-otp" sudah aktif.', 'error');
+            }
         }
 
-        // 2. Jika OTP Benar, Lanjutkan proses registrasi (seperti kode Anda sebelumnya)
-        const hashedPassword = await hashPassword(tempRegData.pass);
-        const newEmp = {
-            id: tempRegData.email, 
-            name: tempRegData.nama, 
-            position: 'Staff',
-            role: 'Karyawan / Field', 
-            atasan: 'Master Admin',
-            password: hashedPassword, 
-            status: 'Pending', 
-            device_id: 'Unbound' 
-        };
+        async function verifyOTP() {
+            const otpInput = document.getElementById('reg-otp-input').value.trim();
+            
+            if (!otpInput || otpInput.length !== 6) { 
+                return showToast('Masukkan 6 digit OTP yang valid.', 'error'); 
+            }
 
-        // Masukkan ke tabel employees
-        const { error: insertError } = await supabaseClient.from('employees').insert([newEmp]);
-        if (insertError) throw insertError;
+            try {
+                // 1. Cek OTP ke Supabase Database (`otp_verifications`)
+                const { data: otpData, error: otpError } = await supabaseClient
+                    .from('otp_verifications')
+                    .select('*')
+                    .eq('email', tempRegData.email)
+                    .eq('otp_code', otpInput)
+                    .gte('expires_at', new Date().toISOString()) // Pastikan belum kedaluwarsa
+                    .single();
 
-        // (Opsional) Hapus OTP yang sudah digunakan dari tabel otp_requests
-        await supabaseClient.from('otp_requests').delete().eq('id', otpData.id);
+                if (otpError || !otpData) {
+                    return showToast('Kode OTP salah atau sudah kedaluwarsa!', 'error');
+                }
 
-        employees.push({ ...newEmp, deviceId: newEmp.device_id });
-        
-        showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
-        renderEmployees(); 
-        updateDashboardStats();
-        
-        document.getElementById('reg-otp-input').value = '';
-        toggleAuthMode('login');
+                // 2. Jika OTP Benar, daftarkan akun ke tabel `employees`
+                const hashedPassword = await hashPassword(tempRegData.pass);
+                const newEmp = {
+                    id: tempRegData.email, 
+                    name: tempRegData.nama, 
+                    position: 'Staff',
+                    role: 'Karyawan / Field', 
+                    atasan: 'Master Admin',
+                    password: hashedPassword, 
+                    status: 'Pending', 
+                    device_id: 'Unbound' 
+                };
 
-    } catch (err) {
-        console.error("Verifikasi Error:", err);
-        showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
-    }
-}
+                const { error: insertError } = await supabaseClient.from('employees').insert([newEmp]);
+                if (insertError) throw insertError;
+
+                // 3. Hapus data OTP yang sudah digunakan
+                await supabaseClient.from('otp_verifications').delete().eq('id', otpData.id);
+
+                employees.push({ ...newEmp, deviceId: newEmp.device_id });
+                
+                showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
+                renderEmployees(); 
+                updateDashboardStats();
+                
+                document.getElementById('reg-otp-input').value = '';
+                toggleAuthMode('login');
+
+            } catch (err) {
+                console.error("Verifikasi Error:", err);
+                showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
+            }
+        }
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
