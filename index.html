@@ -1473,37 +1473,30 @@
         showToast('Terjadi kesalahan sistem saat memverifikasi.', 'error');
     }
 }
-        async function approveEmployeeAccount(index) {
-    const emp = employees[index];
-    emp.status = 'Approved';
-    
-    // 1. Update status di database Supabase
-    const { error: updateError } = await supabaseClient
-        .from('employees')
-        .update({ status: 'Approved' })
-        .eq('id', emp.id);
-
-    if (updateError) {
-        showToast("Gagal memperbarui status karyawan di database.", "error");
-        return;
-    }
-
-    // 2. Panggil Edge Function yang sama untuk mengirim email approval sungguhan via Gmail SMTP
+async function approveEmployee(emailKaryawan, namaKaryawan) {
     try {
-        const { data, error } = await supabaseClient.functions.invoke('send-otp', {
-            body: { 
-                type: 'approval', // Memberitahu Edge Function agar mengirim email approval
-                email: emp.email, // Email eksternal pendaftar
-                nama: emp.name    // Nama pendaftar
-            }
+        const response = await fetch('https://gviqfdbuoruqldsbbrxk.supabase.co/functions/v1/send-otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                email: emailKaryawan,
+                nama: namaKaryawan,
+                type: 'approval' // <-- Sangat penting agar masuk ke kondisi Kondisi 1
+            })
         });
 
-        if (error) throw error;
-        showToast(`Akun berhasil disetujui & email dikirim ke ${emp.email}!`, 'success');
-    } catch (err) {
-        console.error("Gagal mengirim email:", err);
-        showToast(`Akun disetujui, tetapi gagal mengirim email: ${err.message}`, 'warning');
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Gagal mengirim email approval');
+
+        showToast("Email approval berhasil dikirim ke karyawan!", "success");
+        // Lanjutkan update status karyawan di database Supabase (misal: status = 'Approved')
+    } catch (error) {
+        showToast(error.message, "error");
     }
+}
 
     renderEmployees(); 
     updateDashboardStats();
