@@ -1474,14 +1474,40 @@
     }
 }
         async function approveEmployeeAccount(index) {
-            const emp = employees[index];
-            emp.status = 'Approved';
-            await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
-            renderEmployees(); updateDashboardStats();
-            populateEmailRecipients();
-            showToast(`Akun disetujui!`, 'success');
-        }
+    const emp = employees[index];
+    emp.status = 'Approved';
+    
+    // 1. Update status di database Supabase
+    const { error: updateError } = await supabaseClient
+        .from('employees')
+        .update({ status: 'Approved' })
+        .eq('id', emp.id);
 
+    if (updateError) {
+        showToast("Gagal memperbarui status karyawan di database.", "error");
+        return;
+    }
+
+    // 2. Panggil Edge Function yang sama untuk mengirim email approval sungguhan via Gmail SMTP
+    try {
+        const { data, error } = await supabaseClient.functions.invoke('send-otp', {
+            body: { 
+                type: 'approval', // Memberitahu Edge Function agar mengirim email approval
+                email: emp.email, // Email eksternal pendaftar
+                nama: emp.name    // Nama pendaftar
+            }
+        });
+
+        if (error) throw error;
+        showToast(`Akun berhasil disetujui & email dikirim ke ${emp.email}!`, 'success');
+    } catch (err) {
+        console.error("Gagal mengirim email:", err);
+        showToast(`Akun disetujui, tetapi gagal mengirim email: ${err.message}`, 'warning');
+    }
+
+    renderEmployees(); 
+    updateDashboardStats();
+}
         function resetEmployeeDevice(index) {
             if (!isMasterAdmin()) { return showToast('Akses Ditolak! Hanya Master Admin yang dapat mereset device.', 'error'); }
             showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, async () => {
