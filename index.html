@@ -1350,53 +1350,98 @@
             }
         }
 
-        function requestOTP() {
-            const email = document.getElementById('reg-email').value.trim();
-            const nama = document.getElementById('reg-nama').value.trim();
-            const pass = document.getElementById('reg-pass').value.trim();
+        async function requestOTP() {
+    const email = document.getElementById('reg-email').value.trim();
+    const nama = document.getElementById('reg-nama').value.trim();
+    const pass = document.getElementById('reg-pass').value.trim();
 
-            if (!email || !nama || !pass || !email.includes('@gmail.com')) { showToast('Harap isi semua kolom dengan benar (Gunakan Gmail)!', 'error'); return; }
-            tempRegData = { email, nama, pass };
-            generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
-            otpExpiryTime = Date.now() + (3 * 60 * 1000); 
+    if (!email || !nama || !pass || !email.includes('@gmail.com')) { 
+        showToast('Harap isi semua kolom dengan benar (Gunakan Gmail)!', 'error'); 
+        return; 
+    }
+    
+    // Simpan data sementara
+    tempRegData = { email, nama, pass };
 
-            const instElem = document.getElementById('otp-instruction-text');
-            if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke Email terdaftar Anda. (Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
-            showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
-            
-            document.getElementById('reg-step-1').classList.add('hidden');
-            document.getElementById('reg-step-2').classList.remove('hidden');
-        }
+    showToast('Sedang mengirim kode OTP ke email Anda...', 'info');
 
-        function backToRegStep1() {
-            document.getElementById('reg-step-2').classList.add('hidden');
-            document.getElementById('reg-step-1').classList.remove('hidden');
-        }
+    try {
+        // Panggil Edge Function Supabase
+        // Ganti 'send-otp-email' dengan nama Edge Function Anda yang sebenarnya
+        const { data, error } = await supabaseClient.functions.invoke('send-otp-email', {
+            body: { email: email, nama: nama }
+        });
 
+        if (error) throw error;
+
+        // Update UI untuk masuk ke langkah verifikasi
+        const instElem = document.getElementById('otp-instruction-text');
+        if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke <b>${email}</b>.`;
+        showToast('Kode OTP berhasil terkirim!', 'success');
+        
+        document.getElementById('reg-step-1').classList.add('hidden');
+        document.getElementById('reg-step-2').classList.remove('hidden');
+
+    } catch (err) {
+        console.error("Error memanggil Edge Function:", err);
+        showToast('Gagal mengirim OTP. Silakan coba lagi.', 'error');
+    }
+}
         async function verifyOTP() {
-            const otp = document.getElementById('reg-otp-input').value.trim();
-            if (!generatedOTP) { return showToast('Sesi OTP tidak valid.', 'error'); }
-            if (Date.now() > otpExpiryTime) { return showToast('Kode OTP sudah kedaluwarsa!', 'error'); }
-            if (otp !== generatedOTP) { return showToast('Kode OTP salah!', 'error'); }
+    const otpInput = document.getElementById('reg-otp-input').value.trim();
+    
+    if (!otpInput || otpInput.length !== 6) { 
+        return showToast('Masukkan 6 digit OTP yang valid.', 'error'); 
+    }
 
-            const hashedPassword = await hashPassword(tempRegData.pass);
-            const newEmp = {
-                id: tempRegData.email, name: tempRegData.nama, position: 'Staff',
-                role: 'Karyawan / Field', atasan: 'Master Admin',
-                password: hashedPassword, status: 'Pending', device_id: 'Unbound' 
-            };
+    try {
+        // 1. Cek OTP ke Supabase Database
+        const { data: otpData, error: otpError } = await supabaseClient
+            .from('otp_requests')
+            .select('*')
+            .eq('email', tempRegData.email)
+            .eq('otp_code', otpInput)
+            .gte('expires_at', new Date().toISOString()) // Pastikan belum expired
+            .single();
 
-            employees.push({ ...newEmp, deviceId: newEmp.device_id });
-            await supabaseClient.from('employees').insert([newEmp]);
-
-            showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
-            renderEmployees(); updateDashboardStats();
-            
-            generatedOTP = null; otpExpiryTime = null;
-            document.getElementById('reg-otp-input').value = '';
-            toggleAuthMode('login');
+        if (otpError || !otpData) {
+            return showToast('Kode OTP salah atau sudah kedaluwarsa!', 'error');
         }
 
+        // 2. Jika OTP Benar, Lanjutkan proses registrasi (seperti kode Anda sebelumnya)
+        const hashedPassword = await hashPassword(tempRegData.pass);
+        const newEmp = {
+            id: tempRegData.email, 
+            name: tempRegData.nama, 
+            position: 'Staff',
+            role: 'Karyawan / Field', 
+            atasan: 'Master Admin',
+            password: hashedPassword, 
+            status: 'Pending', 
+            device_id: 'Unbound' 
+        };
+
+        // Masukkan ke tabel employees
+        const { error: insertError } = await supabaseClient.from('employees').insert([newEmp]);
+        if (insertError) throw insertError;
+
+        // (Opsional) Hapus OTP yang sudah digunakan dari tabel otp_requests
+        await supabaseClient.from('otp_requests').delete().eq('id', otpData.id);
+
+        employees.push({ ...newEmp, deviceId: newEmp.device_id });
+        
+        showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
+        renderEmployees(); 
+        updateDashboardStats();
+        
+        document.getElementById('reg-otp-input').value = '';
+        toggleAuthMode('login');
+
+    } catch (err) {
+        console.error("Verifikasi Error:", err);
+        showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
+    }
+}
         async function approveEmployeeAccount(index) {
             const emp = employees[index];
             emp.status = 'Approved';
