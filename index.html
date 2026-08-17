@@ -1473,34 +1473,15 @@
         showToast('Terjadi kesalahan sistem saat memverifikasi.', 'error');
     }
 }
-async function approveEmployee(emailKaryawan, namaKaryawan) {
-    try {
-        const response = await fetch('https://gviqfdbuoruqldsbbrxk.supabase.co/functions/v1/send-otp', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-                email: emailKaryawan,
-                nama: namaKaryawan,
-                type: 'approval' // <-- Sangat penting agar masuk ke kondisi Kondisi 1
-            })
-        });
+        async function approveEmployeeAccount(index) {
+            const emp = employees[index];
+            emp.status = 'Approved';
+            await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
+            renderEmployees(); updateDashboardStats();
+            populateEmailRecipients();
+            showToast(`Akun disetujui!`, 'success');
+        }
 
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Gagal mengirim email approval');
-
-        showToast("Email approval berhasil dikirim ke karyawan!", "success");
-        // Lanjutkan update status karyawan di database Supabase (misal: status = 'Approved')
-    } catch (error) {
-        showToast(error.message, "error");
-    }
-}
-
-    renderEmployees(); 
-    updateDashboardStats();
-}
         function resetEmployeeDevice(index) {
             if (!isMasterAdmin()) { return showToast('Akses Ditolak! Hanya Master Admin yang dapat mereset device.', 'error'); }
             showConfirm('Reset Perangkat', `Reset ikatan perangkat (UUID) untuk ${employees[index].name}?`, async () => {
