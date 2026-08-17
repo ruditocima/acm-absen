@@ -1387,7 +1387,7 @@
             }
         }
 
-       async function verifyOTP() {
+      async function verifyOTP() {
     const otpInput = document.getElementById('reg-otp-input').value.trim();
     
     if (!otpInput || otpInput.length !== 6) { 
@@ -1398,16 +1398,18 @@
         return showToast('Data registrasi tidak ditemukan. Silakan kirim ulang OTP.', 'error');
     }
 
+    // Ubah email menjadi huruf kecil semua (lowercase) untuk menghindari perbedaan kapitalisasi
     const targetEmail = tempRegData.email.trim().toLowerCase();
 
     try {
         console.log("Mencari OTP untuk email:", targetEmail, "dengan kode:", otpInput);
 
-        // LANGKAH 1: Cek apakah data dengan email tersebut ada dulu
+        // LANGKAH 1: Ambil data OTP berdasarkan email (di-lowercase-kan)
         const { data: allOtpRows, error: fetchError } = await supabaseClient
             .from('otp_verifications')
             .select('*')
-            .eq('email', targetEmail);
+            .eq('email', targetEmail)
+            .order('created_at', { ascending: false }); // Ambil yang paling baru di atas
 
         console.log("Hasil query data OTP di DB:", allOtpRows);
 
@@ -1415,23 +1417,23 @@
             return showToast('Belum ada permintaan OTP untuk email ini. Silakan kirim ulang.', 'error');
         }
 
-        // Ambil data OTP yang paling baru (jika ada lebih dari satu)
-        const otpData = allOtpRows[allOtpRows.length - 1];
+        // Ambil baris data OTP yang paling baru
+        const otpData = allOtpRows[0];
 
-        // LANGKAH 2: Cocokkan kode OTP (gunakan string comparison)
+        // LANGKAH 2: Cocokkan kode OTP
         if (String(otpData.otp_code).trim() !== String(otpInput).trim()) {
             return showToast('Kode OTP salah!', 'error');
         }
 
-        // LANGKAH 3: Cek Kedaluwarsa
+        // LANGKAH 3: Cek Kedaluwarsa Waktu
         const currentTime = new Date().getTime();
         const expiryTime = new Date(otpData.expires_at).getTime();
 
         if (currentTime > expiryTime) {
-            return showToast('Kode OTP sudah kedaluwarsa!', 'error');
+            return showToast('Kode OTP sudah kedaluwarsa! Silakan minta kode baru.', 'error');
         }
 
-        // --- OTP VALID: Lanjutkan proses registrasi ---
+        // --- OTP VALID: Lanjutkan Proses Pendaftaran Karyawan ---
         console.log("OTP Valid! Melanjutkan registrasi...");
 
         const hashedPassword = await hashPassword(tempRegData.pass);
@@ -1454,12 +1456,12 @@
             throw insertError;
         }
 
-        // Hapus data OTP yang sudah sukses digunakan
+        // LANGKAH 4: Hapus data OTP setelah sukses digunakan agar tidak bisa dipakai ulang
         await supabaseClient.from('otp_verifications').delete().eq('email', targetEmail);
 
         employees.push({ ...newEmp, deviceId: newEmp.device_id });
         
-        showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
+        showToast('Registrasi berhasil! Akun Anda berstatus Pending.', 'success');
         renderEmployees(); 
         updateDashboardStats();
         
