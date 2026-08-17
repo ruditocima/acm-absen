@@ -1387,7 +1387,7 @@
             }
         }
 
-        async function verifyOTP() {
+       async function verifyOTP() {
     const otpInput = document.getElementById('reg-otp-input').value.trim();
     
     if (!otpInput || otpInput.length !== 6) { 
@@ -1398,31 +1398,45 @@
         return showToast('Data registrasi tidak ditemukan. Silakan kirim ulang OTP.', 'error');
     }
 
+    const targetEmail = tempRegData.email.trim().toLowerCase();
+
     try {
-        // Ambil data OTP berdasarkan email
-        const { data: otpData, error: otpError } = await supabaseClient
+        console.log("Mencari OTP untuk email:", targetEmail, "dengan kode:", otpInput);
+
+        // LANGKAH 1: Cek apakah data dengan email tersebut ada dulu
+        const { data: allOtpRows, error: fetchError } = await supabaseClient
             .from('otp_verifications')
             .select('*')
-            .eq('email', tempRegData.email.trim())
-            .eq('otp_code', otpInput)
-            .single();
+            .eq('email', targetEmail);
 
-        if (otpError || !otpData) {
+        console.log("Hasil query data OTP di DB:", allOtpRows);
+
+        if (fetchError || !allOtpRows || allOtpRows.length === 0) {
+            return showToast('Belum ada permintaan OTP untuk email ini. Silakan kirim ulang.', 'error');
+        }
+
+        // Ambil data OTP yang paling baru (jika ada lebih dari satu)
+        const otpData = allOtpRows[allOtpRows.length - 1];
+
+        // LANGKAH 2: Cocokkan kode OTP (gunakan string comparison)
+        if (String(otpData.otp_code).trim() !== String(otpInput).trim()) {
             return showToast('Kode OTP salah!', 'error');
         }
 
-        // Cek masa kedaluwarsa secara manual di JavaScript untuk menghindari isu timezone ISO string
+        // LANGKAH 3: Cek Kedaluwarsa
         const currentTime = new Date().getTime();
         const expiryTime = new Date(otpData.expires_at).getTime();
 
         if (currentTime > expiryTime) {
-            return showToast('Kode OTP sudah kedaluwarsa! Silakan minta kode baru.', 'error');
+            return showToast('Kode OTP sudah kedaluwarsa!', 'error');
         }
 
-        // Jika OTP Benar, daftarkan akun ke tabel `employees`
+        // --- OTP VALID: Lanjutkan proses registrasi ---
+        console.log("OTP Valid! Melanjutkan registrasi...");
+
         const hashedPassword = await hashPassword(tempRegData.pass);
         const newEmp = {
-            id: tempRegData.email.trim(), 
+            id: targetEmail, 
             name: tempRegData.nama.trim(), 
             position: 'Staff',
             role: 'Karyawan / Field', 
@@ -1440,8 +1454,8 @@
             throw insertError;
         }
 
-        // Hapus data OTP yang sudah digunakan
-        await supabaseClient.from('otp_verifications').delete().eq('id', otpData.id);
+        // Hapus data OTP yang sudah sukses digunakan
+        await supabaseClient.from('otp_verifications').delete().eq('email', targetEmail);
 
         employees.push({ ...newEmp, deviceId: newEmp.device_id });
         
@@ -1454,7 +1468,7 @@
 
     } catch (err) {
         console.error("Verifikasi Error:", err);
-        showToast('Terjadi kesalahan saat memverifikasi data.', 'error');
+        showToast('Terjadi kesalahan sistem saat memverifikasi.', 'error');
     }
 }
         async function approveEmployeeAccount(index) {
