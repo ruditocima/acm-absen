@@ -1649,50 +1649,58 @@
                 });
         }
 
-function captureSelfie() {
-    const video = document.getElementById('selfie-video');
-    const canvas = document.getElementById('selfie-canvas');
-    const preview = document.getElementById('selfie-preview');
-    
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        function captureSelfie() {
+            const video = document.getElementById('selfie-video');
+            const canvas = document.getElementById('selfie-canvas');
+            const preview = document.getElementById('selfie-preview');
 
-   const dataUrl = canvas.toDataURL('image/png');
-    preview.src = dataUrl;
-    preview.classList.remove('hidden');
-    video.classList.add('hidden');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-    }
-    
-    document.getElementById('btn-capture').classList.add('hidden');
-    document.getElementById('btn-retake').classList.remove('hidden');
-    document.getElementById('btn-submit-absen').classList.remove('hidden');
-    
-    capturedBlob = dataUrl; // Simpan data gambar sementara
-}
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            preview.src = dataUrl;
 
-function retakeSelfie() {
-    capturedBlob = null;
-    openSelfieModal();
-}
-            
-function closeSelfieModal() {
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-    }
-    document.getElementById('selfie-modal').classList.add('hidden');
-}
-           
-async function submitAbsenWithSelfie() {
-    if (!pendingAbsenData) return;
-    
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('id-ID', { hour12: false });
-            
+            video.classList.add('hidden');
+            preview.classList.remove('hidden');
+
+            document.getElementById('btn-capture').classList.add('hidden');
+            document.getElementById('btn-retake').classList.remove('hidden');
+            document.getElementById('btn-submit-absen').classList.remove('hidden');
+
+            canvas.toBlob((blob) => {
+                capturedBlob = blob;
+            }, 'image/jpeg', 0.6);
+        }
+
+        function retakeSelfie() {
+            const video = document.getElementById('selfie-video');
+            const preview = document.getElementById('selfie-preview');
+
+            video.classList.remove('hidden');
+            preview.classList.add('hidden');
+
+            document.getElementById('btn-capture').classList.remove('hidden');
+            document.getElementById('btn-retake').classList.add('hidden');
+            document.getElementById('btn-submit-absen').classList.add('hidden');
+            capturedBlob = null;
+        }
+
+        function closeSelfieModal() {
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            document.getElementById('selfie-modal').classList.add('hidden');
+        }
+
+        async function submitAbsenWithSelfie() {
+            if (!pendingAbsenData) {
+                showToast('Data absensi tidak ditemukan. Silakan coba lagi.', 'error');
+                return;
+            }
+
             const canvas = document.getElementById('selfie-canvas');
             const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
