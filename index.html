@@ -949,27 +949,6 @@
                 if (img) img.src = ''; 
             }
         }
-        async function uploadSelfieToSupabase(fileBlob, userId) {
-         const fileName = `selfie_${userId}_${Date.now()}.png`;
-        const folderPath = `public/${fileName}`
-        const { data, error } = await supabaseClient.storage
-        .from('selfie-absensi')
-        .upload(folderPath, fileBlob, {
-            contentType: 'image/png'
-        });
-
-    if (error) {
-        console.error("Gagal upload selfie:", error);
-        return null;
-    }
-
-    // 2. Ambil URL publik dari file yang baru diunggah
-    const { data: urlData } = supabaseClient.storage
-        .from('selfie-absensi')
-        .getPublicUrl(folderPath);
-
-    return urlData.publicUrl;
-}
 
         // ----------------- DATA STATE & SINKRONISASI SUPABASE ----------------- //
         let roles = [
@@ -1717,40 +1696,13 @@
         }
 
         async function submitAbsenWithSelfie() {
-            const canvas = document.getElementById('my-camera-canvas'); // Sesuaikan ID canvas kamera Anda
-    if (!canvas) {
-        showToast("Kamera belum siap atau foto belum diambil!", "error");
-        return;
-    }
+            if (!pendingAbsenData) {
+                showToast('Data absensi tidak ditemukan. Silakan coba lagi.', 'error');
+                return;
+            }
 
-    // Ubah canvas menjadi format Blob (File)
-    const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-    
-    // 2. Panggil fungsi unggah yang dibuat di Langkah 2
-    showToast("Mengunggah foto selfie...", "info");
-    const publicUrl = await uploadSelfieToSupabase(imageBlob, currentUser.id); // Sesuaikan variabel ID user Anda
-    
-    if (!publicUrl) {
-        showToast("Gagal menyimpan foto selfie ke storage!", "error");
-        return;
-    }
-
-    // 3. Simpan data absensi ke tabel rekap_list beserta URL selfienya
-    const { data, error } = await supabaseClient
-        .from('rekap_list')
-        .insert([{
-            user_id: currentUser.id,
-            waktu_absen: new Date().toISOString(),
-            status: 'hadir',
-            selfie_url: publicUrl // <-- Kolom baru yang menyimpan link foto untuk audit
-        }]);
-
-    if (error) {
-        showToast("Gagal menyimpan data absensi: " + error.message, "error");
-    } else {
-        showToast("Absensi berhasil direkam!", "success");
-         }
-}
+            const canvas = document.getElementById('selfie-canvas');
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
 
             const now = new Date();
             const h = now.getHours().toString().padStart(2, '0');
