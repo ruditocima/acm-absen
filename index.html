@@ -229,10 +229,6 @@
                             <label class="block text-[11px] text-slate-400 mb-1">Keterangan / Alasan</label>
                             <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan / kendala..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
-                        <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">Bukti Lampiran (Opsional - Foto/Surat Dokter)</label>
-                        <input type="file" id="m-izin-file" accept="image/*,.pdf" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-gold-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-gold-500 file:text-slate-950 hover:file:opacity-90 transition cursor-pointer">
-                        </div>
                         <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
                             Ajukan ke Atasan
                         </button>
@@ -291,10 +287,6 @@
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Isi Pesan</label>
                             <textarea id="m-email-message" rows="4" placeholder="Tulis pesan Anda di sini..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
-                        </div>
-                        <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">Lampiran File (Opsional)</label>
-                        <input type="file" id="m-email-file" accept="image/*,.pdf,.doc,.docx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-gold-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-slate-800 file:text-gold-400 border-gold-500/30 hover:file:bg-slate-700 transition cursor-pointer">
                         </div>
                         <button onclick="sendAppEmail('mobile')" class="w-full py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">
                             Kirim Pesan Sekarang
@@ -628,10 +620,6 @@
                                 <div>
                                     <label class="block text-xs text-slate-400 mb-1">Isi Pesan</label>
                                     <textarea id="d-email-message" rows="5" placeholder="Tulis pesan lengkap di sini..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
-                                </div>
-                                <div>
-                                <label class="block text-xs text-slate-400 mb-1">Lampiran File (Opsional)</label>
-                                <input type="file" id="d-email-file" accept="image/*,.pdf,.doc,.docx" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-gold-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-slate-800 file:text-gold-400 border border-gold-500/30 hover:file:bg-slate-700 transition cursor-pointer">
                                 </div>
                                 <button onclick="sendAppEmail('desktop')" class="px-6 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-90 transition">
                                     Kirim Pesan Sekarang
@@ -1620,57 +1608,19 @@
                 atasanSelect.innerHTML = `<option value="Master Admin">Master Admin</option>` + employees.map(emp => `<option value="${emp.name}">${emp.name}</option>`).join('');
             }
         }
-// ==================== FUNGSI UPLOAD LAMPIRAN KE SUPABASE ==================== //
-async function uploadFileToSupabase(fileInputElementId, bucketName) {
-    const fileInput = document.getElementById(fileInputElementId);
-    if (!fileInput || fileInput.files.length === 0) return null; // Jika tidak ada file, return null
 
-    const file = fileInput.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-    const filePath = `uploads/${fileName}`; // Disimpan di folder uploads/
-
-    try {
-        // Tampilkan notifikasi proses
-        showToast(`Mengunggah lampiran: ${file.name.substring(0,15)}...`, 'info');
-
-        const { data, error } = await supabaseClient
-            .storage
-            .from(bucketName)
-            .upload(filePath, file, { cacheControl: '3600', upsert: false });
-
-        if (error) throw error;
-
-        // Ambil URL Publik
-        const { data: publicUrlData } = supabaseClient.storage.from(bucketName).getPublicUrl(filePath);
-        return publicUrlData.publicUrl;
-
-    } catch (error) {
-        console.error("Upload error:", error);
-        showToast("Gagal mengunggah lampiran: " + error.message, "error");
-        return null;
-    }
-}
         async function submitMobileIzin() {
-            if (activeEmployeeSession.name === 'Tamu') { 
-                showToast('Silakan login terlebih dahulu.', 'error'); 
-                switchMobileTab('daftar'); return; }
+            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
 
             const jenis = document.getElementById('m-izin-jenis').value;
             const start = document.getElementById('m-izin-start').value;
             const end = document.getElementById('m-izin-end').value;
             const desc = document.getElementById('m-izin-desc').value.trim();
 
-            if (!start || !end || !desc) { 
-                showToast('Harap lengkapi semua data pengajuan!', 'error'); return; }
-            // Disable tombol agar tidak diklik 2 kali saat upload
+            if (!start || !end || !desc) { showToast('Harap lengkapi semua data pengajuan!', 'error'); return; }
+            
             const atasanName = activeEmployeeSession.atasan || 'Master Admin';
-            const btnSubmit = event.currentTarget;
-            const originalText = btnSubmit.innerHTML;
-            btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Memproses...`;
-            btnSubmit.disabled = true;
-            // Proses unggah file jika ada
-            const attachmentUrl = await uploadFileToSupabase('m-izin-file', 'izin_attachments');
+
             const newIzin = { 
                 id: Date.now(), 
                 name: activeEmployeeSession.name, 
@@ -1680,28 +1630,20 @@ async function uploadFileToSupabase(fileInputElementId, bucketName) {
                 desc: desc, 
                 atasan: atasanName, 
                 status: 'Pending' 
-                attachment_url: attachmentUrl // <-- Menyimpan URL file bukti
             };
-            try {
-                const { error } = await supabaseClient.from('izin_list').insert([newIzin]);
-                if (error) throw error;
-        
-                showToast('Pengajuan Izin beserta lampiran berhasil dikirim!', 'success');
-           // Reset Form
-            document.getElementById('m-izin-start').value = '';
-            document.getElementById('m-izin-end').value = '';
-            document.getElementById('m-izin-desc').value = '';
-            if(document.getElementById('m-izin-file')) document.getElementById('m-izin-file').value = '';
+            
+            izinList.push(newIzin);
+            await supabaseClient.from('izin_list').insert([newIzin]);
 
-            switchMobileTab('izin');
-        } catch (err) {
-            console.error(err);
-            showToast('Gagal mengirim pengajuan: ' + err.message, 'error');
-        } finally {
-            btnSubmit.innerHTML = originalText;
-            btnSubmit.disabled = false;
+            renderAdminIzin(); 
+            renderMobileMyHistory(); 
+            updateDashboardStats();
+            
+            showToast('Permohonan izin berhasil diajukan ke menu Persetujuan Izin atasan.', 'success');
+            document.getElementById('m-izin-start').value = ''; 
+            document.getElementById('m-izin-end').value = ''; 
+            document.getElementById('m-izin-desc').value = '';
         }
-    }
 
         async function handleAbsen() {
             if (activeEmployeeSession.name === 'Tamu') { 
@@ -2212,11 +2154,6 @@ async function uploadFileToSupabase(fileInputElementId, bucketName) {
                             <button onclick="updateIzinStatus(${i.id}, 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:opacity-90">Setujui</button>
                             <button onclick="updateIzinStatus(${i.id}, 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:opacity-90">Tolak</button>
                         ` : ''}
-                        ${izinData.attachment_url ? `
-                        <a href="${izinData.attachment_url}" target="_blank" class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 border border-slate-700 text-gold-400 hover:text-white rounded-lg text-[10px] font-bold transition">
-                        <i class="fa-solid fa-paperclip"></i> Lihat Bukti Lampiran
-                        </a>
-                        ` : ''}
                     </div>
                 </div>
             `).join('');
@@ -2235,27 +2172,16 @@ async function uploadFileToSupabase(fileInputElementId, bucketName) {
         }
 
         // --- EMAIL SYSTEM ---
-        async function sendAppEmail(platform) {
-            if (!activeEmployeeSession || activeEmployeeSession.name === 'Tamu') {
-                return showToast('Silakan login terlebih dahulu.', 'error');
-            } 
+        async function sendAppEmail(mode) {
+            if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); return; }
 
-            const prefix = platform === 'mobile' ? 'm-' : 'd-';
-            const recipient = document.getElementById(`${prefix}email-recipient`).value;
-            const subject = document.getElementById(`${prefix}email-subject`).value.trim();
-            const message = document.getElementById(`${prefix}email-message`).value.trim();
+            const prefix = mode === 'mobile' ? 'm' : 'd';
+            const recipient = document.getElementById(`${prefix}-email-recipient`).value;
+            const subject = document.getElementById(`${prefix}-email-subject`).value.trim();
+            const message = document.getElementById(`${prefix}-email-message`).value.trim();
 
-            if (!recipient || !subject || !message) {
-                return showToast('Harap lengkapi penerima, subjek, dan isi pesan.', 'error');
-            }
-            const btnSubmit = event.currentTarget;
-            const originalText = btnSubmit.innerHTML;
-            btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Mengirim...`;
-            btnSubmit.disabled = true;
-            // Proses unggah lampiran email jika ada
-            const fileInputId = `${prefix}email-file`;
-            const attachmentUrl = await uploadFileToSupabase(fileInputId, 'email_attachments');
-            
+            if (!subject || !message) { showToast('Subjek dan isi pesan wajib diisi!', 'error'); return; }
+
             const newEmail = {
                 sender: activeEmployeeSession.id,
                 sender_name: activeEmployeeSession.name,
@@ -2263,28 +2189,34 @@ async function uploadFileToSupabase(fileInputElementId, bucketName) {
                 subject: subject,
                 message: message,
                 created_at: new Date().toISOString()
-                attachment_url: attachmentUrl // <-- Menyimpan URL Lampiran Email
             };
-            try {
-                const { error } = await supabaseClient.from('emails').insert([newEmail]);
-                if (error) throw error;
 
-                showToast('Pesan berhasil dikirim!', 'success');
-           // Bersihkan Form
-            document.getElementById(`${prefix}email-subject`).value = '';
-            document.getElementById(`${prefix}email-message`).value = '';
-            if(document.getElementById(fileInputId)) document.getElementById(fileInputId).value = '';
+            const { data, error } = await supabaseClient.from('emails').insert([newEmail]).select();
+            if (error) {
+                showToast('Gagal mengirim pesan.', 'error');
+                return;
+            }
 
-            if (platform === 'mobile') switchMobileEmailSub('sent');
-            else switchDesktopEmailSub('sent');
-            } catch (err) {
-        console.error("Gagal mengirim email:", err);
-        showToast('Gagal mengirim pesan: ' + err.message, 'error');
-    } finally {
-        btnSubmit.innerHTML = originalText;
-        btnSubmit.disabled = false;
-    }
-}    
+            if (data && data.length > 0) {
+                emailsList.unshift({
+                    id: data[0].id,
+                    sender: data[0].sender,
+                    sender_name: data[0].sender_name,
+                    receiver: data[0].recipient,
+                    subject: data[0].subject,
+                    message: data[0].message,
+                    created_at: data[0].created_at,
+                    read: true
+                });
+            }
+
+            showToast('Pesan / Email berhasil dikirim!', 'success');
+            if (mode === 'mobile') switchMobileEmailSub('inbox');
+            else switchDesktopEmailSub('inbox');
+
+            renderEmails();
+            updateEmailBadges();
+        }
 
         function renderEmails() {
             if (!activeEmployeeSession || activeEmployeeSession.name === 'Tamu') return;
@@ -2315,7 +2247,7 @@ async function uploadFileToSupabase(fileInputElementId, bucketName) {
                                 </div>
                                 <p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p>
                                 <p class="text-[11px] text-slate-300 truncate mt-0.5">${e.message}</p>
-                                                            </div>
+                            </div>
                         `;
                     }).join('');
                 }
