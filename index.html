@@ -1145,8 +1145,20 @@
                         created_at: e.created_at,
                         attachment_url: e.attachment_url || null,
                         read: readIds.includes(e.id)
-                    }));
-                }
+                const { data: rkData, error: rkErr } = await supabaseClient.from('rekap_list').select('*').order('created_at', { ascending: false });
+
+if (rkData) {
+    rekapList = rkData.map(item => ({
+        id: item.id,
+        tanggal: item.tanggal || item.created_at ? new Date(item.tanggal || item.created_at).toLocaleDateString('id-ID') : '-',
+        nama: item.nama_karyawan || item.nama || item.user_name || 'Karyawan',
+        basecamp: item.basecamp_name || item.basecamp || '-',
+        jamMasuk: item.jam_masuk || item.time_in || '--:--',
+        status: item.status || 'Hadir',
+        keterlambatan: item.keterlambatan || item.terlambat || 'Tepat Waktu',
+        selfieUrl: item.selfie_url || item.photo_url || null
+    }));
+}
 
                 renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
                 renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
