@@ -873,7 +873,79 @@ async function uploadFileToSupabase(file, bucketName = 'attachments') {
                 deviceStatusEl.className = "text-emerald-400 font-semibold text-[11px]";
             }
         }
+function submitMobileIzin() {
+    const jenis = document.getElementById('m-izin-jenis').value;
+    const startDate = document.getElementById('m-izin-start').value;
+    const endDate = document.getElementById('m-izin-end').value;
+    const desc = document.getElementById('m-izin-desc').value;
+    const fileInput = document.getElementById('m-izin-file');
+    
+    // Validasi sederhana tanggal
+    if (!startDate || !endDate) {
+        alert('Mohon isi Tanggal Mulai dan Tanggal Selesai pengajuan.');
+        return;
+    }
 
+    // Buat objek data pengajuan baru
+    const newSubmission = {
+        id: Date.now(),
+        jenis,
+        startDate,
+        endDate,
+        desc: desc || '-',
+        fileName: fileInput.files[0] ? fileInput.files[0].name : 'Tidak ada lampiran',
+        status: 'Menunggu Persetujuan',
+        timestamp: new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    };
+
+    // Simpan ke localStorage (dapat diganti dengan panggilan API / AJAX backend Anda)
+    let historyList = JSON.parse(localStorage.getItem('my_izin_history') || '[]');
+    historyList.unshift(newSubmission);
+    localStorage.setItem('my_izin_history', JSON.stringify(historyList));
+
+    // Perbarui tampilan riwayat dan reset form
+    renderMobileHistory();
+    resetForm(fileInput);
+
+    alert('Pengajuan berhasil dikirim ke atasan!');
+}
+
+function renderMobileHistory() {
+    const container = document.getElementById('mobile-my-history');
+    const historyList = JSON.parse(localStorage.getItem('my_izin_history') || '[]');
+
+    if (historyList.length === 0) {
+        container.innerHTML = `<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>`;
+        return;
+    }
+
+    container.innerHTML = historyList.map(item => `
+        <div class="bg-slate-950 border border-slate-800/80 p-3 rounded-2xl space-y-1.5 shadow-sm">
+            <div class="flex justify-between items-center">
+                <span class="font-bold text-gold-400">${item.jenis}</span>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">${item.status}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                <i class="fa-regular fa-calendar"></i> ${item.startDate} s/d ${item.endDate}
+            </div>
+            <p class="text-slate-300 text-[11px] italic bg-slate-900/50 p-2 rounded-xl border border-slate-900">"${item.desc}"</p>
+            <div class="text-[10px] text-slate-500 flex justify-between pt-1 border-t border-slate-900">
+                <span><i class="fa-solid fa-paperclip"></i> ${item.fileName}</span>
+                <span>${item.timestamp}</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function resetForm(fileInput) {
+    document.getElementById('m-izin-start').value = '';
+    document.getElementById('m-izin-end').value = '';
+    document.getElementById('m-izin-desc').value = '';
+    fileInput.value = '';
+}
+
+// Muat riwayat saat halaman/tab dibuka
+document.addEventListener('DOMContentLoaded', renderMobileHistory);
         async function hashPassword(message) {
             if (message === '••••••••') return message;
             const msgBuffer = new TextEncoder().encode(message);
