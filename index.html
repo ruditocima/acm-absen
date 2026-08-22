@@ -1,36 +1,16 @@
-
-import os
-
-output_dir = "/mnt/agents/output/karyaone-attendance"
-os.makedirs(output_dir, exist_ok=True)
-os.makedirs(f"{output_dir}/css", exist_ok=True)
-os.makedirs(f"{output_dir}/js", exist_ok=True)
-
-# 1. index.html - Shell utama
-index_html = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id" class="h-full bg-slate-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KaryaOne | ACM</title>
-    
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- LEAFLET JS FOR MAP -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <!-- SHEETJS (XLSX) FOR EXCEL EXPORT -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
-    <!-- SUPABASE JS CLIENT -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -43,16 +23,12 @@ index_html = '''<!DOCTYPE html>
             }
         }
     </script>
-    
-    <!-- Custom Styles -->
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="h-full text-slate-100 font-sans flex flex-col" onload="initializeDeviceBinding(); fetchAllDataFromSupabase();">
 
-    <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
-    <!-- SIMULATION CONTROL BAR -->
     <header class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex flex-wrap justify-between items-center z-40 shadow-lg relative">
         <div class="flex items-center space-x-3">
             <div class="w-9 h-9 rounded-xl gold-gradient flex items-center justify-center text-slate-950 font-bold shadow-md">
@@ -73,26 +49,20 @@ index_html = '''<!DOCTYPE html>
         </div>
     </header>
 
-    <!-- MAIN APP CONTAINER -->
     <main class="flex-1 overflow-hidden relative flex justify-center items-center bg-slate-950">
 
-        <!-- ==================== MOBILE VIEW (KARYAWAN) ==================== -->
+        <!-- MOBILE VIEW -->
         <div id="view-mobile" class="w-full h-full max-w-md bg-slate-900 flex flex-col shadow-2xl relative overflow-hidden sm:border-x sm:border-slate-800 sm:max-h-[850px] sm:rounded-3xl">
-            
-            <!-- Mobile Header -->
             <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
                     <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Guest</h2>
                 </div>
-                <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold" id="mobile-user-initial">
-                    T
-                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold" id="mobile-user-initial">T</div>
             </div>
 
-            <!-- Mobile Body Content -->
             <div class="flex-1 overflow-y-auto p-5 space-y-5 pb-28">
 
-                <!-- TAB 1: DAFTAR / LOGIN AKUN -->
+                <!-- TAB DAFTAR -->
                 <div id="m-tab-daftar" class="space-y-5">
                     <div class="text-center space-y-2 mb-4">
                         <div class="w-12 h-12 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 font-bold text-xl mx-auto shadow-lg">
@@ -101,8 +71,6 @@ index_html = '''<!DOCTYPE html>
                         <h2 class="text-base font-bold text-white">Portal Akun Karyawan</h2>
                         <p class="text-xs text-slate-400">Silakan Login atau Daftar akun baru</p>
                     </div>
-
-                    <!-- FORM LOGIN -->
                     <div id="login-step" class="glass-card p-5 rounded-2xl space-y-3">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Login Sistem</h3>
                         <div>
@@ -113,16 +81,12 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-[11px] text-slate-400 mb-1">Password</label>
                             <input type="password" id="login-pass" placeholder="Password Anda..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                         </div>
-                        <button onclick="handleLogin()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2 hover:opacity-95 transition">
-                            Masuk ke Sistem
-                        </button>
+                        <button onclick="handleLogin()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2 hover:opacity-95 transition">Masuk ke Sistem</button>
                         <div class="text-center pt-3 border-t border-slate-800 mt-4">
                             <p class="text-[11px] text-slate-400">Belum punya akun?</p>
                             <button onclick="toggleAuthMode('register')" class="text-xs font-bold text-gold-400 hover:text-gold-300 mt-1">Daftar Sekarang</button>
                         </div>
                     </div>
-
-                    <!-- FORM REGISTER -->
                     <div id="reg-step-1" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Daftar Akun Baru</h3>
                         <div>
@@ -137,16 +101,12 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-[11px] text-slate-400 mb-1">Password</label>
                             <input type="password" id="reg-pass" placeholder="Buat password..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
                         </div>
-                        <button onclick="requestOTP()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2">
-                            Kirim Kode OTP
-                        </button>
+                        <button onclick="requestOTP()" class="w-full py-3 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md mt-2">Kirim Kode OTP</button>
                         <div class="text-center pt-3 border-t border-slate-800 mt-4">
                             <p class="text-[11px] text-slate-400">Sudah punya akun?</p>
                             <button onclick="toggleAuthMode('login')" class="text-xs font-bold text-gold-400 hover:text-gold-300 mt-1">Login di sini</button>
                         </div>
                     </div>
-
-                    <!-- VERIFIKASI OTP -->
                     <div id="reg-step-2" class="glass-card p-5 rounded-2xl space-y-3 hidden">
                         <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Verifikasi Kode OTP 6 Digit</h3>
                         <p id="otp-instruction-text" class="text-[11px] text-slate-400">Kode OTP telah dikirimkan ke Email terdaftar Anda.</p>
@@ -154,16 +114,12 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-[11px] text-slate-400 mb-1">Masukkan 6 Digit OTP</label>
                             <input type="text" id="reg-otp-input" maxlength="6" placeholder="------" class="w-full text-center tracking-widest font-mono text-lg bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-gold-500">
                         </div>
-                        <button onclick="verifyOTP()" class="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-md">
-                            Verifikasi & Daftarkan Akun
-                        </button>
-                        <button onclick="backToRegStep1()" class="w-full py-2 text-slate-400 hover:text-white text-[11px]">
-                            Kembali / Ganti Data
-                        </button>
+                        <button onclick="verifyOTP()" class="w-full py-3 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs shadow-md">Verifikasi & Daftarkan Akun</button>
+                        <button onclick="backToRegStep1()" class="w-full py-2 text-slate-400 hover:text-white text-[11px]">Kembali / Ganti Data</button>
                     </div>
                 </div>
 
-                <!-- TAB 2: ABSENSI -->
+                <!-- TAB ABSEN -->
                 <div id="m-tab-absen" class="space-y-5 hidden">
                     <div class="glass-card p-4 rounded-2xl border-l-4 border-emerald-500 space-y-2">
                         <div class="flex justify-between items-center text-xs">
@@ -179,38 +135,31 @@ index_html = '''<!DOCTYPE html>
                             <span class="text-rose-400 font-semibold"><i class="fa-solid fa-hourglass-end"></i> Pukul 09.40.00 WIB</span>
                         </div>
                     </div>
-
-                    <!-- Clock Card -->
                     <div class="glass-card p-6 rounded-3xl text-center relative overflow-hidden shadow-xl">
                         <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
                         <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">00:00:00</h3>
                         <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: Menunggu deteksi GPS...</p>
-
                         <div class="mt-6">
                             <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
                                 <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
                                 <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
                             </div>
                         </div>
-
                         <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
                         </button>
                     </div>
-
                     <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
                         <p class="font-semibold text-white flex items-center gap-2"><i class="fa-solid fa-circle-info text-gold-400"></i> Informasi Lokasi Lapangan / Kantor:</p>
                         <p class="text-slate-400">Sistem otomatis mendeteksi apakah Anda berada di radius basecamp terdaftar menggunakan GPS real-time.</p>
                     </div>
                 </div>
 
-                <!-- TAB 3: IZIN & RIWAYAT -->
+                <!-- TAB IZIN -->
                 <div id="m-tab-izin" class="space-y-5 hidden">
                     <div class="glass-card p-5 rounded-3xl space-y-3">
-                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
-                            <i class="fa-solid fa-file-lines"></i> Form Pengajuan Izin / Penyesuaian
-                        </h3>
+                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-file-lines"></i> Form Pengajuan Izin / Penyesuaian</h3>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Jenis Pengajuan / Izin</label>
                             <select id="m-izin-jenis" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
@@ -236,46 +185,31 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-[11px] text-slate-400 mb-1">Keterangan / Alasan</label>
                             <textarea id="m-izin-desc" rows="2" placeholder="Tuliskan alasan / kendala..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
-                        <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">
-                            Ajukan ke Atasan
-                        </button>
+                        <button onclick="submitMobileIzin()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs shadow-md transition">Ajukan ke Atasan</button>
                     </div>
-
                     <div class="glass-card p-5 rounded-3xl space-y-3">
-                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2">
-                            <i class="fa-solid fa-clock-rotate-left"></i> Riwayat Saya (Absen & Izin)
-                        </h3>
+                        <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left"></i> Riwayat Saya (Absen & Izin)</h3>
                         <div id="mobile-my-history" class="space-y-2 text-xs text-slate-300">
                             <p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- TAB 4: FITUR EMAIL KARYAWAN -->
+                <!-- TAB EMAIL -->
                 <div id="m-tab-email" class="space-y-4 hidden">
                     <div class="flex justify-between items-center bg-slate-950/40 p-3 rounded-2xl border border-slate-800">
                         <button onclick="switchMobileEmailSub('inbox')" id="m-btn-inbox" class="px-3 py-1.5 text-xs font-bold rounded-xl bg-gold-500 text-slate-950 transition">Masuk</button>
                         <button onclick="switchMobileEmailSub('sent')" id="m-btn-sent" class="px-3 py-1.5 text-xs font-semibold rounded-xl text-slate-400 hover:text-white transition">Keluar</button>
                         <button onclick="switchMobileEmailSub('compose')" id="m-btn-compose" class="px-3 py-1.5 text-xs font-semibold rounded-xl text-gold-400 border border-gold-500/30 hover:bg-gold-500/10 transition"><i class="fa-solid fa-pen"></i> Tulis</button>
                     </div>
-
-                    <!-- KOTAK MASUK MOBILE -->
                     <div id="m-email-inbox-section" class="space-y-3">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Kotak Masuk & Broadcast</h3>
-                        <div id="mobile-inbox-list" class="space-y-2 text-xs">
-                            <p class="text-slate-500 text-center py-4">Memuat pesan...</p>
-                        </div>
+                        <div id="mobile-inbox-list" class="space-y-2 text-xs"><p class="text-slate-500 text-center py-4">Memuat pesan...</p></div>
                     </div>
-
-                    <!-- KOTAK KELUAR MOBILE -->
                     <div id="m-email-sent-section" class="space-y-3 hidden">
                         <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Pesan Terkirim</h3>
-                        <div id="mobile-sent-list" class="space-y-2 text-xs">
-                            <p class="text-slate-500 text-center py-4">Memuat pesan terkirim...</p>
-                        </div>
+                        <div id="mobile-sent-list" class="space-y-2 text-xs"><p class="text-slate-500 text-center py-4">Memuat pesan terkirim...</p></div>
                     </div>
-
-                    <!-- TULIS EMAIL MOBILE -->
                     <div id="m-email-compose-section" class="glass-card p-4 rounded-2xl space-y-3 hidden">
                         <div class="flex justify-between items-center border-b border-slate-800 pb-2">
                             <h3 class="text-xs font-bold text-gold-400 uppercase tracking-wider">Kirim Pesan / Broadcast</h3>
@@ -295,47 +229,26 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-[11px] text-slate-400 mb-1">Isi Pesan</label>
                             <textarea id="m-email-message" rows="4" placeholder="Tulis pesan Anda di sini..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                         </div>
-                        <button onclick="sendAppEmail('mobile')" class="w-full py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">
-                            Kirim Pesan Sekarang
-                        </button>
+                        <button onclick="sendAppEmail('mobile')" class="w-full py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Kirim Pesan Sekarang</button>
                     </div>
                 </div>
-
             </div>
 
-            <!-- Mobile Bottom Navigation -->
             <div class="absolute bottom-0 left-0 right-0 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 px-4 py-3 flex justify-around items-center z-20 shadow-2xl">
-                <button onclick="switchMobileTab('daftar')" id="m-nav-daftar" class="text-gold-400 flex flex-col items-center text-[11px] space-y-1 transition">
-                    <i class="fa-solid fa-user-shield text-base"></i>
-                    <span>Akun</span>
-                </button>
-                <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition">
-                    <i class="fa-solid fa-fingerprint text-base"></i>
-                    <span>Absen</span>
-                </button>
-                <button onclick="switchMobileTab('izin')" id="m-nav-izin" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition">
-                    <i class="fa-solid fa-file-lines text-base"></i>
-                    <span>Izin</span>
-                </button>
-                <button onclick="switchMobileTab('email')" id="m-nav-email" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition relative">
-                    <i class="fa-solid fa-envelope text-base"></i>
-                    <span>Email</span>
-                    <span id="mobile-email-badge" class="absolute -top-1.5 right-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span>
-                </button>
+                <button onclick="switchMobileTab('daftar')" id="m-nav-daftar" class="text-gold-400 flex flex-col items-center text-[11px] space-y-1 transition"><i class="fa-solid fa-user-shield text-base"></i><span>Akun</span></button>
+                <button onclick="switchMobileTab('absen')" id="m-nav-absen" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition"><i class="fa-solid fa-fingerprint text-base"></i><span>Absen</span></button>
+                <button onclick="switchMobileTab('izin')" id="m-nav-izin" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition"><i class="fa-solid fa-file-lines text-base"></i><span>Izin</span></button>
+                <button onclick="switchMobileTab('email')" id="m-nav-email" class="text-slate-400 hover:text-white flex flex-col items-center text-[11px] space-y-1 transition relative"><i class="fa-solid fa-envelope text-base"></i><span>Email</span><span id="mobile-email-badge" class="absolute -top-1.5 right-1 bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full hidden">0</span></button>
             </div>
         </div>
 
-        <!-- ==================== DESKTOP VIEW ==================== -->
+        <!-- DESKTOP VIEW -->
         <div id="view-desktop" class="w-full h-full bg-slate-950 hidden flex-col sm:flex-row overflow-hidden relative">
-            
-            <!-- DESKTOP LOGIN OVERLAY -->
             <div id="desktop-login-section" class="w-full h-full flex flex-col items-center justify-center bg-slate-950 absolute inset-0 z-50">
                 <div class="glass-card p-8 rounded-3xl w-full max-w-md border border-slate-800 shadow-2xl relative overflow-hidden">
                     <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
                     <div class="text-center mb-6 relative z-10">
-                        <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 font-bold text-3xl mx-auto shadow-lg mb-4">
-                            <i class="fa-solid fa-desktop"></i>
-                        </div>
+                        <div class="w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center text-slate-950 font-bold text-3xl mx-auto shadow-lg mb-4"><i class="fa-solid fa-desktop"></i></div>
                         <h2 class="text-xl font-bold text-white tracking-wide">Enterprise Panel</h2>
                         <p class="text-xs text-slate-400 mt-1">Silakan login sesuai role akses Anda</p>
                     </div>
@@ -348,57 +261,32 @@ index_html = '''<!DOCTYPE html>
                             <label class="block text-xs text-slate-400 mb-1">Password</label>
                             <input type="password" id="d-login-pass" placeholder="Password Anda..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-gold-500">
                         </div>
-                        <button onclick="handleDesktopLogin()" class="w-full py-3.5 rounded-xl gold-gradient text-slate-950 font-bold text-sm shadow-md mt-2 hover:opacity-95 transition">
-                            Masuk ke Dashboard
-                        </button>
+                        <button onclick="handleDesktopLogin()" class="w-full py-3.5 rounded-xl gold-gradient text-slate-950 font-bold text-sm shadow-md mt-2 hover:opacity-95 transition">Masuk ke Dashboard</button>
                     </div>
                 </div>
             </div>
 
-            <!-- DESKTOP APP WRAPPER -->
             <div id="desktop-app-wrapper" class="w-full h-full hidden flex">
-                <!-- Sidebar -->
                 <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto">
                     <div class="p-5 border-b border-slate-800 flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold">
-                            <i class="fa-solid fa-crown"></i>
-                        </div>
+                        <div class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold"><i class="fa-solid fa-crown"></i></div>
                         <div>
                             <h2 class="text-sm font-bold text-white tracking-wide">Master Control</h2>
                             <p class="text-[10px] text-slate-400" id="desktop-role-label">Enterprise Dashboard</p>
                         </div>
                     </div>
                     <nav class="flex-1 p-4 space-y-1 text-xs font-medium" id="desktop-sidebar-nav">
-                        <button onclick="switchDesktopTab('dashboard')" id="d-nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all">
-                            <i class="fa-solid fa-chart-pie w-5"></i> Dashboard Utama
-                        </button>
-                        <button onclick="switchDesktopTab('rekap')" id="d-nav-rekap" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-table-list w-5"></i> Rekap Absensi
-                        </button>
-                        <button onclick="switchDesktopTab('role')" id="d-nav-role" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-user-tie w-5"></i> Kelola Role
-                        </button>
-                        <button onclick="switchDesktopTab('karyawan')" id="d-nav-karyawan" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-users w-5"></i> Data Karyawan
-                        </button>
-                        <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp
-                        </button>
-                        <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-envelope-open-text w-5"></i> <span class="flex-1 text-left">Persetujuan Izin</span> 
-                            <span id="sidebar-izin-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
-                        </button>
-                        <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden">
-                            <i class="fa-solid fa-envelope w-5"></i> <span class="flex-1 text-left">Pesan & Broadcast</span>
-                            <span id="sidebar-email-badge" class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
-                        </button>
+                        <button onclick="switchDesktopTab('dashboard')" id="d-nav-dashboard" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all"><i class="fa-solid fa-chart-pie w-5"></i> Dashboard Utama</button>
+                        <button onclick="switchDesktopTab('rekap')" id="d-nav-rekap" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-table-list w-5"></i> Rekap Absensi</button>
+                        <button onclick="switchDesktopTab('role')" id="d-nav-role" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-user-tie w-5"></i> Kelola Role</button>
+                        <button onclick="switchDesktopTab('karyawan')" id="d-nav-karyawan" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-users w-5"></i> Data Karyawan</button>
+                        <button onclick="switchDesktopTab('basecamp')" id="d-nav-basecamp" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-location-crosshairs w-5"></i> Kelola Basecamp</button>
+                        <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-envelope-open-text w-5"></i> <span class="flex-1 text-left">Persetujuan Izin</span><span id="sidebar-izin-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span></button>
+                        <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-envelope w-5"></i> <span class="flex-1 text-left">Pesan & Broadcast</span><span id="sidebar-email-badge" class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span></button>
                     </nav>
-                    <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">
-                        Secure Attendance System v1
-                    </div>
+                    <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">Secure Attendance System v1</div>
                 </aside>
 
-                <!-- Main Content Area -->
                 <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
                     <header class="h-16 bg-slate-900 border-b border-slate-800 px-6 flex justify-between items-center z-20 shadow-sm relative">
                         <h3 id="desktop-title" class="text-sm font-bold text-white uppercase tracking-wider">Dashboard & Statistik</h3>
@@ -406,141 +294,73 @@ index_html = '''<!DOCTYPE html>
                             <span class="text-slate-400 hidden sm:inline-block"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase)</span>
                             <div class="flex items-center gap-3 pl-4 border-l border-slate-700">
                                 <div id="desktop-user-initial" class="w-8 h-8 rounded-full bg-slate-800 border border-gold-500/50 flex items-center justify-center text-gold-400 font-bold">AD</div>
-                                <button onclick="handleLogout()" class="text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-500/10 transition">
-                                    <i class="fa-solid fa-power-off"></i> Keluar
-                                </button>
+                                <button onclick="handleLogout()" class="text-rose-400 hover:text-rose-300 font-semibold px-2 py-1 rounded hover:bg-rose-500/10 transition"><i class="fa-solid fa-power-off"></i> Keluar</button>
                             </div>
                         </div>
                     </header>
 
-                    <!-- Dynamic Content Area -->
                     <div class="flex-1 overflow-y-auto p-6 space-y-6">
-
-                        <!-- TAB DASHBOARD -->
                         <div id="d-tab-dashboard" class="space-y-6">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500">
-                                    <span class="text-xs text-slate-400">Total Karyawan</span>
-                                    <h4 id="stat-total-karyawan" class="text-2xl font-bold text-white mt-1">0 Orang</h4>
-                                </div>
-                                <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500">
-                                    <span class="text-xs text-slate-400">Hadir Tepat Waktu (Hari Ini)</span>
-                                    <h4 id="stat-tepat-waktu" class="text-2xl font-bold text-emerald-400 mt-1">0 Orang</h4>
-                                </div>
-                                <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500">
-                                    <span class="text-xs text-slate-400">Terlambat (Hari Ini)</span>
-                                    <h4 id="stat-terlambat" class="text-2xl font-bold text-amber-400 mt-1">0 Orang</h4>
-                                </div>
-                                <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500">
-                                    <span class="text-xs text-slate-400">Izin / Alpha (Hari Ini)</span>
-                                    <h4 id="stat-izin-alpha" class="text-2xl font-bold text-rose-400 mt-1">0 Orang</h4>
-                                </div>
+                                <div class="glass-card p-5 rounded-2xl border-l-4 border-gold-500"><span class="text-xs text-slate-400">Total Karyawan</span><h4 id="stat-total-karyawan" class="text-2xl font-bold text-white mt-1">0 Orang</h4></div>
+                                <div class="glass-card p-5 rounded-2xl border-l-4 border-emerald-500"><span class="text-xs text-slate-400">Hadir Tepat Waktu (Hari Ini)</span><h4 id="stat-tepat-waktu" class="text-2xl font-bold text-emerald-400 mt-1">0 Orang</h4></div>
+                                <div class="glass-card p-5 rounded-2xl border-l-4 border-amber-500"><span class="text-xs text-slate-400">Terlambat (Hari Ini)</span><h4 id="stat-terlambat" class="text-2xl font-bold text-amber-400 mt-1">0 Orang</h4></div>
+                                <div class="glass-card p-5 rounded-2xl border-l-4 border-rose-500"><span class="text-xs text-slate-400">Izin / Alpha (Hari Ini)</span><h4 id="stat-izin-alpha" class="text-2xl font-bold text-rose-400 mt-1">0 Orang</h4></div>
                             </div>
                         </div>
 
-                        <!-- TAB REKAP ABSENSI -->
                         <div id="d-tab-rekap" class="space-y-4 hidden">
                             <div class="flex flex-wrap gap-2 justify-between items-center">
                                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rekapitulasi Kehadiran & Keterlambatan</h4>
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
-                                        <span class="text-[10px] text-slate-400">Dari:</span>
-                                        <input type="date" id="rekap-start-date" class="bg-transparent text-xs text-white focus:outline-none">
-                                    </div>
-                                    <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300">
-                                        <span class="text-[10px] text-slate-400">Sampai:</span>
-                                        <input type="date" id="rekap-end-date" class="bg-transparent text-xs text-white focus:outline-none">
-                                    </div>
-                                    <button onclick="filterRekap()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1">
-                                        <i class="fa-solid fa-filter"></i> Filter
-                                    </button>
-                                    <button onclick="resetRekapData()" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition">
-                                        <i class="fa-solid fa-rotate-left"></i> Reset Data
-                                    </button>
-                                    <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition">
-                                        <i class="fa-solid fa-file-excel"></i> Export Excel
-                                    </button>
+                                    <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300"><span class="text-[10px] text-slate-400">Dari:</span><input type="date" id="rekap-start-date" class="bg-transparent text-xs text-white focus:outline-none"></div>
+                                    <div class="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300"><span class="text-[10px] text-slate-400">Sampai:</span><input type="date" id="rekap-end-date" class="bg-transparent text-xs text-white focus:outline-none"></div>
+                                    <button onclick="filterRekap()" class="px-3 py-1.5 bg-slate-800 text-slate-200 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1"><i class="fa-solid fa-filter"></i> Filter</button>
+                                    <button onclick="resetRekapData()" class="px-3 py-1.5 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 font-semibold text-xs rounded-lg flex items-center gap-1 transition"><i class="fa-solid fa-rotate-left"></i> Reset Data</button>
+                                    <button onclick="exportToExcel()" class="px-3 py-1.5 bg-gold-500 hover:bg-gold-600 text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1 transition"><i class="fa-solid fa-file-excel"></i> Export Excel</button>
                                 </div>
                             </div>
-
                             <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                 <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                        <tr>
-                                            <th class="p-3">Tanggal</th>
-                                            <th class="p-3">Nama Karyawan</th>
-                                            <th class="p-3">Basecamp</th>
-                                            <th class="p-3">Jam Masuk</th>
-                                            <th class="p-3">Status</th>
-                                            <th class="p-3">Keterlambatan</th>
-                                            <th class="p-3">Selfie</th>
-                                        </tr>
-                                    </thead>
+                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">Tanggal</th><th class="p-3">Nama Karyawan</th><th class="p-3">Basecamp</th><th class="p-3">Jam Masuk</th><th class="p-3">Status</th><th class="p-3">Keterlambatan</th><th class="p-3">Selfie</th></tr></thead>
                                     <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <!-- TAB KELOLA ROLE -->
                         <div id="d-tab-role" class="space-y-4 hidden">
                             <div class="flex justify-between items-center">
                                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Role & Akses</h4>
-                                <button onclick="openRoleModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
-                                    <i class="fa-solid fa-plus"></i> Tambah Role
-                                </button>
+                                <button onclick="openRoleModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5"><i class="fa-solid fa-plus"></i> Tambah Role</button>
                             </div>
                             <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                 <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                        <tr>
-                                            <th class="p-3">Kode Role</th>
-                                            <th class="p-3">Nama Role</th>
-                                            <th class="p-3">Hak Akses Modul</th>
-                                            <th class="p-3 w-40">Aksi</th>
-                                        </tr>
-                                    </thead>
+                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">Kode Role</th><th class="p-3">Nama Role</th><th class="p-3">Hak Akses Modul</th><th class="p-3 w-40">Aksi</th></tr></thead>
                                     <tbody id="role-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <!-- TAB DATA KARYAWAN -->
                         <div id="d-tab-karyawan" class="space-y-4 hidden">
                             <div class="flex justify-between items-center">
                                 <div class="flex items-center gap-3">
                                     <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Manajemen Data Karyawan & Approval Akun Pending</h4>
                                     <span id="karyawan-pending-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full hidden">0 Pending</span>
                                 </div>
-                                <button onclick="openAddEmployeeModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5">
-                                    <i class="fa-solid fa-user-plus"></i> Tambah Karyawan
-                                </button>
+                                <button onclick="openAddEmployeeModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1.5"><i class="fa-solid fa-user-plus"></i> Tambah Karyawan</button>
                             </div>
                             <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                 <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                        <tr>
-                                            <th class="p-3">ID User</th>
-                                            <th class="p-3">Nama Karyawan</th>
-                                            <th class="p-3">Posisi</th>
-                                            <th class="p-3">Role</th>
-                                            <th class="p-3">Atasan Langsung</th>
-                                            <th class="p-3 max-w-[100px]">Password (Hashed)</th>
-                                            <th class="p-3">Status Akun</th>
-                                            <th class="p-3 w-48">Aksi, Edit & Reset</th>
-                                        </tr>
-                                    </thead>
+                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">ID User</th><th class="p-3">Nama Karyawan</th><th class="p-3">Posisi</th><th class="p-3">Role</th><th class="p-3">Atasan Langsung</th><th class="p-3 max-w-[100px]">Password (Hashed)</th><th class="p-3">Status Akun</th><th class="p-3 w-48">Aksi, Edit & Reset</th></tr></thead>
                                     <tbody id="karyawan-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                 </table>
                             </div>
                         </div>
 
-                        <!-- TAB BASECAMP -->
                         <div id="d-tab-basecamp" class="space-y-4 hidden">
                             <div class="flex justify-between items-center mb-2">
                                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Daftar Basecamp & Zona Radius GPS</h4>
-                                <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1">
-                                    <i class="fa-solid fa-plus"></i> Tambah Basecamp
-                                </button>
+                                <button onclick="openAddBasecampModal()" class="px-3 py-1.5 gold-gradient text-slate-950 font-bold text-xs rounded-lg shadow flex items-center gap-1"><i class="fa-solid fa-plus"></i> Tambah Basecamp</button>
                             </div>
                             <div class="glass-card p-1 rounded-2xl border border-slate-800 shadow-inner">
                                 <div id="basecamp-map" class="w-full h-48 sm:h-56 rounded-xl bg-slate-800"></div>
@@ -548,7 +368,6 @@ index_html = '''<!DOCTYPE html>
                             <div id="basecamp-container" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4"></div>
                         </div>
 
-                        <!-- TAB PENGAJUAN IZIN -->
                         <div id="d-tab-izin" class="space-y-4 hidden">
                             <div class="flex justify-between items-center">
                                 <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Persetujuan Izin & Penyesuaian Karyawan oleh Atasan</h4>
@@ -557,7 +376,6 @@ index_html = '''<!DOCTYPE html>
                             <div id="admin-izin-container" class="glass-card p-4 rounded-2xl space-y-3"></div>
                         </div>
 
-                        <!-- TAB EMAIL & BROADCAST DESKTOP -->
                         <div id="d-tab-email" class="space-y-6 hidden">
                             <div class="flex justify-between items-center border-b border-slate-800 pb-4">
                                 <div>
@@ -570,43 +388,22 @@ index_html = '''<!DOCTYPE html>
                                     <button onclick="switchDesktopEmailSub('compose')" id="d-btn-compose" class="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-gold-400 border border-gold-500/30"><i class="fa-solid fa-pen"></i> Tulis Pesan</button>
                                 </div>
                             </div>
-
-                            <!-- KOTAK MASUK DESKTOP -->
                             <div id="d-email-inbox-section" class="space-y-3">
                                 <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
                                     <table class="w-full text-left text-xs">
-                                        <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                            <tr>
-                                                <th class="p-3 w-32">Waktu</th>
-                                                <th class="p-3 w-48">Pengirim</th>
-                                                <th class="p-3">Subjek & Pesan</th>
-                                                <th class="p-3 w-28 text-center">Tipe</th>
-                                                <th class="p-3 w-48 text-right">Aksi (Baca / Balas / Hapus)</th>
-                                            </tr>
-                                        </thead>
+                                        <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3 w-32">Waktu</th><th class="p-3 w-48">Pengirim</th><th class="p-3">Subjek & Pesan</th><th class="p-3 w-28 text-center">Tipe</th><th class="p-3 w-48 text-right">Aksi (Baca / Balas / Hapus)</th></tr></thead>
                                         <tbody id="desktop-inbox-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                     </table>
                                 </div>
                             </div>
-
-                            <!-- KOTAK KELUAR DESKTOP -->
                             <div id="d-email-sent-section" class="space-y-3 hidden">
                                 <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
                                     <table class="w-full text-left text-xs">
-                                        <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800">
-                                            <tr>
-                                                <th class="p-3 w-32">Waktu</th>
-                                                <th class="p-3 w-48">Penerima</th>
-                                                <th class="p-3">Subjek</th>
-                                                <th class="p-3 w-36 text-right">Aksi</th>
-                                            </tr>
-                                        </thead>
+                                        <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3 w-32">Waktu</th><th class="p-3 w-48">Penerima</th><th class="p-3">Subjek</th><th class="p-3 w-36 text-right">Aksi</th></tr></thead>
                                         <tbody id="desktop-sent-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                     </table>
                                 </div>
                             </div>
-
-                            <!-- TULIS EMAIL DESKTOP -->
                             <div id="d-email-compose-section" class="glass-card p-6 rounded-2xl space-y-4 max-w-2xl hidden shadow-xl">
                                 <div class="flex justify-between items-center border-b border-slate-800 pb-3">
                                     <h5 class="text-xs font-bold text-white uppercase tracking-wider">Kirim Pesan Baru / Broadcast</h5>
@@ -628,36 +425,23 @@ index_html = '''<!DOCTYPE html>
                                     <label class="block text-xs text-slate-400 mb-1">Isi Pesan</label>
                                     <textarea id="d-email-message" rows="5" placeholder="Tulis pesan lengkap di sini..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
                                 </div>
-                                <button onclick="sendAppEmail('desktop')" class="px-6 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-90 transition">
-                                    Kirim Pesan Sekarang
-                                </button>
+                                <button onclick="sendAppEmail('desktop')" class="px-6 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-90 transition">Kirim Pesan Sekarang</button>
                             </div>
                         </div>
-
                     </div>
                 </div>
             </div>
         </div>
-
     </main>
 
-    <!-- MODAL ROLE -->
+    <!-- MODALS -->
     <div id="role-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="role-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Role</h3>
             <input type="hidden" id="role-edit-index" value="-1">
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Kode Role</label>
-                <input type="text" id="inp-role-id" placeholder="Contoh: ROL-01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Nama Role</label>
-                <input type="text" id="inp-role-name" placeholder="Contoh: Manajer Lapangan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Hak Akses Modul (Pisahkan dengan koma)</label>
-                <textarea id="inp-role-access" rows="2" placeholder="Contoh: Dashboard, Rekap, Karyawan, Role, Basecamp, Izin, Email" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea>
-            </div>
+            <div><label class="block text-xs text-slate-400 mb-1">Kode Role</label><input type="text" id="inp-role-id" placeholder="Contoh: ROL-01" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Nama Role</label><input type="text" id="inp-role-name" placeholder="Contoh: Manajer Lapangan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Hak Akses Modul (Pisahkan dengan koma)</label><textarea id="inp-role-access" rows="2" placeholder="Contoh: Dashboard, Rekap, Karyawan, Role, Basecamp, Izin, Email" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></textarea></div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveRole()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Role</button>
                 <button onclick="closeRoleModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
@@ -665,35 +449,16 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL KARYAWAN -->
     <div id="employee-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Karyawan</h3>
             <input type="hidden" id="edit-index" value="-1">
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">ID User / Email (Gmail)</label>
-                <input type="text" id="inp-id" placeholder="Contoh: user@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Nama Karyawan</label>
-                <input type="text" id="inp-name" placeholder="Nama lengkap..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Posisi</label>
-                <input type="text" id="inp-position" placeholder="Contoh: Staff IT / Field Engineer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Role</label>
-                <select id="inp-role" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></select>
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Atasan Langsung</label>
-                <select id="inp-atasan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></select>
-            </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Password</label>
-                <input type="text" id="inp-password" placeholder="Password akun..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
+            <div><label class="block text-xs text-slate-400 mb-1">ID User / Email (Gmail)</label><input type="text" id="inp-id" placeholder="Contoh: user@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Nama Karyawan</label><input type="text" id="inp-name" placeholder="Nama lengkap..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Posisi</label><input type="text" id="inp-position" placeholder="Contoh: Staff IT / Field Engineer" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Role</label><select id="inp-role" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></select></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Atasan Langsung</label><select id="inp-atasan" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></select></div>
+            <div><label class="block text-xs text-slate-400 mb-1">Password</label><input type="text" id="inp-password" placeholder="Password akun..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveEmployee()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan</button>
                 <button onclick="closeEmployeeModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
@@ -701,29 +466,16 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL BASECAMP -->
     <div id="basecamp-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl">
             <h3 id="bc-modal-title" class="text-sm font-bold text-white uppercase tracking-wider border-b border-slate-800 pb-2">Tambah Basecamp</h3>
             <input type="hidden" id="bc-edit-index" value="-1">
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Nama Basecamp</label>
-                <input type="text" id="bc-inp-name" placeholder="Contoh: Basecamp Pekanbaru Pusat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
+            <div><label class="block text-xs text-slate-400 mb-1">Nama Basecamp</label><input type="text" id="bc-inp-name" placeholder="Contoh: Basecamp Pekanbaru Pusat" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
             <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Latitude</label>
-                    <input type="text" id="bc-inp-lat" placeholder="0.434291" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-                </div>
-                <div>
-                    <label class="block text-xs text-slate-400 mb-1">Longitude</label>
-                    <input type="text" id="bc-inp-lng" placeholder="101.466385" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-                </div>
+                <div><label class="block text-xs text-slate-400 mb-1">Latitude</label><input type="text" id="bc-inp-lat" placeholder="0.434291" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">Longitude</label><input type="text" id="bc-inp-lng" placeholder="101.466385" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
             </div>
-            <div>
-                <label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label>
-                <input type="number" id="bc-inp-radius" placeholder="1500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500">
-            </div>
+            <div><label class="block text-xs text-slate-400 mb-1">Radius Aman GPS (Meter)</label><input type="number" id="bc-inp-radius" placeholder="1500" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-gold-500"></div>
             <div class="flex gap-2 pt-2">
                 <button onclick="saveBasecamp()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md">Simpan Basecamp</button>
                 <button onclick="closeBasecampModal()" class="flex-1 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold">Batal</button>
@@ -731,7 +483,6 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL CONFIRMATION -->
     <div id="confirm-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-sm p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
             <div class="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center mx-auto text-lg"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -744,7 +495,6 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL SELFIE -->
     <div id="selfie-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
             <h3 class="text-sm font-bold text-gold-400 uppercase tracking-wider">Verifikasi Wajah (Selfie Absen)</h3>
@@ -763,7 +513,6 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL IMAGE ZOOM -->
     <div id="image-zoom-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4" onclick="closeImageZoom()">
         <div class="relative max-w-lg max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
             <button onclick="closeImageZoom()" class="absolute -top-10 right-0 text-slate-400 hover:text-white text-xl font-bold bg-slate-900/80 w-8 h-8 rounded-full flex items-center justify-center border border-slate-700 hover:bg-slate-800 transition"><i class="fa-solid fa-xmark"></i></button>
@@ -772,44 +521,24 @@ index_html = '''<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- MODAL EMAIL DETAIL -->
     <div id="email-detail-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-lg p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl relative">
             <button onclick="closeEmailDetailModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
             <h3 class="text-sm font-bold text-gold-400 uppercase tracking-wider border-b border-slate-800 pb-2">Detail Pesan & Balas</h3>
             <div class="space-y-2 text-xs text-slate-300">
-                <div class="flex justify-between border-b border-slate-800/60 pb-2">
-                    <span class="text-slate-400">Pengirim:</span>
-                    <span id="detail-email-sender" class="font-bold text-white"></span>
-                </div>
-                <div class="flex justify-between border-b border-slate-800/60 pb-2">
-                    <span class="text-slate-400">Penerima:</span>
-                    <span id="detail-email-receiver" class="font-bold text-white"></span>
-                </div>
-                <div class="flex justify-between border-b border-slate-800/60 pb-2">
-                    <span class="text-slate-400">Waktu:</span>
-                    <span id="detail-email-time" class="font-mono text-slate-300"></span>
-                </div>
-                <div class="border-b border-slate-800/60 pb-2">
-                    <span class="text-slate-400 block mb-1">Subjek:</span>
-                    <span id="detail-email-subject" class="font-bold text-white block"></span>
-                </div>
-                <div class="pt-2">
-                    <span class="text-slate-400 block mb-1">Isi Pesan:</span>
-                    <div id="detail-email-message" class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-slate-200 whitespace-pre-line leading-relaxed"></div>
-                </div>
+                <div class="flex justify-between border-b border-slate-800/60 pb-2"><span class="text-slate-400">Pengirim:</span><span id="detail-email-sender" class="font-bold text-white"></span></div>
+                <div class="flex justify-between border-b border-slate-800/60 pb-2"><span class="text-slate-400">Penerima:</span><span id="detail-email-receiver" class="font-bold text-white"></span></div>
+                <div class="flex justify-between border-b border-slate-800/60 pb-2"><span class="text-slate-400">Waktu:</span><span id="detail-email-time" class="font-mono text-slate-300"></span></div>
+                <div class="border-b border-slate-800/60 pb-2"><span class="text-slate-400 block mb-1">Subjek:</span><span id="detail-email-subject" class="font-bold text-white block"></span></div>
+                <div class="pt-2"><span class="text-slate-400 block mb-1">Isi Pesan:</span><div id="detail-email-message" class="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-slate-200 whitespace-pre-line leading-relaxed"></div></div>
             </div>
             <div class="flex gap-2 pt-3 border-t border-slate-800">
-                <button id="btn-reply-email" onclick="replyEmail()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-2 hover:opacity-90 transition">
-                    <i class="fa-solid fa-reply"></i> Balas Pesan
-                </button>
+                <button id="btn-reply-email" onclick="replyEmail()" class="flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md flex items-center justify-center gap-2 hover:opacity-90 transition"><i class="fa-solid fa-reply"></i> Balas Pesan</button>
                 <button onclick="closeEmailDetailModal()" class="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-semibold transition">Tutup</button>
             </div>
         </div>
     </div>
 
-    <!-- ============ JAVASCRIPT MODULES ============ -->
-    <!-- Load scripts in dependency order -->
     <script src="js/config.js"></script>
     <script src="js/state.js"></script>
     <script src="js/utils.js"></script>
@@ -823,9 +552,4 @@ index_html = '''<!DOCTYPE html>
     <script src="js/ui.js"></script>
     <script src="js/app.js"></script>
 </body>
-</html>'''
-
-with open(f"{output_dir}/index.html", "w", encoding="utf-8") as f:
-    f.write(index_html)
-
-print("✅ index.html created")
+</html>

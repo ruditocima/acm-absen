@@ -1,10 +1,3 @@
-
-# 6. js/auth.js
-auth_js = '''// ==========================================
-// AUTHENTICATION MODULE
-// Login, Register, OTP, Logout
-// ==========================================
-
 function toggleAuthMode(mode) {
     if (mode === 'login') {
         document.getElementById('login-step').classList.remove('hidden');
@@ -17,42 +10,34 @@ function toggleAuthMode(mode) {
     }
 }
 
-async function processLoginValidation(email, pass, isDesktop = false) {
-    if (!email || !pass) return showToast('Harap isi email dan password Anda.', 'error');
-
-    const emp = employees.find(e => e.id === email);
-    if (!emp) return showToast('Akun tidak ditemukan. Silakan daftar terlebih dahulu.', 'error');
-
-    if (emp.status !== 'Approved') return showToast('Akun Anda masih berstatus Pending (Menunggu Approval Admin).', 'warning');
-
+async function processLoginValidation(email, pass, isDesktop) {
+    if (!email || !pass) { showToast('Harap isi email dan password Anda.', 'error'); return false; }
+    const emp = employees.find(function(e) { return e.id === email; });
+    if (!emp) { showToast('Akun tidak ditemukan. Silakan daftar terlebih dahulu.', 'error'); return false; }
+    if (emp.status !== 'Approved') { showToast('Akun Anda masih berstatus Pending (Menunggu Approval Admin).', 'warning'); return false; }
     if (emp.password !== '••••••••') {
         const hashedInput = await hashPassword(pass);
         if (hashedInput !== emp.password && pass !== emp.password) {
-            return showToast('Kombinasi Email dan Password salah!', 'error');
+            showToast('Kombinasi Email dan Password salah!', 'error');
+            return false;
         }
     }
-
     if (!isDesktop) {
         if (emp.deviceId === 'Unbound') {
             emp.deviceId = currentDeviceUUID;
             await supabaseClient.from('employees').update({ device_id: currentDeviceUUID }).eq('id', emp.id);
-            showToast(`Perangkat berhasil diikat ke akun ini (ID: ${currentDeviceUUID.substring(0,8)}).`, 'success');
+            showToast('Perangkat berhasil diikat ke akun ini (ID: ' + currentDeviceUUID.substring(0,8) + ').', 'success');
             renderEmployees();
-        }
-        else if (emp.deviceId !== currentDeviceUUID) {
-            return showToast('SECURITY ALERT: Login Ditolak! Akun ini telah terikat pada perangkat lunak / HP fisik lain.', 'error');
+        } else if (emp.deviceId !== currentDeviceUUID) {
+            showToast('SECURITY ALERT: Login Ditolak! Akun ini telah terikat pada perangkat lunak / HP fisik lain.', 'error');
+            return false;
         }
     }
-
     activeEmployeeSession = emp;
-    document.getElementById('mobile-user-title').innerText = `Halo, ${emp.name}`;
-    document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-
+    document.getElementById('mobile-user-title').innerText = 'Halo, ' + emp.name;
+    document.getElementById('mobile-user-initial').innerText = emp.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
     const readIds = getReadEmailIds();
-    emailsList.forEach(e => {
-        if (readIds.includes(e.id)) e.read = true;
-    });
-
+    emailsList.forEach(function(e) { if (readIds.includes(e.id)) e.read = true; });
     renderMobileMyHistory();
     renderEmails();
     renderAdminIzin();
@@ -64,7 +49,6 @@ async function processLoginValidation(email, pass, isDesktop = false) {
 async function handleLogin() {
     const email = document.getElementById('login-email').value.trim();
     const pass = document.getElementById('login-pass').value.trim();
-
     const success = await processLoginValidation(email, pass, false);
     if (success) {
         document.getElementById('login-email').value = '';
@@ -77,13 +61,11 @@ async function handleLogin() {
 async function handleDesktopLogin() {
     const email = document.getElementById('d-login-email').value.trim();
     const pass = document.getElementById('d-login-pass').value.trim();
-
     const success = await processLoginValidation(email, pass, true);
     if (success) {
         document.getElementById('d-login-email').value = '';
         document.getElementById('d-login-pass').value = '';
         showToast('Login Enterprise berhasil!', 'success');
-
         document.getElementById('desktop-login-section').classList.add('hidden');
         document.getElementById('desktop-app-wrapper').classList.remove('hidden');
         applyRolePermissions();
@@ -92,9 +74,8 @@ async function handleDesktopLogin() {
 
 function handleLogout() {
     activeEmployeeSession = { name: 'Tamu', id: 'tamu@gmail.com', role: 'Tamu' };
-    document.getElementById('mobile-user-title').innerText = `Halo, Tamu`;
+    document.getElementById('mobile-user-title').innerText = 'Halo, Tamu';
     document.getElementById('mobile-user-initial').innerText = 'T';
-
     populateEmailRecipients();
     updateEmailBadges();
     showToast('Anda telah logout dari sistem.', 'success');
@@ -106,19 +87,16 @@ function requestOTP() {
     const email = document.getElementById('reg-email').value.trim();
     const nama = document.getElementById('reg-nama').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
-
     if (!email || !nama || !pass || !email.includes('@gmail.com')) {
         showToast('Harap isi semua kolom dengan benar (Gunakan Gmail)!', 'error');
         return;
     }
-    tempRegData = { email, nama, pass };
+    tempRegData = { email: email, nama: nama, pass: pass };
     generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
     otpExpiryTime = Date.now() + (3 * 60 * 1000);
-
     const instElem = document.getElementById('otp-instruction-text');
-    if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke Email terdaftar Anda. (Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
-    showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
-
+    if (instElem) instElem.innerHTML = 'Kode OTP telah dikirimkan ke Email terdaftar Anda. (Simulasi OTP: <b class="text-gold-400">' + generatedOTP + '</b>)';
+    showToast('Kode OTP terkirim! (Simulasi: Gunakan ' + generatedOTP + ')', 'success');
     document.getElementById('reg-step-1').classList.add('hidden');
     document.getElementById('reg-step-2').classList.remove('hidden');
 }
@@ -130,32 +108,22 @@ function backToRegStep1() {
 
 async function verifyOTP() {
     const otp = document.getElementById('reg-otp-input').value.trim();
-    if (!generatedOTP) { return showToast('Sesi OTP tidak valid.', 'error'); }
-    if (Date.now() > otpExpiryTime) { return showToast('Kode OTP sudah kedaluwarsa!', 'error'); }
-    if (otp !== generatedOTP) { return showToast('Kode OTP salah!', 'error'); }
-
+    if (!generatedOTP) { showToast('Sesi OTP tidak valid.', 'error'); return; }
+    if (Date.now() > otpExpiryTime) { showToast('Kode OTP sudah kedaluwarsa!', 'error'); return; }
+    if (otp !== generatedOTP) { showToast('Kode OTP salah!', 'error'); return; }
     const hashedPassword = await hashPassword(tempRegData.pass);
     const newEmp = {
         id: tempRegData.email, name: tempRegData.nama, position: 'Staff',
         role: 'Karyawan / Field', atasan: 'Master Admin',
         password: hashedPassword, status: 'Pending', device_id: 'Unbound'
     };
-
-    employees.push({ ...newEmp, deviceId: newEmp.device_id });
+    employees.push({ id: newEmp.id, name: newEmp.name, position: newEmp.position, role: newEmp.role, atasan: newEmp.atasan, password: newEmp.password, status: newEmp.status, deviceId: 'Unbound' });
     await supabaseClient.from('employees').insert([newEmp]);
-
     showToast('Registrasi berhasil! Akun berstatus Pending.', 'success');
     renderEmployees();
     updateDashboardStats();
-
     generatedOTP = null;
     otpExpiryTime = null;
     document.getElementById('reg-otp-input').value = '';
     toggleAuthMode('login');
 }
-'''
-
-with open(f"{output_dir}/js/auth.js", "w", encoding="utf-8") as f:
-    f.write(auth_js)
-
-print("✅ js/auth.js created")
