@@ -101,19 +101,27 @@ function renderEmployees() {
         else { badge.classList.add('hidden'); }
     }
     tbody.innerHTML = employees.map(function(e, index) {
-        return '<tr class="hover:bg-slate-900/50">' +
-            '<td class="p-3 font-mono text-white">' + e.id + '</td>' +
-            '<td class="p-3 font-semibold text-white">' + e.name + '</td>' +
-            '<td class="p-3 text-slate-300">' + e.position + '</td>' +
-            '<td class="p-3 text-slate-300">' + e.role + '</td>' +
-            '<td class="p-3 text-slate-300">' + (e.atasan || '-') + '</td>' +
-            '<td class="p-3 font-mono text-slate-400 truncate max-w-[100px]">' + e.password.substring(0,15) + '...</td>' +
-            '<td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ' + (e.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20') + '">' + e.status + '</span></td>' +
-            '<td class="p-3"><div class="flex flex-wrap items-center gap-1.5">' +
-            (e.status === 'Pending' ? '<button onclick="approveEmployeeAccount(' + index + ')" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded text-[11px] font-semibold transition">Approve</button>' : '') +
-            '<button onclick="openEditEmployeeModal(' + index + ')" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition flex items-center gap-1"><i class="fa-solid fa-pen"></i> Edit</button>' +
-            '<button onclick="resetEmployeeDevice(' + index + ')" class="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-[11px] font-semibold transition" title="Reset Device UUID"><i class="fa-solid fa-mobile-screen"></i> Reset</button>' +
-            '</div></td></tr>';
+        const statusClass = e.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
+        const approveBtn = e.status === 'Pending' ? `<button onclick="approveEmployeeAccount(${index})" class="px-2 py-1 bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 rounded text-[11px] font-semibold transition">Approve</button>` : '';
+        return `
+            <tr class="hover:bg-slate-900/50">
+                <td class="p-3 font-mono text-white">${e.id}</td>
+                <td class="p-3 font-semibold text-white">${e.name}</td>
+                <td class="p-3 text-slate-300">${e.position}</td>
+                <td class="p-3 text-slate-300">${e.role}</td>
+                <td class="p-3 text-slate-300">${e.atasan || '-'}</td>
+                <td class="p-3 font-mono text-slate-400 truncate max-w-[100px]">${e.password.substring(0,15)}...</td>
+                <td class="p-3">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${statusClass}">${e.status}</span>
+                </td>
+                <td class="p-3">
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        ${approveBtn}
+                        <button onclick="openEditEmployeeModal(${index})" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition flex items-center gap-1"><i class="fa-solid fa-pen"></i> Edit</button>
+                        <button onclick="resetEmployeeDevice(${index})" class="px-2 py-1 bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 rounded text-[11px] font-semibold transition" title="Reset Device UUID"><i class="fa-solid fa-mobile-screen"></i> Reset</button>
+                    </div>
+                </td>
+            </tr>`;
     }).join('');
     const atasanSelect = document.getElementById('inp-atasan');
     if (atasanSelect) {
@@ -125,7 +133,15 @@ function renderRoles() {
     const tbody = document.getElementById('role-tbody');
     if (!tbody) return;
     tbody.innerHTML = roles.map(function(r, i) {
-        return '<tr class="hover:bg-slate-900/50"><td class="p-3 font-mono text-gold-400">' + r.id + '</td><td class="p-3 font-semibold text-white">' + r.name + '</td><td class="p-3 text-slate-300">' + r.access + '</td><td class="p-3"><button onclick="openEditRoleModal(' + i + ')" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-pen"></i> Edit</button></td></tr>';
+        return `
+            <tr class="hover:bg-slate-900/50">
+                <td class="p-3 font-mono text-gold-400">${r.id}</td>
+                <td class="p-3 font-semibold text-white">${r.name}</td>
+                <td class="p-3 text-slate-300">${r.access}</td>
+                <td class="p-3">
+                    <button onclick="openEditRoleModal(${i})" class="px-2.5 py-1 bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-pen"></i> Edit</button>
+                </td>
+            </tr>`;
     }).join('');
     const roleSelect = document.getElementById('inp-role');
     if (roleSelect) {
@@ -180,14 +196,22 @@ function renderBasecamps() {
     const container = document.getElementById('basecamp-container');
     if (!container) return;
     container.innerHTML = basecamps.map(function(b, i) {
-        return '<div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2"><div class="flex justify-between items-start"><h5 class="text-xs font-bold text-white">' + b.name + '</h5><button onclick="openEditBasecampModal(' + i + ')" class="text-blue-400 hover:text-blue-300 text-xs"><i class="fa-solid fa-pen"></i></button></div><p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ' + b.lat + ', ' + b.lng + '</p><p class="text-[11px] text-gold-400">Radius GPS: ' + b.radius + ' Meter</p></div>';
+        return `
+            <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
+                <div class="flex justify-between items-start">
+                    <h5 class="text-xs font-bold text-white">${b.name}</h5>
+                    <button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs"><i class="fa-solid fa-pen"></i></button>
+                </div>
+                <p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ${b.lat}, ${b.lng}</p>
+                <p class="text-[11px] text-gold-400">Radius GPS: ${b.radius} Meter</p>
+            </div>`;
     }).join('');
     if (!bcMap) {
         bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
     }
     basecamps.forEach(function(b) {
-        L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup('<b>' + b.name + '</b><br>Radius: ' + b.radius + 'm');
+        L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup(`<b>${b.name}</b><br>Radius: ${b.radius}m`);
         L.circle([b.lat, b.lng], { radius: b.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.2 }).addTo(bcMap);
     });
 }

@@ -26,7 +26,7 @@ function switchMobileTab(tab) {
     const activeBtn = document.getElementById('m-nav-' + tab);
     if(activeBtn) { activeBtn.classList.remove('text-slate-400'); activeBtn.classList.add('text-gold-400'); }
     if (tab === 'email') switchMobileEmailSub('inbox');
-    if (tab === 'izin') renderMobileMyHistory();
+    if (tab === 'izin' && typeof renderMobileMyHistory === 'function') renderMobileMyHistory();
 }
 
 function switchMobileEmailSub(sub) {
@@ -46,7 +46,7 @@ function switchMobileEmailSub(sub) {
         if(subj) subj.value = '';
         if(msg) msg.value = '';
     }
-    if(sub === 'inbox' || sub === 'sent') renderEmails();
+    if((sub === 'inbox' || sub === 'sent') && typeof renderEmails === 'function') renderEmails();
 }
 
 function switchDesktopTab(tab) {
@@ -81,7 +81,7 @@ function switchDesktopEmailSub(sub) {
         if(subj) subj.value = '';
         if(msg) msg.value = '';
     }
-    if(sub === 'inbox' || sub === 'sent') renderEmails();
+    if((sub === 'inbox' || sub === 'sent') && typeof renderEmails === 'function') renderEmails();
 }
 
 function applyRolePermissions() {
@@ -156,10 +156,16 @@ async function fetchAllDataFromSupabase() {
                 return { id: e.id, sender: e.sender, sender_name: e.sender_name, receiver: e.recipient, subject: e.subject, message: e.message, created_at: e.created_at, read: readIds.includes(e.id) };
             });
         }
-        renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
-        renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
+        if (typeof renderRoles === 'function') renderRoles();
+        if (typeof renderEmployees === 'function') renderEmployees();
+        if (typeof renderRekap === 'function') renderRekap();
+        if (typeof renderBasecamps === 'function') renderBasecamps();
+        if (typeof renderAdminIzin === 'function') renderAdminIzin();
+        if (typeof populateEmailRecipients === 'function') populateEmailRecipients();
+        if (typeof renderEmails === 'function') renderEmails();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } catch (err) {
         console.error("Gagal sinkronisasi dengan Supabase:", err);
-        showToast("Gagal memuat sebagian data dari server Supabase.", "warning");
+        if (typeof showToast === 'function') showToast("Gagal memuat sebagian data dari server Supabase.", "warning");
     }
 }

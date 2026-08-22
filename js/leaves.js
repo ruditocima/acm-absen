@@ -55,15 +55,23 @@ function renderAdminIzin() {
         return;
     }
     container.innerHTML = izinList.map(function(i, index) {
-        return '<div class="bg-slate-950/40 p-4 rounded-xl border border-slate-800 flex flex-wrap justify-between items-center gap-3">' +
-            '<div><div class="flex items-center gap-2"><h5 class="text-xs font-bold text-white">' + i.name + '</h5>' +
-            '<span class="px-2 py-0.5 rounded text-[9px] font-bold ' + (i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : i.status === 'Rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400') + '">' + i.status + '</span></div>' +
-            '<p class="text-xs text-gold-400 font-semibold mt-0.5">Jenis: ' + i.jenis + '</p>' +
-            '<p class="text-[11px] text-slate-300">Tanggal: ' + i.start + ' s/d ' + i.end + '</p>' +
-            '<p class="text-[11px] text-slate-400 mt-1">Alasan: &quot;' + i.desc + '&quot;</p></div>' +
-            '<div class="flex items-center gap-2">' +
-            (i.status === 'Pending' ? '<button onclick="updateIzinStatus(' + i.id + ', 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:opacity-90">Setujui</button><button onclick="updateIzinStatus(' + i.id + ', 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:opacity-90">Tolak</button>' : '') +
-            '</div></div>';
+        const statusClass = i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : i.status === 'Rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400';
+        const buttons = i.status === 'Pending'
+            ? `<button onclick="updateIzinStatus(${i.id}, 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:opacity-90">Setujui</button><button onclick="updateIzinStatus(${i.id}, 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:opacity-90">Tolak</button>`
+            : '';
+        return `
+            <div class="bg-slate-950/40 p-4 rounded-xl border border-slate-800 flex flex-wrap justify-between items-center gap-3">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h5 class="text-xs font-bold text-white">${i.name}</h5>
+                        <span class="px-2 py-0.5 rounded text-[9px] font-bold ${statusClass}">${i.status}</span>
+                    </div>
+                    <p class="text-xs text-gold-400 font-semibold mt-0.5">Jenis: ${i.jenis}</p>
+                    <p class="text-[11px] text-slate-300">Tanggal: ${i.start} s/d ${i.end}</p>
+                    <p class="text-[11px] text-slate-400 mt-1">Alasan: "${i.desc}"</p>
+                </div>
+                <div class="flex items-center gap-2">${buttons}</div>
+            </div>`;
     }).join('');
 }
 

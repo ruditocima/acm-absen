@@ -58,11 +58,17 @@ function renderEmails() {
             mInboxList.innerHTML = inboxRows.map(function(e) {
                 const isRead = readIds.includes(e.id) || e.read || e.sender === userEmail;
                 const timeStr = new Date(e.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-                return '<div onclick="openEmailDetail(' + e.id + ')" class="glass-card p-3 rounded-xl border ' + (!isRead ? 'border-gold-500/50 bg-slate-900/90' : 'border-slate-800') + ' cursor-pointer hover:border-gold-500 transition">' +
-                    '<div class="flex justify-between items-start mb-1"><span class="font-bold text-white flex items-center gap-1.5">' + (!isRead ? '<span class="w-2 h-2 rounded-full bg-gold-500 inline-block"></span>' : '') + (e.sender_name || e.sender) + '</span>' +
-                    '<span class="text-[10px] text-slate-400 font-mono">' + timeStr + '</span></div>' +
-                    '<p class="text-xs font-semibold text-gold-400 truncate">' + e.subject + '</p>' +
-                    '<p class="text-[11px] text-slate-300 truncate mt-0.5">' + e.message + '</p></div>';
+                const unreadDot = !isRead ? '<span class="w-2 h-2 rounded-full bg-gold-500 inline-block"></span>' : '';
+                const borderClass = !isRead ? 'border-gold-500/50 bg-slate-900/90' : 'border-slate-800';
+                return `
+                    <div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border ${borderClass} cursor-pointer hover:border-gold-500 transition">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-white flex items-center gap-1.5">${unreadDot}${e.sender_name || e.sender}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                        </div>
+                        <p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p>
+                        <p class="text-[11px] text-slate-300 truncate mt-0.5">${e.message}</p>
+                    </div>`;
             }).join('');
         }
     }
@@ -73,10 +79,15 @@ function renderEmails() {
             mSentList.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>';
         } else {
             mSentList.innerHTML = sentRows.map(function(e) {
-                return '<div onclick="openEmailDetail(' + e.id + ')" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition">' +
-                    '<div class="flex justify-between items-start mb-1"><span class="font-bold text-white">Kepada: ' + getEmployeeDisplayName(e.receiver) + '</span>' +
-                    '<span class="text-[10px] text-slate-400 font-mono">' + new Date(e.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + '</span></div>' +
-                    '<p class="text-xs font-semibold text-gold-400 truncate">' + e.subject + '</p></div>';
+                const timeStr = new Date(e.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                return `
+                    <div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="font-bold text-white">Kepada: ${getEmployeeDisplayName(e.receiver)}</span>
+                            <span class="text-[10px] text-slate-400 font-mono">${timeStr}</span>
+                        </div>
+                        <p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p>
+                    </div>`;
             }).join('');
         }
     }
@@ -90,12 +101,25 @@ function renderEmails() {
                 const isRead = readIds.includes(e.id) || e.read || e.sender === userEmail;
                 const timeStr = new Date(e.created_at).toLocaleString('id-ID');
                 const isBroadcast = e.receiver === 'BROADCAST';
-                return '<tr class="hover:bg-slate-900/50 ' + (!isRead ? 'bg-slate-900/60 font-semibold' : '') + '">' +
-                    '<td class="p-3 font-mono text-slate-400 text-[11px]">' + timeStr + '</td>' +
-                    '<td class="p-3 text-white">' + (e.sender_name || e.sender) + '</td>' +
-                    '<td class="p-3"><div class="text-white font-bold">' + e.subject + '</div><div class="text-slate-400 truncate max-w-xs font-normal">' + e.message + '</div></td>' +
-                    '<td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ' + (isBroadcast ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400') + '">' + (isBroadcast ? 'Broadcast' : 'Pribadi') + '</span></td>' +
-                    '<td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(' + e.id + ')" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Baca</button><button onclick="deleteEmailItem(' + e.id + ')" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>';
+                const typeBadge = isBroadcast ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400';
+                const typeLabel = isBroadcast ? 'Broadcast' : 'Pribadi';
+                const rowClass = !isRead ? 'bg-slate-900/60 font-semibold' : '';
+                return `
+                    <tr class="hover:bg-slate-900/50 ${rowClass}">
+                        <td class="p-3 font-mono text-slate-400 text-[11px]">${timeStr}</td>
+                        <td class="p-3 text-white">${e.sender_name || e.sender}</td>
+                        <td class="p-3">
+                            <div class="text-white font-bold">${e.subject}</div>
+                            <div class="text-slate-400 truncate max-w-xs font-normal">${e.message}</div>
+                        </td>
+                        <td class="p-3 text-center">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${typeBadge}">${typeLabel}</span>
+                        </td>
+                        <td class="p-3 text-right space-x-1">
+                            <button onclick="openEmailDetail(${e.id})" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Baca</button>
+                            <button onclick="deleteEmailItem(${e.id})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
             }).join('');
         }
     }
@@ -106,10 +130,17 @@ function renderEmails() {
             dSentTbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>';
         } else {
             dSentTbody.innerHTML = sentRows.map(function(e) {
-                return '<tr class="hover:bg-slate-900/50"><td class="p-3 font-mono text-slate-400 text-[11px]">' + new Date(e.created_at).toLocaleString('id-ID') + '</td>' +
-                    '<td class="p-3 text-white">' + getEmployeeDisplayName(e.receiver) + '</td>' +
-                    '<td class="p-3 text-white font-semibold">' + e.subject + '</td>' +
-                    '<td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(' + e.id + ')" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Lihat</button><button onclick="deleteEmailItem(' + e.id + ')" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>';
+                const timeStr = new Date(e.created_at).toLocaleString('id-ID');
+                return `
+                    <tr class="hover:bg-slate-900/50">
+                        <td class="p-3 font-mono text-slate-400 text-[11px]">${timeStr}</td>
+                        <td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td>
+                        <td class="p-3 text-white font-semibold">${e.subject}</td>
+                        <td class="p-3 text-right space-x-1">
+                            <button onclick="openEmailDetail(${e.id})" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Lihat</button>
+                            <button onclick="deleteEmailItem(${e.id})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>`;
             }).join('');
         }
     }
