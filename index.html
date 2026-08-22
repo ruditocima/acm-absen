@@ -2,8 +2,18 @@
 <html lang="id" class="h-full bg-slate-950">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="description" content="Sistem Absensi GPS & Manajemen Karyawan PT Acero Cetha Metalindo">
+
     <title>KaryaOne | ACM</title>
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -23,9 +33,9 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="style.css">
 </head>
-<body class="h-full text-slate-100 font-sans flex flex-col" onload="initializeDeviceBinding(); fetchAllDataFromSupabase();">
+<body class="h-full text-slate-100 font-sans flex flex-col" onload="initializeDeviceBinding(); fetchAllDataFromSupabase(); loadAttendanceConfig();">
 
     <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
 
@@ -40,6 +50,9 @@
             </div>
         </div>
         <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+            <span id="network-status-badge" class="text-emerald-400 font-semibold text-[11px] mr-2 hidden sm:inline-block">
+                <i class="fa-solid fa-wifi"></i> Online
+            </span>
             <button onclick="switchMode('mobile')" id="btn-mobile" class="px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2">
                 <i class="fa-solid fa-mobile-screen"></i> HP
             </button>
@@ -56,6 +69,7 @@
             <div class="p-5 bg-gradient-to-b from-slate-800 to-slate-900 border-b border-slate-800 flex justify-between items-center">
                 <div>
                     <h2 id="mobile-user-title" class="text-lg font-bold text-white mt-1">Halo, Guest</h2>
+                    <span id="mobile-absen-status" class="text-[10px] text-slate-400">Belum absen hari ini</span>
                 </div>
                 <div class="w-10 h-10 rounded-full bg-slate-800 border border-gold-500/30 flex items-center justify-center text-gold-400 font-bold" id="mobile-user-initial">T</div>
             </div>
@@ -139,15 +153,25 @@
                         <div class="absolute -right-10 -top-10 w-32 h-32 bg-gold-500/10 rounded-full blur-2xl"></div>
                         <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Waktu Server WIB</p>
                         <h3 id="live-clock" class="text-4xl font-black text-white my-2 tracking-wider">00:00:00</h3>
-                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> Koordinat: Menunggu deteksi GPS...</p>
-                        <div class="mt-6">
-                            <div class="bg-slate-950/40 p-3.5 rounded-xl border border-slate-800 text-center">
-                                <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Jam Masuk Anda Hari Ini</span>
-                                <span id="mobile-jam-masuk" class="text-base font-bold text-emerald-400 font-mono mt-0.5 block">--:-- WIB</span>
+                        <p class="text-xs text-gold-400 font-medium"><i class="fa-solid fa-location-dot"></i> <span id="mobile-gps-coords">Koordinat: Menunggu deteksi GPS...</span></p>
+
+                        <div class="mt-6 grid grid-cols-3 gap-2">
+                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-center">
+                                <span class="text-[9px] text-slate-400 uppercase tracking-wider block">Masuk</span>
+                                <span id="mobile-jam-masuk" class="text-sm font-bold text-emerald-400 font-mono mt-0.5 block">--:--</span>
+                            </div>
+                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-center">
+                                <span class="text-[9px] text-slate-400 uppercase tracking-wider block">Pulang</span>
+                                <span id="mobile-jam-pulang" class="text-sm font-bold text-blue-400 font-mono mt-0.5 block">--:--</span>
+                            </div>
+                            <div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 text-center">
+                                <span class="text-[9px] text-slate-400 uppercase tracking-wider block">Durasi</span>
+                                <span id="mobile-work-duration" class="text-sm font-bold text-gold-400 font-mono mt-0.5 block">--</span>
                             </div>
                         </div>
-                        <button onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN MASUK SEKARANG
+
+                        <button id="btn-absen-main" onclick="handleAbsen()" class="w-full mt-6 py-4 rounded-2xl gold-gradient text-slate-950 font-bold text-sm shadow-lg hover:opacity-95 transition active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-fingerprint text-lg"></i> ABSEN SEKARANG
                         </button>
                     </div>
                     <div class="bg-slate-800/40 border border-slate-800 p-4 rounded-2xl text-xs text-slate-300 space-y-1">
@@ -167,8 +191,8 @@
                                 <option value="Sakit">Sakit</option>
                                 <option value="Izin Pribadi">Izin Pribadi</option>
                                 <option value="Dinas Luar">Dinas Luar</option>
-                                <option value="Shift Malam (Koreksi Masuk)">🌙 Shift Malam (Koreksi Keterlambatan Besok)</option>
-                                <option value="Darurat Cuaca (Hujan Ekstrem)">🌧️ Darurat Cuaca (Hujan Ekstrem / Kendala Lapangan)</option>
+                                <option value="Shift Malam (Koreksi Masuk)">Shift Malam (Koreksi Keterlambatan Besok)</option>
+                                <option value="Darurat Cuaca (Hujan Ekstrem)">Darurat Cuaca (Hujan Ekstrem / Kendala Lapangan)</option>
                             </select>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
@@ -284,7 +308,7 @@
                         <button onclick="switchDesktopTab('izin')" id="d-nav-izin" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-envelope-open-text w-5"></i> <span class="flex-1 text-left">Persetujuan Izin</span><span id="sidebar-izin-badge" class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span></button>
                         <button onclick="switchDesktopTab('email')" id="d-nav-email" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all hidden"><i class="fa-solid fa-envelope w-5"></i> <span class="flex-1 text-left">Pesan & Broadcast</span><span id="sidebar-email-badge" class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-1.5 py-0.5 rounded-full hidden">0</span></button>
                     </nav>
-                    <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">Secure Attendance System v1</div>
+                    <div class="p-4 border-t border-slate-800 text-[10px] text-slate-500 text-center">Secure Attendance System v2</div>
                 </aside>
 
                 <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
@@ -322,7 +346,7 @@
                             </div>
                             <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                 <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">Tanggal</th><th class="p-3">Nama Karyawan</th><th class="p-3">Basecamp</th><th class="p-3">Jam Masuk</th><th class="p-3">Status</th><th class="p-3">Keterlambatan</th><th class="p-3">Selfie</th></tr></thead>
+                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">Tanggal</th><th class="p-3">Nama Karyawan</th><th class="p-3">Basecamp</th><th class="p-3">Jam Masuk</th><th class="p-3">Jam Pulang</th><th class="p-3">Durasi</th><th class="p-3">Status</th><th class="p-3">Keterlambatan</th><th class="p-3">Selfie</th></tr></thead>
                                     <tbody id="rekap-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                 </table>
                             </div>
@@ -351,7 +375,7 @@
                             </div>
                             <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
                                 <table class="w-full text-left text-xs">
-                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">ID User</th><th class="p-3">Nama Karyawan</th><th class="p-3">Posisi</th><th class="p-3">Role</th><th class="p-3">Atasan Langsung</th><th class="p-3 max-w-[100px]">Password (Hashed)</th><th class="p-3">Status Akun</th><th class="p-3 w-48">Aksi, Edit & Reset</th></tr></thead>
+                                    <thead class="bg-slate-900 text-slate-400 uppercase tracking-wider border-b border-slate-800"><tr><th class="p-3">ID User</th><th class="p-3">Nama Karyawan</th><th class="p-3">Posisi</th><th class="p-3">Role</th><th class="p-3">Atasan Langsung</th><th class="p-3">Kuota Cuti</th><th class="p-3 max-w-[100px]">Password (Hashed)</th><th class="p-3">Status Akun</th><th class="p-3 w-48">Aksi, Edit & Reset</th></tr></thead>
                                     <tbody id="karyawan-tbody" class="divide-y divide-slate-800 text-slate-300"></tbody>
                                 </table>
                             </div>
@@ -497,7 +521,7 @@
 
     <div id="selfie-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
         <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-800 space-y-4 shadow-2xl text-center">
-            <h3 class="text-sm font-bold text-gold-400 uppercase tracking-wider">Verifikasi Wajah (Selfie Absen)</h3>
+            <h3 id="selfie-modal-title" class="text-sm font-bold text-gold-400 uppercase tracking-wider">Verifikasi Wajah (Selfie Absen)</h3>
             <p class="text-xs text-slate-400">Posisikan wajah Anda di dalam frame kamera sebelum melakukan absensi.</p>
             <div class="relative w-full h-64 bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
                 <video id="selfie-video" autoplay playsinline class="w-full h-full object-cover"></video>
@@ -539,17 +563,20 @@
         </div>
     </div>
 
-    <script src="js/config.js"></script>
-    <script src="js/state.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/attendance.js"></script>
-    <script src="js/data.js"></script>
-    <script src="js/leaves.js"></script>
-    <script src="js/email.js"></script>
-    <script src="js/rekap.js"></script>
-    <script src="js/dashboard.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Scripts: Path sudah diperbaiki (flat, tanpa folder js/) -->
+    <script src="config.js"></script>
+    <script src="state.js"></script>
+    <script src="services.js"></script>
+    <script src="utils.js"></script>
+    <script src="auth.js"></script>
+    <script src="attendance.js"></script>
+    <script src="data.js"></script>
+    <script src="leaves.js"></script>
+    <script src="email.js"></script>
+    <script src="rekap.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="ui.js"></script>
+    <script src="pwa.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
