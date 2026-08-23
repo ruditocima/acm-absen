@@ -585,11 +585,34 @@ async function verifyOTP() {
         showToast('Gagal mendaftar: ' + authError.message, 'error'); return;
     }
 
-    // Update atau insert ke tabel employees
+    // Upsert ke tabel employees (insert kalau belum ada, update kalau sudah ada)
     try {
-        await supabaseClient.from('employees').update({ name: tempRegData.nama, status: 'Pending' }).eq('id', tempRegData.email);
+        const { data: authUserData } = await supabaseClient.auth.getUser();
+        const authId = authUserData && authUserData.user ? authUserData.user.id : null;
+
+        const employeePayload = {
+            id: tempRegData.email,
+            name: tempRegData.nama,
+            position: 'Staff',
+            role: 'Karyawan / Field',
+            atasan: 'Master Admin',
+            status: 'Pending',
+            device_id: 'Unbound',
+            auth_id: authId
+        };
+
+        const { error: upsertError } = await supabaseClient
+            .from('employees')
+            .upsert([employeePayload], { onConflict: 'id' });
+
+        if (upsertError) {
+            console.warn('Employee upsert warning:', upsertError.message);
+            showToast('Gagal menyimpan data karyawan: ' + upsertError.message, 'warning');
+        } else {
+            console.log('Employee upsert success:', tempRegData.email);
+        }
     } catch (e) {
-        console.warn('Employee update warning:', e);
+        console.warn('Employee upsert exception:', e);
     }
 
     showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
