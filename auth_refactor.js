@@ -425,6 +425,29 @@ async function initAuth() {
 }
 
 async function processLoginValidation(email, pass, isDesktop) {
+    // ===== DEV BYPASS (HAPUS/KOMEN BLOK INI SEBELUM PRODUCTION) =====
+    // Login instan tanpa Supabase Auth — hanya untuk testing development
+    if (email === 'admin@acero.com' && pass === 'admin123') {
+        activeEmployeeSession = {
+            id: 'admin@acero.com',
+            name: 'Master Admin',
+            position: 'Administrator',
+            role: 'Master Admin',
+            atasan: 'Self',
+            status: 'Approved',
+            deviceId: 'DEV-BYPASS',
+            auth_id: null
+        };
+        document.getElementById('mobile-user-title').innerText = `Halo, Master Admin`;
+        document.getElementById('mobile-user-initial').innerText = 'MA';
+        const readIds = getReadEmailIds();
+        emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
+        renderMobileMyHistory(); renderEmails(); renderAdminIzin(); updateEmailBadges(); populateEmailRecipients();
+        showToast('Login DEV BYPASS berhasil! (Hapus ini sebelum production)', 'success');
+        return true;
+    }
+    // ===== END DEV BYPASS =====
+
     if(!email || !pass) { showToast('Harap isi email dan password Anda.', 'error'); return false; }
     const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({ email: email, password: pass });
     if (authError || !authData.user) { showToast('Kombinasi Email dan Password salah!', 'error'); return false; }
