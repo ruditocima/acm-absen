@@ -585,11 +585,11 @@ async function verifyOTP() {
         showToast('Gagal mendaftar: ' + authError.message, 'error'); return;
     }
 
+    // Ambil auth_id langsung dari hasil signUp (lebih reliable)
+    const authId = authData && authData.user ? authData.user.id : null;
+
     // Upsert ke tabel employees (insert kalau belum ada, update kalau sudah ada)
     try {
-        const { data: authUserData } = await supabaseClient.auth.getUser();
-        const authId = authUserData && authUserData.user ? authUserData.user.id : null;
-
         const employeePayload = {
             id: tempRegData.email,
             name: tempRegData.nama,
@@ -607,16 +607,33 @@ async function verifyOTP() {
 
         if (upsertError) {
             console.warn('Employee upsert warning:', upsertError.message);
-            showToast('Gagal menyimpan data karyawan: ' + upsertError.message, 'warning');
+            showToast('Gagal menyimpan data karyawan ke server.', 'warning');
         } else {
             console.log('Employee upsert success:', tempRegData.email);
+            // Tambahkan ke array lokal agar langsung muncul di tabel
+            const existingIndex = employees.findIndex(e => e.id === tempRegData.email);
+            const newEmp = { 
+                id: tempRegData.email, 
+                name: tempRegData.nama, 
+                position: 'Staff', 
+                role: 'Karyawan / Field',
+                atasan: 'Master Admin',
+                status: 'Pending',
+                deviceId: 'Unbound',
+                auth_id: authId
+            };
+            if (existingIndex >= 0) {
+                employees[existingIndex] = newEmp;
+            } else {
+                employees.push(newEmp);
+            }
         }
     } catch (e) {
         console.warn('Employee upsert exception:', e);
     }
 
     showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
-    renderEmployees(); updateDashboardStats();
+    renderEmployees(); updateDashboardStats(); populateEmailRecipients();
     generatedOTP = null; otpExpiryTime = null;
     document.getElementById('reg-otp-input').value = '';
     toggleAuthMode('login');
