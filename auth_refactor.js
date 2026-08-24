@@ -26,9 +26,9 @@ let confirmCallback = null;
 // ============================================================
 // EMAILJS CONFIG
 // ============================================================
-const EMAILJS_PUBLIC_KEY = 'GANTI_DENGAN_PUBLIC_KEY_ANDA';
-const EMAILJS_SERVICE_ID = 'GANTI_DENGAN_SERVICE_ID_ANDA';
-const EMAILJS_TEMPLATE_ID = 'GANTI_DENGAN_TEMPLATE_ID_ANDA';
+const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';
+const EMAILJS_SERVICE_ID = 'service_xm941vp';
+const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';
 
 (function(){
     if(typeof emailjs !== 'undefined'){
