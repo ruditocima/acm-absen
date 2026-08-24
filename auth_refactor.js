@@ -23,7 +23,18 @@ let capturedBlob = null;
 let activeSelectedEmail = null;
 let bcMap = null;
 let confirmCallback = null;
+// ============================================================
+// EMAILJS CONFIG
+// ============================================================
+const EMAILJS_PUBLIC_KEY = 'GANTI_DENGAN_PUBLIC_KEY_ANDA';
+const EMAILJS_SERVICE_ID = 'GANTI_DENGAN_SERVICE_ID_ANDA';
+const EMAILJS_TEMPLATE_ID = 'GANTI_DENGAN_TEMPLATE_ID_ANDA';
 
+(function(){
+    if(typeof emailjs !== 'undefined'){
+        emailjs.init(EMAILJS_PUBLIC_KEY);
+    }
+})();
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
@@ -534,20 +545,49 @@ async function handleLogout() {
     switchMode('mobile'); switchMobileTab('daftar');
 }
 
-function requestOTP() {
+async function requestOTP() {
     const email = document.getElementById('reg-email').value.trim();
     const nama = document.getElementById('reg-nama').value.trim();
     const pass = document.getElementById('reg-pass').value.trim();
     if (!email || !nama || !pass || !email.includes('@')) { showToast('Harap isi semua kolom dengan benar!', 'error'); return; }
     if (pass.length < 6) { showToast('Password minimal 6 karakter!', 'error'); return; }
-    tempRegData = { email, nama, pass };
+        tempRegData = { email, nama, pass };
     generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
     otpExpiryTime = Date.now() + (3 * 60 * 1000);
-    const instElem = document.getElementById('otp-instruction-text');
-    if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke Email terdaftar Anda. (Simulasi OTP: <b class="text-gold-400">${generatedOTP}</b>)`;
-    showToast(`Kode OTP terkirim! (Simulasi: Gunakan ${generatedOTP})`, 'success');
-    document.getElementById('reg-step-1').classList.add('hidden');
-    document.getElementById('reg-step-2').classList.remove('hidden');
+
+    const btnOTP = document.querySelector('#reg-step-1 button[onclick="requestOTP()"]');
+    const originalText = btnOTP ? btnOTP.innerHTML : '';
+    if(btnOTP) {
+        btnOTP.disabled = true;
+        btnOTP.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim OTP...';
+    }
+
+    try {
+        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+            to_email: email,
+            to_name: nama,
+            otp_code: generatedOTP,
+            from_name: 'KaryaOne ACM'
+        });
+
+        const instElem = document.getElementById('otp-instruction-text');
+        if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke email <b class="text-gold-400">${email}</b>. Silakan cek inbox/spam folder Anda.`;
+        showToast('Kode OTP berhasil dikirim ke email Anda!', 'success');
+        document.getElementById('reg-step-1').classList.add('hidden');
+        document.getElementById('reg-step-2').classList.remove('hidden');
+
+    } catch (error) {
+        console.error('EmailJS Error:', error);
+        showToast('Gagal mengirim OTP. Cek koneksi atau setup EmailJS.', 'error');
+        generatedOTP = null;
+        otpExpiryTime = null;
+        tempRegData = null;
+    } finally {
+        if(btnOTP) {
+            btnOTP.disabled = false;
+            btnOTP.innerHTML = originalText;
+        }
+    }
 }
 
 function backToRegStep1() {
