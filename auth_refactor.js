@@ -22,7 +22,41 @@ let mediaStream = null;
 let capturedBlob = null;
 let activeSelectedEmail = null;
 let bcMap = null;
+let bcMarkers = [];
 let confirmCallback = null;
+let supabaseConnected = false;
+
+// ============================================================
+// SUPABASE CONNECTION CHECK
+// ============================================================
+async function checkSupabaseConnection() {
+    try {
+        const { data, error } = await supabaseClient.from('roles').select('id').limit(1);
+        if (error) throw error;
+        supabaseConnected = true;
+        return true;
+    } catch (err) {
+        console.error('[Supabase] Connection check failed:', err);
+        supabaseConnected = false;
+        return false;
+    }
+}
+
+// ============================================================
+// FALLBACK SEED DATA (jika Supabase error/tabel kosong)
+// ============================================================
+function loadFallbackData() {
+    if (roles.length === 0) {
+        roles = [
+            { id: 'ROL-01', name: 'Master Admin', access: 'Dashboard, Rekap, Role, Karyawan, Basecamp, Izin, Email' },
+            { id: 'ROL-02', name: 'Manajer Lapangan', access: 'Dashboard, Rekap, Karyawan, Basecamp, Izin, Email' },
+            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Dashboard, Rekap, Basecamp, Email' }
+        ];
+    }
+    if (basecamps.length === 0) {
+        basecamps = [{ id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 1500 }];
+    }
+}
 // ============================================================
 // EMAILJS CONFIG  ->  SENDGRID VIA EMAILJS
 // ============================================================
@@ -281,7 +315,13 @@ function renderRekapDataToTable(dataList) {
     `).join('');
 }
 
-function renderRekap() { renderRekapDataToTable(rekapList); }
+function renderRekap() {
+    let dataToRender = rekapList;
+    if (activeEmployeeSession.role === 'Karyawan / Field') {
+        dataToRender = rekapList.filter(r => r.name === activeEmployeeSession.name);
+    }
+    renderRekapDataToTable(dataToRender);
+}
 
 function renderMobileMyHistory() {
     const container = document.getElementById('mobile-my-history');
@@ -335,6 +375,7 @@ function renderRoles() {
 // BASECAMP DELETE
 // ============================================================
 function deleteBasecamp(index) {
+    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
     if (!isMasterAdmin()) return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
     const bc = basecamps[index];
     showConfirm('Hapus Basecamp', `Hapus basecamp "${bc.name}"? Tindakan ini tidak dapat dibatalkan.`, async () => {
@@ -348,14 +389,17 @@ function deleteBasecamp(index) {
 function renderBasecamps() {
     const container = document.getElementById('basecamp-container');
     if(!container) return;
+    const isViewOnly = activeEmployeeSession.role === 'Karyawan / Field';
     container.innerHTML = basecamps.map((b, i) => `
         <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex justify-between items-start">
                 <h5 class="text-xs font-bold text-white">${b.name}</h5>
+                ${isViewOnly ? '' : `
                 <div class="flex items-center gap-2">
                     <button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>
                     <button onclick="deleteBasecamp(${i})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>
                 </div>
+                `}
             </div>
             <p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ${b.lat}, ${b.lng}</p><p class="text-[11px] text-gold-400">Radius GPS: ${b.radius} Meter</p>
         </div>
@@ -363,10 +407,14 @@ function renderBasecamps() {
     if(!bcMap) {
         bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
+    } else {
+        bcMarkers.forEach(layer => { if(bcMap.hasLayer(layer)) bcMap.removeLayer(layer); });
+        bcMarkers = [];
     }
     basecamps.forEach(b => {
-        L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup(`<b>${b.name}</b><br>Radius: ${b.radius}m`);
-        L.circle([b.lat, b.lng], { radius: b.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.2 }).addTo(bcMap);
+        const m = L.marker([b.lat, b.lng]).addTo(bcMap).bindPopup(`<b>${b.name}</b><br>Radius: ${b.radius}m`);
+        const c = L.circle([b.lat, b.lng], { radius: b.radius, color: '#d4af37', fillColor: '#d4af37', fillOpacity: 0.2 }).addTo(bcMap);
+        bcMarkers.push(m, c);
     });
 }
 
@@ -443,34 +491,79 @@ function renderEmails() {
 // DATA FETCH (dipindahkan ke sini setelah semua render fn defined)
 // ============================================================
 async function fetchAllDataFromSupabase() {
+    const isConnected = await checkSupabaseConnection();
+    if (!isConnected) {
+        showToast("Tidak dapat terhubung ke Supabase. Menggunakan data lokal.", "warning");
+        loadFallbackData();
+        renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
+        renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
+        return;
+    }
+
+    // Fetch roles
     try {
         const { data: rData, error: rErr } = await supabaseClient.from('roles').select('*');
-        if (rErr) console.warn('Roles fetch error:', rErr.message);
+        if (rErr) { console.warn('[Supabase] Roles fetch error:', rErr.message, rErr.code); }
         if (rData && rData.length > 0) roles = rData;
+        else loadFallbackData();
+        const kfRole = roles.find(r => r.name === 'Karyawan / Field');
+        if (kfRole) kfRole.access = 'Dashboard, Rekap, Basecamp, Email';
+    } catch (err) {
+        console.error('[Supabase] Roles exception:', err);
+        loadFallbackData();
+    }
 
+    // Fetch employees
+    try {
         const { data: eData, error: eErr } = await supabaseClient.from('employees').select('*');
-        if (eErr) console.warn('Employees fetch error:', eErr.message);
+        if (eErr) {
+            console.warn('[Supabase] Employees fetch error:', eErr.message, eErr.code);
+            if (eErr.message && eErr.message.includes('500')) {
+                showToast("Error Server (500): Cek RLS Policy atau Trigger SQL di Supabase.", "error");
+            }
+        }
         if (eData && eData.length > 0) {
             employees = eData.map(e => ({
                 id: e.id, name: e.name, position: e.position || '-', role: e.role,
                 atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
             }));
         }
+    } catch (err) {
+        console.error('[Supabase] Employees exception:', err);
+    }
 
+    // Fetch basecamps
+    try {
         const { data: bData, error: bErr } = await supabaseClient.from('basecamps').select('*');
-        if (bErr) console.warn('Basecamps fetch error:', bErr.message);
+        if (bErr) console.warn('[Supabase] Basecamps fetch error:', bErr.message);
         if (bData && bData.length > 0) basecamps = bData;
+        else if (basecamps.length === 0) loadFallbackData();
+    } catch (err) {
+        console.error('[Supabase] Basecamps exception:', err);
+    }
 
+    // Fetch rekap
+    try {
         const { data: rkData, error: rkErr } = await supabaseClient.from('rekap_list').select('*');
-        if (rkErr) console.warn('Rekap fetch error:', rkErr.message);
+        if (rkErr) console.warn('[Supabase] Rekap fetch error:', rkErr.message);
         if (rkData) rekapList = rkData;
+    } catch (err) {
+        console.error('[Supabase] Rekap exception:', err);
+    }
 
+    // Fetch izin
+    try {
         const { data: iData, error: iErr } = await supabaseClient.from('izin_list').select('*');
-        if (iErr) console.warn('Izin fetch error:', iErr.message);
+        if (iErr) console.warn('[Supabase] Izin fetch error:', iErr.message);
         if (iData) izinList = iData;
+    } catch (err) {
+        console.error('[Supabase] Izin exception:', err);
+    }
 
+    // Fetch emails
+    try {
         const { data: emData, error: emErr } = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
-        if (emErr) console.warn('Emails fetch error:', emErr.message);
+        if (emErr) console.warn('[Supabase] Emails fetch error:', emErr.message);
         if (emData) {
             const readIds = getReadEmailIds();
             emailsList = emData.map(e => ({
@@ -478,39 +571,52 @@ async function fetchAllDataFromSupabase() {
                 subject: e.subject, message: e.message, created_at: e.created_at, read: readIds.includes(e.id)
             }));
         }
-
-        // Render semua UI
-        renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
-        renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
     } catch (err) {
-        console.error("Gagal sinkronisasi dengan Supabase:", err);
-        showToast("Gagal memuat data dari server. Cek koneksi atau setup database.", "warning");
+        console.error('[Supabase] Emails exception:', err);
     }
+
+    renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
+    renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
 }
 
 // ============================================================
 // AUTH FUNCTIONS
 // ============================================================
 async function initAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session && session.user) {
-        const { data: empData, error } = await supabaseClient
-            .from('employees')
-            .select('*')
-            .eq('auth_id', session.user.id)
-            .single();
-        if (empData && empData.status === 'Approved') {
-            activeEmployeeSession = {
-                id: empData.id, name: empData.name, position: empData.position,
-                role: empData.role, atasan: empData.atasan, status: empData.status,
-                deviceId: empData.device_id, auth_id: empData.auth_id
-            };
-            document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
-            document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-            const readIds = getReadEmailIds();
-            emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
-            renderMobileMyHistory(); renderEmails(); renderAdminIzin(); updateEmailBadges(); populateEmailRecipients();
+    try {
+        const { data: { session }, error: sessionErr } = await supabaseClient.auth.getSession();
+        if (sessionErr) {
+            console.warn('[Auth] Session error:', sessionErr.message);
+            return;
         }
+        if (session && session.user) {
+            let empData = null;
+            try {
+                const { data, error } = await supabaseClient
+                    .from('employees')
+                    .select('*')
+                    .eq('auth_id', session.user.id)
+                    .maybeSingle();
+                if (error) console.warn('[Auth] Employee fetch error:', error.message);
+                empData = data;
+            } catch (err) {
+                console.error('[Auth] Employee fetch exception:', err);
+            }
+            if (empData && empData.status === 'Approved') {
+                activeEmployeeSession = {
+                    id: empData.id, name: empData.name, position: empData.position,
+                    role: empData.role, atasan: empData.atasan, status: empData.status,
+                    deviceId: empData.device_id, auth_id: empData.auth_id
+                };
+                document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
+                document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+                const readIds = getReadEmailIds();
+                emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
+                renderMobileMyHistory(); renderEmails(); renderAdminIzin(); updateEmailBadges(); populateEmailRecipients();
+            }
+        }
+    } catch (err) {
+        console.error('[Auth] Init auth exception:', err);
     }
     supabaseClient.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
@@ -622,14 +728,17 @@ async function handleDesktopLogin() {
     }
 }
 
-async function handleLogout() {
+async function handleLogout(skipModeSwitch = false) {
     await supabaseClient.auth.signOut();
     activeEmployeeSession = { name: 'Tamu', id: 'tamu@gmail.com', role: 'Tamu' };
     document.getElementById('mobile-user-title').innerText = `Halo, Tamu`;
     document.getElementById('mobile-user-initial').innerText = 'T';
     populateEmailRecipients(); updateEmailBadges();
     showToast('Anda telah logout.', 'success');
-    switchMode('mobile'); switchMobileTab('daftar');
+    if (!skipModeSwitch) {
+        switchMode('mobile');
+        switchMobileTab('daftar');
+    }
 }
 
 async function requestOTP() {
@@ -786,11 +895,20 @@ async function verifyOTP() {
     await new Promise(r => setTimeout(r, 1500));
 
     // CEK: apakah trigger sudah membuat data?
-    let { data: existingEmp, error: fetchErr } = await supabaseClient
-        .from('employees')
-        .select('*')
-        .eq('id', tempRegData.email)
-        .maybeSingle();
+    let existingEmp = null;
+    let fetchErr = null;
+    try {
+        const { data, error } = await supabaseClient
+            .from('employees')
+            .select('*')
+            .eq('id', tempRegData.email)
+            .maybeSingle();
+        existingEmp = data;
+        fetchErr = error;
+        if (error) console.warn('[Verify] Fetch existing employee error:', error.message);
+    } catch (err) {
+        console.error('[Verify] Fetch existing employee exception:', err);
+    }
 
     if (existingEmp) {
         // Trigger berhasil. Update nama jika trigger pakai default 'User Baru'
@@ -973,6 +1091,7 @@ async function saveRole() {
 // BASECAMP MODAL
 // ============================================================
 function openAddBasecampModal() {
+    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
     document.getElementById('bc-modal-title').innerText = "Tambah Basecamp";
     document.getElementById('bc-edit-index').value = "-1";
     document.getElementById('bc-inp-name').value = "";
@@ -982,6 +1101,7 @@ function openAddBasecampModal() {
     document.getElementById('basecamp-modal').classList.remove('hidden');
 }
 function openEditBasecampModal(index) {
+    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
     const b = basecamps[index];
     document.getElementById('bc-modal-title').innerText = "Edit Basecamp";
     document.getElementById('bc-edit-index').value = index;
@@ -994,6 +1114,7 @@ function openEditBasecampModal(index) {
 function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
 
 async function saveBasecamp() {
+    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
     const index = parseInt(document.getElementById('bc-edit-index').value);
     const name = document.getElementById('bc-inp-name').value.trim();
     const lat = parseFloat(document.getElementById('bc-inp-lat').value);
@@ -1208,8 +1329,13 @@ async function deleteEmailItem(emailId) {
 function filterRekap() {
     const start = document.getElementById('rekap-start-date').value;
     const end = document.getElementById('rekap-end-date').value;
-    if(!start || !end) { renderRekapDataToTable(rekapList); return; }
-    const filtered = rekapList.filter(r => r.date >= start && r.date <= end);
+    let filtered = rekapList;
+    if (activeEmployeeSession.role === 'Karyawan / Field') {
+        filtered = filtered.filter(r => r.name === activeEmployeeSession.name);
+    }
+    if(start && end) {
+        filtered = filtered.filter(r => r.date >= start && r.date <= end);
+    }
     renderRekapDataToTable(filtered); showToast('Filter rekap berhasil.', 'success');
 }
 
@@ -1223,8 +1349,12 @@ function resetRekapData() {
 }
 
 function exportToExcel() {
-    if(rekapList.length === 0) return showToast('Tidak ada data rekap.', 'warning');
-    const worksheet = XLSX.utils.json_to_sheet(rekapList);
+    let dataToExport = rekapList;
+    if (activeEmployeeSession.role === 'Karyawan / Field') {
+        dataToExport = rekapList.filter(r => r.name === activeEmployeeSession.name);
+    }
+    if(dataToExport.length === 0) return showToast('Tidak ada data rekap.', 'warning');
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Rekap Absensi");
     XLSX.writeFile(workbook, "Rekap_Absensi_Enterprise.xlsx");
@@ -1235,12 +1365,24 @@ function exportToExcel() {
 // UI SWITCH FUNCTIONS
 // ============================================================
 function switchMode(mode) {
+    if (activeEmployeeSession && activeEmployeeSession.name !== 'Tamu') {
+        handleLogout(true).then(() => {
+            showToast('Logout otomatis: beralih mode perangkat.', 'info');
+            executeSwitchMode(mode);
+        });
+        return;
+    }
+    executeSwitchMode(mode);
+}
+
+function executeSwitchMode(mode) {
     document.getElementById('view-mobile').classList.add('hidden');
     document.getElementById('view-desktop').classList.add('hidden');
     if (mode === 'mobile') {
         document.getElementById('view-mobile').classList.remove('hidden');
         document.getElementById('btn-mobile').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
         document.getElementById('btn-desktop').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all border border-slate-700 flex items-center gap-2";
+        switchMobileTab('daftar');
     } else {
         document.getElementById('view-desktop').classList.remove('hidden');
         document.getElementById('btn-desktop').className = "px-4 py-2 text-xs font-semibold rounded-lg bg-gold-500 text-slate-950 transition-all shadow-md flex items-center gap-2";
@@ -1312,7 +1454,8 @@ function switchDesktopTab(tab) {
     const activeBtn = document.getElementById(`d-nav-${tab}`);
     if(activeEl) activeEl.classList.remove('hidden');
     if(activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
-    if(tab === 'basecamp') setTimeout(() => { if(bcMap) bcMap.invalidateSize(); }, 200);
+    if(tab === 'rekap') renderRekap();
+    if(tab === 'basecamp') { renderBasecamps(); setTimeout(() => { if(bcMap) bcMap.invalidateSize(); }, 200); }
     if(tab === 'email') switchDesktopEmailSub('inbox');
 }
 
@@ -1335,6 +1478,12 @@ function applyRolePermissions() {
                 else btn.classList.add('hidden');
             }
         }
+    }
+    // Basecamp: hide "Tambah" button for view-only roles
+    const btnAddBasecamp = document.getElementById('btn-add-basecamp');
+    if (btnAddBasecamp) {
+        if (activeEmployeeSession.role === 'Karyawan / Field') btnAddBasecamp.classList.add('hidden');
+        else btnAddBasecamp.classList.remove('hidden');
     }
     switchDesktopTab('dashboard');
 }
@@ -1395,5 +1544,25 @@ document.addEventListener('DOMContentLoaded', () => {
         await initAuth();
         await fetchAllDataFromSupabase();
         initSupabaseRealtime();
+        updateServerStatusIndicator();
     }, 500);
 });
+
+// ============================================================
+// SERVER STATUS INDICATOR (REAL)
+// ============================================================
+function updateServerStatusIndicator() {
+    const indicators = document.querySelectorAll('.server-status-indicator');
+    if (indicators.length === 0) return;
+    indicators.forEach(el => {
+        if (supabaseConnected) {
+            el.innerHTML = '<i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase)';
+            el.classList.remove('text-rose-400');
+            el.classList.add('text-slate-400');
+        } else {
+            el.innerHTML = '<i class="fa-solid fa-circle text-rose-500 text-[8px]"></i> Server Offline / Error';
+            el.classList.remove('text-slate-400');
+            el.classList.add('text-rose-400');
+        }
+    });
+}
