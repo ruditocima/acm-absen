@@ -24,11 +24,20 @@ let activeSelectedEmail = null;
 let bcMap = null;
 let confirmCallback = null;
 // ============================================================
-// EMAILJS CONFIG
+// EMAILJS CONFIG  ->  SENDGRID VIA EMAILJS
 // ============================================================
-const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';
-const EMAILJS_SERVICE_ID = 'service_xm941vp';
-const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';
+// LANGKAH SETUP SENDGRID:
+// 1. Daftar di https://sendgrid.com (gratis 100 email/hari)
+// 2. Settings -> Sender Authentication -> Single Sender Verification
+//    -> isi data & verifikasi via email
+// 3. Settings -> API Keys -> Create API Key (Full Access) -> copy key
+// 4. Dashboard EmailJS -> Email Services -> Add New Service -> pilih SendGrid
+//    -> paste API Key SendGrid -> Save
+// 5. Copy Service ID SendGrid Anda (contoh: service_abc123) dan paste di bawah
+// ============================================================
+const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';   // Public Key EmailJS (tetap sama)
+const EMAILJS_SERVICE_ID = 'service_3w0ocfc';  // <-- GANTI INI dengan Service ID SendGrid dari EmailJS
+const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';      // Template ID tetap sama
 let emailjsReady = false;
 
 function initEmailJS() {
@@ -601,7 +610,7 @@ async function requestOTP() {
                 <p class="text-[10px] text-slate-400">Kode berlaku 3 menit. Refresh halaman jika masalah berlanjut.</p>
             </div>`,
             'warning',
-            'Layanan email tidak tersedia. Gunakan kode OTP yang ditampilkan.'
+            'Layanan email (SendGrid) belum siap. Gunakan kode OTP yang ditampilkan.'
         );
         return;
     }
@@ -635,7 +644,7 @@ async function requestOTP() {
         proceedToStep2(
             `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
                 <p class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Gagal Mengirim Email</p>
-                <p class="text-slate-300 text-[11px]">Email tidak dapat dikirim. Gunakan kode OTP berikut:</p>
+                <p class="text-slate-300 text-[11px]">Email tidak dapat dikirim via SendGrid. Gunakan kode OTP berikut:</p>
                 <div class="text-3xl font-mono font-bold text-gold-400 tracking-[0.2em] my-2 text-center bg-slate-950 py-2 rounded-lg border border-slate-800">${generatedOTP}</div>
                 <p class="text-[10px] text-slate-400">Error: ${errorMsg} | Kode berlaku 3 menit.</p>
             </div>`,
