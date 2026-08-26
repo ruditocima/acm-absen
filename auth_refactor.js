@@ -610,7 +610,7 @@ async function requestOTP() {
                 <p class="text-[10px] text-slate-400">Kode berlaku 3 menit. Refresh halaman jika masalah berlanjut.</p>
             </div>`,
             'warning',
-            'Layanan email (SendGrid) belum siap. Gunakan kode OTP yang ditampilkan.'
+            'SendGrid/EmailJS belum siap. Gunakan kode OTP di bawah ini.'
         );
         return;
     }
@@ -621,13 +621,17 @@ async function requestOTP() {
             EMAILJS_SERVICE_ID,
             EMAILJS_TEMPLATE_ID,
             {
-                to_email: email,
+                // Parameter untuk EmailJS template (nama harus SAMA dengan variable di template)
+                to_email: email,      // untuk template yang pakai {{to_email}}
+                email: email,         // untuk template yang pakai {{email}} (screenshot test Anda)
+                to: email,            // fallback untuk SendGrid
+                recipient: email,     // fallback tambahan
                 to_name: nama,
                 otp_code: generatedOTP,
                 from_name: 'KaryaOne ACM',
                 message: `Kode OTP Anda adalah: ${generatedOTP}. Berlaku 3 menit.`
             },
-            EMAILJS_PUBLIC_KEY  // <-- explicit public key (fix utama)
+            EMAILJS_PUBLIC_KEY
         );
 
         proceedToStep2(
@@ -644,7 +648,7 @@ async function requestOTP() {
         proceedToStep2(
             `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
                 <p class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Gagal Mengirim Email</p>
-                <p class="text-slate-300 text-[11px]">Email tidak dapat dikirim via SendGrid. Gunakan kode OTP berikut:</p>
+                <p class="text-slate-300 text-[11px]">Email tidak dapat dikirim. Gunakan kode OTP di bawah ini:</p>
                 <div class="text-3xl font-mono font-bold text-gold-400 tracking-[0.2em] my-2 text-center bg-slate-950 py-2 rounded-lg border border-slate-800">${generatedOTP}</div>
                 <p class="text-[10px] text-slate-400">Error: ${errorMsg} | Kode berlaku 3 menit.</p>
             </div>`,
