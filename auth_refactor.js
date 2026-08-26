@@ -671,12 +671,16 @@ async function verifyOTP() {
     if (otp !== generatedOTP) return showToast('Kode OTP salah!', 'error');
 
     showToast('Mendaftarkan akun ke server...', 'info');
+    
     let authData, authError;
     try {
         const result = await supabaseClient.auth.signUp({
-            email: tempRegData.email, password: tempRegData.pass, options: { data: { name: tempRegData.nama } }
+            email: tempRegData.email, 
+            password: tempRegData.pass, 
+            options: { data: { name: tempRegData.nama } }
         });
-        authData = result.data; authError = result.error;
+        authData = result.data; 
+        authError = result.error;
     } catch (e) {
         console.error('SignUp exception:', e);
         showToast('Gagal menghubungi server. Cek koneksi internet.', 'error');
@@ -687,63 +691,110 @@ async function verifyOTP() {
         console.warn('SignUp error:', authError);
         const errMsg = authError.message.toLowerCase();
         if (errMsg.includes('already') || errMsg.includes('registered')) {
-            showToast('Email sudah terdaftar. Silakan login.', 'warning'); toggleAuthMode('login'); return;
+            showToast('Email sudah terdaftar. Silakan login.', 'warning'); 
+            toggleAuthMode('login'); 
+            return;
         } else if (errMsg.includes('rate limit')) {
-            showToast('Terlalu banyak percobaan. Tunggu 1 menit.', 'warning'); return;
+            showToast('Terlalu banyak percobaan. Tunggu 1 menit.', 'warning'); 
+            return;
         }
-        showToast('Gagal mendaftar: ' + authError.message, 'error'); return;
+        showToast('Gagal mendaftar: ' + authError.message, 'error'); 
+        return;
     }
 
-    // Ambil auth_id langsung dari hasil signUp (lebih reliable)
     const authId = authData && authData.user ? authData.user.id : null;
+    if (!authId) {
+        showToast('Gagal mendapatkan ID autentikasi.', 'error');
+        return;
+    }
 
-    // Upsert ke tabel employees (insert kalau belum ada, update kalau sudah ada)
+    // LANGSUNG LOGIN agar session aktif untuk RLS policy
     try {
-        const employeePayload = {
-            id: tempRegData.email,
-            name: tempRegData.nama,
-            position: 'Staff',
-            role: 'Karyawan / Field',
-            atasan: 'Master Admin',
-            status: 'Pending',
-            device_id: 'Unbound',
-            auth_id: authId
+        const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
+            email: tempRegData.email,
+            password: tempRegData.pass
+        });
+        if (loginErr) console.warn('Auto-login warning:', loginErr.message);
+    } catch (e) {
+        console.warn('Auto-login exception:', e);
+    }
+
+    // Tunggu trigger SQL berjalan (1.5 detik)
+    await new Promise(r => setTimeout(r, 1500));
+
+    // CEK: apakah trigger sudah membuat data?
+    let { data: existingEmp, error: fetchErr } = await supabaseClient
+        .from('employees')
+        .select('*')
+        .eq('id', tempRegData.email)
+        .maybeSingle();
+
+    if (existingEmp) {
+        // Trigger berhasil. Update nama jika trigger pakai default 'User Baru'
+        if (existingEmp.name === 'User Baru' || !existingEmp.name) {
+            await supabaseClient
+                .from('employees')
+                .update({ name: tempRegData.nama })
+                .eq('id', tempRegData.email);
+            existingEmp.name = tempRegData.nama;
+        }
+        // Update array lokal
+        const idx = employees.findIndex(e => e.id === tempRegData.email);
+        const empObj = { 
+            id: existingEmp.id, 
+            name: existingEmp.name, 
+            position: existingEmp.position || 'Staff', 
+            role: existingEmp.role,
+            atasan: existingEmp.atasan,
+            status: existingEmp.status,
+            deviceId: existingEmp.device_id || 'Unbound',
+            auth_id: existingEmp.auth_id
         };
-
-        const { error: upsertError } = await supabaseClient
+        if (idx >= 0) employees[idx] = empObj; else employees.push(empObj);
+        
+        showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
+    } else {
+        // FALLBACK: Trigger gagal, insert manual dengan session aktif
+        showToast('Menyimpan data profil...', 'info');
+        const { error: insertErr } = await supabaseClient
             .from('employees')
-            .upsert([employeePayload], { onConflict: 'id' });
-
-        if (upsertError) {
-            console.warn('Employee upsert warning:', upsertError.message);
-            showToast('Gagal menyimpan data karyawan ke server.', 'warning');
+            .insert([{
+                id: tempRegData.email,
+                auth_id: authId,
+                name: tempRegData.nama,
+                position: 'Staff',
+                role: 'Karyawan / Field',
+                atasan: 'Master Admin',
+                status: 'Pending',
+                device_id: 'Unbound'
+            }]);
+        
+        if (insertErr) {
+            console.error('Insert employee error:', insertErr);
+            showToast('Akun dibuat, tapi gagal menyimpan profil. Hubungi admin.', 'warning');
         } else {
-            console.log('Employee upsert success:', tempRegData.email);
-            // Tambahkan ke array lokal agar langsung muncul di tabel
-            const existingIndex = employees.findIndex(e => e.id === tempRegData.email);
-            const newEmp = { 
-                id: tempRegData.email, 
-                name: tempRegData.nama, 
-                position: 'Staff', 
+            employees.push({
+                id: tempRegData.email,
+                name: tempRegData.nama,
+                position: 'Staff',
                 role: 'Karyawan / Field',
                 atasan: 'Master Admin',
                 status: 'Pending',
                 deviceId: 'Unbound',
                 auth_id: authId
-            };
-            if (existingIndex >= 0) {
-                employees[existingIndex] = newEmp;
-            } else {
-                employees.push(newEmp);
-            }
+            });
+            showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
         }
-    } catch (e) {
-        console.warn('Employee upsert exception:', e);
     }
 
-    showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
-    renderEmployees(); updateDashboardStats(); populateEmailRecipients();
-    generatedOTP = null; otpExpiryTime = null;
+    // Refresh semua data dari server
+    await fetchAllDataFromSupabase();
+    renderEmployees(); 
+    updateDashboardStats(); 
+    populateEmailRecipients();
+    
+    generatedOTP = null; 
+    otpExpiryTime = null;
     document.getElementById('reg-otp-input').value = '';
     toggleAuthMode('login');
 }
