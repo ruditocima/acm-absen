@@ -62,6 +62,33 @@ function initEmailJS() {
 // ============================================================
 // UTILITY FUNCTIONS
 // ============================================================
+// ============================================================
+// HELPER: WIB (Asia/Jakarta)
+// ============================================================
+function getWIBDateString(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(date);
+    const y = parts.find(p => p.type === 'year').value;
+    const m = parts.find(p => p.type === 'month').value;
+    const d = parts.find(p => p.type === 'day').value;
+    return `${y}-${m}-${d}`;
+}
+
+function getWIBTimeParts(date = new Date()) {
+    const parts = new Intl.DateTimeFormat('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false
+    }).formatToParts(date);
+    return {
+        h: parts.find(p => p.type === 'hour').value,
+        m: parts.find(p => p.type === 'minute').value,
+        s: parts.find(p => p.type === 'second').value
+    };
+}
+
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -220,8 +247,22 @@ function renderEmployees() {
             </td>
         </tr>
     `).join('');
+
+    // === DROPDOWN ATASAN: tanpa duplikat, ada pilihan --- ===
     const atasanSelect = document.getElementById('inp-atasan');
-    if(atasanSelect) atasanSelect.innerHTML = `<option value="Master Admin">Master Admin</option>` + employees.map(emp => `<option value="${emp.name}">${emp.name}</option>`).join('');
+    if(atasanSelect) {
+        const opts = new Map();
+        opts.set('', '--- (Tidak Ada Atasan)');
+        opts.set('Master Admin', 'Master Admin');
+        employees.forEach(emp => {
+            if (emp.name && !opts.has(emp.name)) {
+                opts.set(emp.name, emp.name);
+            }
+        });
+        atasanSelect.innerHTML = Array.from(opts.entries())
+            .map(([val, txt]) => `<option value="${val}">${txt}</option>`)
+            .join('');
+    }
 }
 
 function renderRekapDataToTable(dataList) {
@@ -262,7 +303,7 @@ function renderMobileMyHistory() {
 }
 
 function updateDashboardStats() {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getWIBDateString(); // WIB, bukan UTC
     const totalKaryawan = employees.length;
     const todayRekap = rekapList.filter(r => r.date === todayStr);
     const tepatWaktuCount = todayRekap.filter(r => r.status === 'Tepat Waktu').length;
@@ -837,11 +878,11 @@ function openEditEmployeeModal(index) {
     document.getElementById('inp-name').value = emp.name;
     document.getElementById('inp-position').value = emp.position;
     document.getElementById('inp-role').value = emp.role;
-    document.getElementById('inp-atasan').value = emp.atasan || 'Master Admin';
+    // Default ke --- (kosong) kalau tidak punya atasan
+    document.getElementById('inp-atasan').value = emp.atasan || '';
     document.getElementById('inp-password').value = "••••••••";
     document.getElementById('employee-modal').classList.remove('hidden');
 }
-
 function closeEmployeeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
 
 async function saveEmployee() {
@@ -955,7 +996,8 @@ async function saveBasecamp() {
 async function handleAbsen() {
     if (activeEmployeeSession.name === 'Tamu') { showToast('Silakan login terlebih dahulu.', 'error'); switchMobileTab('daftar'); return; }
     const now = new Date();
-    const currentTimeInSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const wib = getWIBTimeParts(now);
+    const currentTimeInSeconds = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
     const limitOpenInSeconds = 7 * 3600 + 45 * 60;
     const limitMaxInSeconds = 9 * 3600 + 40 * 60;
     if (currentTimeInSeconds < limitOpenInSeconds) { showToast('Absensi belum dibuka. Mulai 07:45 WIB.', 'warning'); return; }
@@ -968,11 +1010,15 @@ async function handleAbsen() {
             const dist = calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng));
             if (dist <= parseFloat(bc.radius)) { validBasecamp = bc; break; }
         }
-        pendingAbsenData = { date: new Date().toISOString().split('T')[0], name: activeEmployeeSession.name, basecamp: validBasecamp ? validBasecamp.name : 'Dinas Luar / Lapangan (Terverifikasi GPS)' };
+        // Tanggal WIB, bukan UTC
+        pendingAbsenData = { 
+            date: getWIBDateString(), 
+            name: activeEmployeeSession.name, 
+            basecamp: validBasecamp ? validBasecamp.name : 'Dinas Luar / Lapangan (Terverifikasi GPS)' 
+        };
         openSelfieModal();
     }, (err) => { showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error'); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
-
 function openSelfieModal() {
     document.getElementById('selfie-modal').classList.remove('hidden');
     const video = document.getElementById('selfie-video');
@@ -1020,21 +1066,23 @@ async function submitAbsenWithSelfie() {
     if (!pendingAbsenData) { showToast('Data absensi tidak ditemukan.', 'error'); return; }
     const canvas = document.getElementById('selfie-canvas');
     const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+    
+    // WIB explicit
     const now = new Date();
-    const h = now.getHours().toString().padStart(2, '0');
-    const m = now.getMinutes().toString().padStart(2, '0');
-    const s = now.getSeconds().toString().padStart(2, '0');
-    const timeString = `${h}:${m}:${s}`;
+    const wib = getWIBTimeParts(now);
+    const timeString = `${wib.h}:${wib.m}:${wib.s}`;
+    const dateStr = getWIBDateString(now);
+    
     let status = 'Tepat Waktu'; let lateStr = '-';
     const limitMaxInSeconds = 9 * 3600 + 40 * 60;
-    const currentS = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+    const currentS = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
     if (currentS > limitMaxInSeconds) {
         status = 'Terlambat';
         const diff = currentS - limitMaxInSeconds;
         const dh = Math.floor(diff / 3600); const dm = Math.floor((diff % 3600) / 60); const ds = diff % 60;
         lateStr = `${dh}:${dm.toString().padStart(2, '0')}:${ds.toString().padStart(2, '0')}`;
     }
-    const newRekap = { date: pendingAbsenData.date, name: pendingAbsenData.name, basecamp: pendingAbsenData.basecamp, time: timeString, status: status, late: lateStr, selfie_url: dataUrl };
+    const newRekap = { date: dateStr, name: pendingAbsenData.name, basecamp: pendingAbsenData.basecamp, time: timeString, status: status, late: lateStr, selfie_url: dataUrl };
     try {
         const { data, error } = await supabaseClient.from('rekap_list').insert([newRekap]).select();
         if (error) throw error;
@@ -1045,7 +1093,6 @@ async function submitAbsenWithSelfie() {
         closeSelfieModal(); renderRekap(); renderMobileMyHistory(); updateDashboardStats();
     } catch (err) { console.error("Error:", err); showToast('Gagal menyimpan absensi.', 'error'); }
 }
-
 // ============================================================
 // IZIN
 // ============================================================
@@ -1304,7 +1351,10 @@ function initSupabaseRealtime() {
 // ============================================================
 setInterval(() => {
     const el = document.getElementById('live-clock');
-    if(el) el.innerText = new Date().toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
+    if(el) el.innerText = new Date().toLocaleTimeString('id-ID', { 
+        timeZone: 'Asia/Jakarta', 
+        hour12: false 
+    }) + ' WIB';
 }, 1000);
 
 // ============================================================
