@@ -29,11 +29,26 @@ let confirmCallback = null;
 const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';
 const EMAILJS_SERVICE_ID = 'service_xm941vp';
 const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';
+let emailjsReady = false;
+
+function initEmailJS() {
+    try {
+        if (typeof emailjs !== 'undefined' && typeof emailjs.init === 'function') {
+            emailjs.init(EMAILJS_PUBLIC_KEY);
+            emailjsReady = true;
+            console.log('[EmailJS] Initialized successfully');
+        } else {
+            console.warn('[EmailJS] Library not loaded yet, will retry...');
+            emailjsReady = false;
+        }
+    } catch (e) {
+        console.error('[EmailJS] Init failed:', e);
+        emailjsReady = false;
+    }
+}
 
 (function(){
-    if(typeof emailjs !== 'undefined'){
-        emailjs.init(EMAILJS_PUBLIC_KEY);
-    }
+    initEmailJS();
 })();
 // ============================================================
 // UTILITY FUNCTIONS
@@ -551,7 +566,8 @@ async function requestOTP() {
     const pass = document.getElementById('reg-pass').value.trim();
     if (!email || !nama || !pass || !email.includes('@')) { showToast('Harap isi semua kolom dengan benar!', 'error'); return; }
     if (pass.length < 6) { showToast('Password minimal 6 karakter!', 'error'); return; }
-        tempRegData = { email, nama, pass };
+
+    tempRegData = { email, nama, pass };
     generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
     otpExpiryTime = Date.now() + (3 * 60 * 1000);
 
@@ -562,31 +578,71 @@ async function requestOTP() {
         btnOTP.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim OTP...';
     }
 
-    try {
-        await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-            to_email: email,
-            to_name: nama,
-            otp_code: generatedOTP,
-            from_name: 'KaryaOne ACM'
-        });
-
+    // Helper: lanjut ke step 2 (sukses maupun fallback)
+    const proceedToStep2 = (instructionHtml, toastType = 'success', toastMsg = 'Kode OTP berhasil dikirim!') => {
         const instElem = document.getElementById('otp-instruction-text');
-        if (instElem) instElem.innerHTML = `Kode OTP telah dikirimkan ke email <b class="text-gold-400">${email}</b>. Silakan cek inbox/spam folder Anda.`;
-        showToast('Kode OTP berhasil dikirim ke email Anda!', 'success');
+        if (instElem) instElem.innerHTML = instructionHtml;
+        showToast(toastMsg, toastType);
         document.getElementById('reg-step-1').classList.add('hidden');
         document.getElementById('reg-step-2').classList.remove('hidden');
+        if(btnOTP) {
+            btnOTP.disabled = false;
+            btnOTP.innerHTML = originalText || 'Kirim Kode OTP';
+        }
+    };
+
+    // Cek apakah EmailJS tersedia
+    if (typeof emailjs === 'undefined' || !emailjsReady) {
+        proceedToStep2(
+            `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
+                <p class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Layanan Email Belum Siap</p>
+                <p class="text-slate-300 text-[11px]">Gunakan kode OTP berikut untuk verifikasi:</p>
+                <div class="text-3xl font-mono font-bold text-gold-400 tracking-[0.2em] my-2 text-center bg-slate-950 py-2 rounded-lg border border-slate-800">${generatedOTP}</div>
+                <p class="text-[10px] text-slate-400">Kode berlaku 3 menit. Refresh halaman jika masalah berlanjut.</p>
+            </div>`,
+            'warning',
+            'Layanan email tidak tersedia. Gunakan kode OTP yang ditampilkan.'
+        );
+        return;
+    }
+
+    try {
+        // EmailJS v4: public key sebagai parameter ke-4 lebih reliable
+        await emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_ID,
+            {
+                to_email: email,
+                to_name: nama,
+                otp_code: generatedOTP,
+                from_name: 'KaryaOne ACM',
+                message: `Kode OTP Anda adalah: ${generatedOTP}. Berlaku 3 menit.`
+            },
+            EMAILJS_PUBLIC_KEY  // <-- explicit public key (fix utama)
+        );
+
+        proceedToStep2(
+            `Kode OTP telah dikirimkan ke email <b class="text-gold-400">${email}</b>. Silakan cek inbox/spam folder Anda.`,
+            'success',
+            'Kode OTP berhasil dikirim ke email Anda!'
+        );
 
     } catch (error) {
         console.error('EmailJS Error:', error);
-        showToast('Gagal mengirim OTP. Cek koneksi atau setup EmailJS.', 'error');
-        generatedOTP = null;
-        otpExpiryTime = null;
-        tempRegData = null;
-    } finally {
-        if(btnOTP) {
-            btnOTP.disabled = false;
-            btnOTP.innerHTML = originalText;
-        }
+        const errorMsg = (error && error.text) ? error.text : (error && error.message ? error.message : 'Unknown error');
+
+        // FALLBACK: Tetap tampilkan OTP di UI agar user bisa lanjut daftar
+        proceedToStep2(
+            `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
+                <p class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Gagal Mengirim Email</p>
+                <p class="text-slate-300 text-[11px]">Email tidak dapat dikirim. Gunakan kode OTP berikut:</p>
+                <div class="text-3xl font-mono font-bold text-gold-400 tracking-[0.2em] my-2 text-center bg-slate-950 py-2 rounded-lg border border-slate-800">${generatedOTP}</div>
+                <p class="text-[10px] text-slate-400">Error: ${errorMsg} | Kode berlaku 3 menit.</p>
+            </div>`,
+            'warning',
+            'Email gagal terkirim. Gunakan kode OTP yang ditampilkan.'
+        );
+        // JANGAN reset generatedOTP & otpExpiryTime agar user tetap bisa verifikasi
     }
 }
 
@@ -1191,6 +1247,9 @@ setInterval(() => {
 // EVENT LISTENERS (PALING AKHIR - setelah semua fn defined)
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Retry EmailJS init jika pertama kali gagal
+    if (!emailjsReady) initEmailJS();
+
     document.getElementById('confirm-btn-yes').addEventListener('click', () => {
         if (confirmCallback) confirmCallback();
         closeConfirmModal();
