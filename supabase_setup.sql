@@ -243,7 +243,7 @@ INSERT INTO roles (id, name, access)
 VALUES 
   ('ROL-01', 'Master Admin', 'Dashboard, Rekap, Role, Karyawan, Basecamp, Izin, Email'),
   ('ROL-02', 'Manajer Lapangan', 'Dashboard, Rekap, Karyawan, Basecamp, Izin, Email'),
-  ('ROL-03', 'Karyawan / Field', 'Dashboard, Izin, Email')
+  ('ROL-03', 'Karyawan / Field', 'Dashboard, Rekap, Basecamp, Email')
 ON CONFLICT (id) DO NOTHING;
 
 -- --------------------------------------------------------
