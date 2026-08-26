@@ -304,7 +304,9 @@ function renderMobileMyHistory() {
 
 function updateDashboardStats() {
     const todayStr = getWIBDateString(); // WIB, bukan UTC
-    const totalKaryawan = employees.length;
+    // Karyawan dengan posisi "Administrator" tidak dihitung dalam total karyawan operasional
+    const karyawanOperasional = employees.filter(e => e.position && e.position.toLowerCase() !== 'administrator');
+    const totalKaryawan = karyawanOperasional.length;
     const todayRekap = rekapList.filter(r => r.date === todayStr);
     const tepatWaktuCount = todayRekap.filter(r => r.status === 'Tepat Waktu').length;
     const terlambatCount = todayRekap.filter(r => r.status === 'Terlambat').length;
@@ -329,12 +331,32 @@ function renderRoles() {
     if(roleSelect) roleSelect.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
 }
 
+// ============================================================
+// BASECAMP DELETE
+// ============================================================
+function deleteBasecamp(index) {
+    if (!isMasterAdmin()) return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
+    const bc = basecamps[index];
+    showConfirm('Hapus Basecamp', `Hapus basecamp "${bc.name}"? Tindakan ini tidak dapat dibatalkan.`, async () => {
+        await supabaseClient.from('basecamps').delete().eq('id', bc.id);
+        basecamps.splice(index, 1);
+        renderBasecamps();
+        showToast('Basecamp berhasil dihapus.', 'success');
+    }, true);
+}
+
 function renderBasecamps() {
     const container = document.getElementById('basecamp-container');
     if(!container) return;
     container.innerHTML = basecamps.map((b, i) => `
         <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
-            <div class="flex justify-between items-start"><h5 class="text-xs font-bold text-white">${b.name}</h5><button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs"><i class="fa-solid fa-pen"></i></button></div>
+            <div class="flex justify-between items-start">
+                <h5 class="text-xs font-bold text-white">${b.name}</h5>
+                <div class="flex items-center gap-2">
+                    <button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>
+                    <button onclick="deleteBasecamp(${i})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            </div>
             <p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ${b.lat}, ${b.lng}</p><p class="text-[11px] text-gold-400">Radius GPS: ${b.radius} Meter</p>
         </div>
     `).join('');
