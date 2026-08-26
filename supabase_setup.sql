@@ -1,7 +1,41 @@
 -- ============================================================
--- SQL SETUP: REFACTOR AUTH KE SUPABASE AUTH
+-- SQL SETUP: REFACTOR AUTH KE SUPABASE AUTH (FIXED v4)
 -- Jalankan di SQL Editor Supabase (urut dari atas ke bawah)
 -- ============================================================
+
+-- --------------------------------------------------------
+-- 0. FORCE DROP SEMUA POLICY (bersihkan sisa policy lama)
+-- --------------------------------------------------------
+
+DO $$
+DECLARE
+    pol RECORD;
+BEGIN
+    -- Drop semua policy di tabel employees
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'employees' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON employees', pol.policyname);
+    END LOOP;
+    -- Drop semua policy di tabel rekap_list
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'rekap_list' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON rekap_list', pol.policyname);
+    END LOOP;
+    -- Drop semua policy di tabel izin_list
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'izin_list' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON izin_list', pol.policyname);
+    END LOOP;
+    -- Drop semua policy di tabel emails
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'emails' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON emails', pol.policyname);
+    END LOOP;
+    -- Drop semua policy di tabel roles
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'roles' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON roles', pol.policyname);
+    END LOOP;
+    -- Drop semua policy di tabel basecamps
+    FOR pol IN SELECT policyname FROM pg_policies WHERE tablename = 'basecamps' LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON basecamps', pol.policyname);
+    END LOOP;
+END $$;
 
 -- --------------------------------------------------------
 -- 1. UPDATE TABEL EMPLOYEES
@@ -12,6 +46,9 @@ ALTER TABLE employees DROP COLUMN IF EXISTS password;
 
 -- Tambah kolom auth_id untuk link ke supabase.auth.users
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS auth_id uuid;
+
+-- Tambah kolom device_id jika belum ada
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS device_id text DEFAULT 'Unbound';
 
 -- Tambah index untuk performa
 CREATE INDEX IF NOT EXISTS idx_employees_auth_id ON employees(auth_id);
@@ -32,17 +69,23 @@ BEGIN
 
   -- Jika belum ada di employees, insert baru (register dari mobile)
   IF NOT FOUND THEN
-    INSERT INTO public.employees (id, auth_id, name, position, role, atasan, status, device_id)
-    VALUES (
-      NEW.email,
-      NEW.id,
-      COALESCE(NEW.raw_user_meta_data->>'name', 'User Baru'),
-      'Staff',
-      'Karyawan / Field',
-      'Master Admin',
-      'Pending',
-      'Unbound'
-    );
+    BEGIN
+      INSERT INTO public.employees (id, auth_id, name, position, role, atasan, status, device_id)
+      VALUES (
+        NEW.email,
+        NEW.id,
+        COALESCE(NEW.raw_user_meta_data->>'name', 'User Baru'),
+        'Staff',
+        'Karyawan / Field',
+        'Master Admin',
+        'Pending',
+        'Unbound'
+      );
+    EXCEPTION WHEN OTHERS THEN
+      -- Jika insert gagal (misalnya constraint violation), tetap return NEW
+      -- agar auth user tetap terbuat meski link ke employees gagal
+      RAISE WARNING 'Auto-link employee failed: %', SQLERRM;
+    END;
   END IF;
 
   RETURN NEW;
@@ -68,24 +111,17 @@ ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE basecamps ENABLE ROW LEVEL SECURITY;
 
 -- --------------------------------------------------------
--- 4. RLS POLICIES
+-- 4. RLS POLICIES (NON-RECURSIVE)
 -- --------------------------------------------------------
 
 -- EMPLOYEES
--- Admin bisa lihat semua, user biasa hanya lihat diri sendiri
-DROP POLICY IF EXISTS "employees_select" ON employees;
-CREATE POLICY "employees_select"
+-- SELECT: semua user yang login bisa baca semua employees (untuk dropdown, daftar, etc.)
+-- INI MENCEGAH RECURSIVE RLS dan memungkinkan admin/manajer lihat daftar karyawan
+CREATE POLICY "employees_select_auth"
   ON employees FOR SELECT
-  USING (
-    auth.uid() = auth_id 
-    OR EXISTS (
-      SELECT 1 FROM employees e 
-      WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
-    )
-  );
+  USING (auth.uid() IS NOT NULL);
 
-DROP POLICY IF EXISTS "employees_insert" ON employees;
-CREATE POLICY "employees_insert"
+CREATE POLICY "employees_insert_admin"
   ON employees FOR INSERT
   WITH CHECK (
     EXISTS (
@@ -94,19 +130,20 @@ CREATE POLICY "employees_insert"
     )
   );
 
-DROP POLICY IF EXISTS "employees_update" ON employees;
-CREATE POLICY "employees_update"
+CREATE POLICY "employees_update_self"
+  ON employees FOR UPDATE
+  USING (auth.uid() = auth_id);
+
+CREATE POLICY "employees_update_admin"
   ON employees FOR UPDATE
   USING (
-    auth.uid() = auth_id 
-    OR EXISTS (
+    EXISTS (
       SELECT 1 FROM employees e 
       WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
     )
   );
 
-DROP POLICY IF EXISTS "employees_delete" ON employees;
-CREATE POLICY "employees_delete"
+CREATE POLICY "employees_delete_admin"
   ON employees FOR DELETE
   USING (
     EXISTS (
@@ -116,28 +153,30 @@ CREATE POLICY "employees_delete"
   );
 
 -- REKAP LIST (Absensi)
--- Semua user bisa insert (absen), tapi hanya bisa insert data sendiri
--- Admin bisa lihat semua, user hanya lihat data sendiri
-DROP POLICY IF EXISTS "rekap_select" ON rekap_list;
-CREATE POLICY "rekap_select"
+-- SELECT: user lihat data sendiri. Admin/Manajer lihat semua.
+CREATE POLICY "rekap_select_self"
   ON rekap_list FOR SELECT
   USING (
     name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
-    OR EXISTS (
+  );
+
+CREATE POLICY "rekap_select_manager"
+  ON rekap_list FOR SELECT
+  USING (
+    EXISTS (
       SELECT 1 FROM employees e 
       WHERE e.auth_id = auth.uid() AND (e.role = 'Master Admin' OR e.role LIKE '%Manajer%')
     )
   );
 
-DROP POLICY IF EXISTS "rekap_insert" ON rekap_list;
-CREATE POLICY "rekap_insert"
+CREATE POLICY "rekap_insert_self"
   ON rekap_list FOR INSERT
   WITH CHECK (
-    name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
+    auth.uid() IS NOT NULL
+    AND name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "rekap_delete" ON rekap_list;
-CREATE POLICY "rekap_delete"
+CREATE POLICY "rekap_delete_admin"
   ON rekap_list FOR DELETE
   USING (
     EXISTS (
@@ -147,39 +186,51 @@ CREATE POLICY "rekap_delete"
   );
 
 -- IZIN LIST
-DROP POLICY IF EXISTS "izin_select" ON izin_list;
-CREATE POLICY "izin_select"
+CREATE POLICY "izin_select_self"
   ON izin_list FOR SELECT
   USING (
     name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
-    OR atasan = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
-    OR EXISTS (
+  );
+
+CREATE POLICY "izin_select_atasan"
+  ON izin_list FOR SELECT
+  USING (
+    atasan = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
+  );
+
+CREATE POLICY "izin_select_admin"
+  ON izin_list FOR SELECT
+  USING (
+    EXISTS (
       SELECT 1 FROM employees e 
       WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
     )
   );
 
-DROP POLICY IF EXISTS "izin_insert" ON izin_list;
-CREATE POLICY "izin_insert"
+CREATE POLICY "izin_insert_self"
   ON izin_list FOR INSERT
   WITH CHECK (
-    name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
+    auth.uid() IS NOT NULL
+    AND name = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "izin_update" ON izin_list;
-CREATE POLICY "izin_update"
+CREATE POLICY "izin_update_atasan"
   ON izin_list FOR UPDATE
   USING (
     atasan = (SELECT e.name FROM employees e WHERE e.auth_id = auth.uid())
-    OR EXISTS (
+  );
+
+CREATE POLICY "izin_update_admin"
+  ON izin_list FOR UPDATE
+  USING (
+    EXISTS (
       SELECT 1 FROM employees e 
       WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
     )
   );
 
 -- EMAILS
-DROP POLICY IF EXISTS "emails_select" ON emails;
-CREATE POLICY "emails_select"
+CREATE POLICY "emails_select_self"
   ON emails FOR SELECT
   USING (
     sender = (SELECT e.id FROM employees e WHERE e.auth_id = auth.uid())
@@ -187,27 +238,35 @@ CREATE POLICY "emails_select"
     OR recipient = 'BROADCAST'
   );
 
-DROP POLICY IF EXISTS "emails_insert" ON emails;
-CREATE POLICY "emails_insert"
+CREATE POLICY "emails_insert_self"
   ON emails FOR INSERT
   WITH CHECK (
-    sender = (SELECT e.id FROM employees e WHERE e.auth_id = auth.uid())
+    auth.uid() IS NOT NULL
+    AND sender = (SELECT e.id FROM employees e WHERE e.auth_id = auth.uid())
   );
 
-DROP POLICY IF EXISTS "emails_delete" ON emails;
-CREATE POLICY "emails_delete"
+CREATE POLICY "emails_delete_self"
   ON emails FOR DELETE
   USING (
     sender = (SELECT e.id FROM employees e WHERE e.auth_id = auth.uid())
-    OR EXISTS (
+  );
+
+CREATE POLICY "emails_delete_admin"
+  ON emails FOR DELETE
+  USING (
+    EXISTS (
       SELECT 1 FROM employees e 
       WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
     )
   );
 
--- ROLES (Hanya Admin)
-DROP POLICY IF EXISTS "roles_all" ON roles;
-CREATE POLICY "roles_all"
+-- ROLES: SELECT untuk semua (public read), write hanya admin
+-- INI MENCEGAH ERROR 500 SAAT STARTUP KARENA TIDAK ADA SUBQUERY RECURSIVE
+CREATE POLICY "roles_select_public"
+  ON roles FOR SELECT
+  USING (true);
+
+CREATE POLICY "roles_write_admin"
   ON roles FOR ALL
   USING (
     EXISTS (
@@ -216,9 +275,12 @@ CREATE POLICY "roles_all"
     )
   );
 
--- BASECAMPS (Hanya Admin)
-DROP POLICY IF EXISTS "basecamps_all" ON basecamps;
-CREATE POLICY "basecamps_all"
+-- BASECAMPS: SELECT untuk semua (public read), write hanya admin
+CREATE POLICY "basecamps_select_public"
+  ON basecamps FOR SELECT
+  USING (true);
+
+CREATE POLICY "basecamps_write_admin"
   ON basecamps FOR ALL
   USING (
     EXISTS (

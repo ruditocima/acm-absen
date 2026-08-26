@@ -27,19 +27,27 @@ let confirmCallback = null;
 let supabaseConnected = false;
 
 // ============================================================
-// SUPABASE CONNECTION CHECK
+// SUPABASE CONNECTION CHECK (dengan retry)
 // ============================================================
-async function checkSupabaseConnection() {
-    try {
-        const { data, error } = await supabaseClient.from('roles').select('id').limit(1);
-        if (error) throw error;
-        supabaseConnected = true;
-        return true;
-    } catch (err) {
-        console.error('[Supabase] Connection check failed:', err);
-        supabaseConnected = false;
-        return false;
+async function checkSupabaseConnection(retries = 2) {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            // Query ke roles (sekarang public read, tidak recursive)
+            const { data, error } = await supabaseClient.from('roles').select('id').limit(1);
+            if (error) {
+                console.warn(`[Supabase] Connection check attempt ${i+1} failed:`, error.message);
+                if (i < retries) await new Promise(r => setTimeout(r, 800));
+                continue;
+            }
+            supabaseConnected = true;
+            return true;
+        } catch (err) {
+            console.error(`[Supabase] Connection check attempt ${i+1} exception:`, err);
+            if (i < retries) await new Promise(r => setTimeout(r, 800));
+        }
     }
+    supabaseConnected = false;
+    return false;
 }
 
 // ============================================================
@@ -497,10 +505,11 @@ async function fetchAllDataFromSupabase() {
         loadFallbackData();
         renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
         renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
+        updateServerStatusIndicator();
         return;
     }
 
-    // Fetch roles
+    // Fetch roles (PUBLIC READ - tidak perlu login)
     try {
         const { data: rData, error: rErr } = await supabaseClient.from('roles').select('*');
         if (rErr) { console.warn('[Supabase] Roles fetch error:', rErr.message, rErr.code); }
@@ -513,13 +522,23 @@ async function fetchAllDataFromSupabase() {
         loadFallbackData();
     }
 
-    // Fetch employees
+    // Fetch basecamps (PUBLIC READ - tidak perlu login)
+    try {
+        const { data: bData, error: bErr } = await supabaseClient.from('basecamps').select('*');
+        if (bErr) console.warn('[Supabase] Basecamps fetch error:', bErr.message);
+        if (bData && bData.length > 0) basecamps = bData;
+        else if (basecamps.length === 0) loadFallbackData();
+    } catch (err) {
+        console.error('[Supabase] Basecamps exception:', err);
+    }
+
+    // Fetch employees (butuh login - auth.uid() IS NOT NULL)
     try {
         const { data: eData, error: eErr } = await supabaseClient.from('employees').select('*');
         if (eErr) {
             console.warn('[Supabase] Employees fetch error:', eErr.message, eErr.code);
-            if (eErr.message && eErr.message.includes('500')) {
-                showToast("Error Server (500): Cek RLS Policy atau Trigger SQL di Supabase.", "error");
+            if (eErr.code === 'PGRST301' || eErr.message?.includes('JWT')) {
+                console.log('[Supabase] Employees fetch skipped: user not authenticated');
             }
         }
         if (eData && eData.length > 0) {
@@ -532,17 +551,7 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Employees exception:', err);
     }
 
-    // Fetch basecamps
-    try {
-        const { data: bData, error: bErr } = await supabaseClient.from('basecamps').select('*');
-        if (bErr) console.warn('[Supabase] Basecamps fetch error:', bErr.message);
-        if (bData && bData.length > 0) basecamps = bData;
-        else if (basecamps.length === 0) loadFallbackData();
-    } catch (err) {
-        console.error('[Supabase] Basecamps exception:', err);
-    }
-
-    // Fetch rekap
+    // Fetch rekap (butuh login)
     try {
         const { data: rkData, error: rkErr } = await supabaseClient.from('rekap_list').select('*');
         if (rkErr) console.warn('[Supabase] Rekap fetch error:', rkErr.message);
@@ -551,7 +560,7 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Rekap exception:', err);
     }
 
-    // Fetch izin
+    // Fetch izin (butuh login)
     try {
         const { data: iData, error: iErr } = await supabaseClient.from('izin_list').select('*');
         if (iErr) console.warn('[Supabase] Izin fetch error:', iErr.message);
@@ -560,7 +569,7 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Izin exception:', err);
     }
 
-    // Fetch emails
+    // Fetch emails (butuh login)
     try {
         const { data: emData, error: emErr } = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
         if (emErr) console.warn('[Supabase] Emails fetch error:', emErr.message);
@@ -577,6 +586,7 @@ async function fetchAllDataFromSupabase() {
 
     renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
     renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
+    updateServerStatusIndicator();
 }
 
 // ============================================================
@@ -610,6 +620,8 @@ async function initAuth() {
                 };
                 document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
                 document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+                // Re-fetch semua data setelah login (karena employees sekarang butuh auth)
+                await fetchAllDataFromSupabase();
                 const readIds = getReadEmailIds();
                 emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
                 renderMobileMyHistory(); renderEmails(); renderAdminIzin(); updateEmailBadges(); populateEmailRecipients();
@@ -618,12 +630,17 @@ async function initAuth() {
     } catch (err) {
         console.error('[Auth] Init auth exception:', err);
     }
-    supabaseClient.auth.onAuthStateChange((event, session) => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_OUT') {
             activeEmployeeSession = { name: 'Tamu', id: 'tamu@gmail.com', role: 'Tamu' };
             document.getElementById('mobile-user-title').innerText = `Halo, Tamu`;
             document.getElementById('mobile-user-initial').innerText = 'T';
+            employees = []; rekapList = []; izinList = []; emailsList = [];
             populateEmailRecipients(); updateEmailBadges(); switchMobileTab('daftar');
+            await fetchAllDataFromSupabase(); // Re-fetch untuk reset data
+        } else if (event === 'SIGNED_IN' && session) {
+            // Re-fetch setelah sign in
+            await fetchAllDataFromSupabase();
         }
     });
 }
@@ -699,6 +716,8 @@ async function processLoginValidation(email, pass, isDesktop) {
     activeEmployeeSession = { id: empData.id, name: empData.name, position: empData.position, role: empData.role, atasan: empData.atasan, status: empData.status, deviceId: empData.device_id, auth_id: empData.auth_id };
     document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
     document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
+    // Re-fetch semua data setelah login berhasil
+    await fetchAllDataFromSupabase();
     const readIds = getReadEmailIds();
     emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
     renderMobileMyHistory(); renderEmails(); renderAdminIzin(); updateEmailBadges(); populateEmailRecipients();
