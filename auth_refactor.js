@@ -58,7 +58,9 @@ function loadFallbackData() {
         roles = [
             { id: 'ROL-01', name: 'Master Admin', access: 'Dashboard, Rekap, Role, Karyawan, Basecamp, Izin, Email' },
             { id: 'ROL-02', name: 'Manajer Lapangan', access: 'Dashboard, Rekap, Karyawan, Basecamp, Izin, Email' },
-            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Dashboard, Rekap, Basecamp, Email' }
+            { id: 'ROL-03', name: 'Karyawan / Field', access: 'Dashboard, Rekap, Basecamp, Email' },
+            { id: 'ROL-04', name: 'Supervisor Field', access: 'Dashboard, Rekap, Basecamp, Izin, Email' },
+            { id: 'ROL-05', name: 'Admin', access: 'Dashboard, Rekap, Basecamp, Izin, Email' }
         ];
     }
     if (basecamps.length === 0) {
@@ -465,17 +467,35 @@ function deleteBasecamp(index) {
 function renderBasecamps() {
     const container = document.getElementById('basecamp-container');
     if(!container) return;
-    const isViewOnly = activeEmployeeSession.role === 'Karyawan / Field';
+
+    const roleName = activeEmployeeSession.role;
+    let canEdit = false;
+    let canDelete = false;
+
+    // Permission basecamp berdasarkan role
+    if (roleName === 'Master Admin') {
+        canEdit = true;
+        canDelete = true;
+    } else if (roleName === 'Supervisor Field') {
+        // Supervisor: bisa tambah dan edit, TIDAK boleh hapus
+        canEdit = true;
+        canDelete = false;
+    } else {
+        // Karyawan / Field, Admin = view only (tidak bisa edit maupun hapus)
+        canEdit = false;
+        canDelete = false;
+    }
+
     container.innerHTML = basecamps.map((b, i) => `
         <div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">
             <div class="flex justify-between items-start">
                 <h5 class="text-xs font-bold text-white">${b.name}</h5>
-                ${isViewOnly ? '' : `
+                ${(canEdit || canDelete) ? `
                 <div class="flex items-center gap-2">
-                    <button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>
-                    <button onclick="deleteBasecamp(${i})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>
+                    ${canEdit ? `<button onclick="openEditBasecampModal(${i})" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>` : ''}
+                    ${canDelete ? `<button onclick="deleteBasecamp(${i})" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>` : ''}
                 </div>
-                `}
+                ` : ''}
             </div>
             <p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ${b.lat}, ${b.lng}</p><p class="text-[11px] text-gold-400">Radius GPS: ${b.radius} Meter</p>
         </div>
@@ -499,19 +519,51 @@ function renderAdminIzin() {
     const badge = document.getElementById('sidebar-izin-badge');
     const counterBadge = document.getElementById('tab-izin-counter-badge');
     if(!container) return;
-    const pendingIzins = izinList.filter(i => i.status === 'Pending' && (isMasterAdmin() || i.atasan === activeEmployeeSession.name));
+
+    const roleName = activeEmployeeSession.role;
+    let visibleIzins = [];
+
+    // Filter izin berdasarkan role
+    if (roleName === 'Master Admin') {
+        visibleIzins = izinList;
+    } else if (roleName === 'Supervisor Field') {
+        // Hanya izin yang atasan = nama Supervisor Field ini
+        visibleIzins = izinList.filter(i => i.atasan === activeEmployeeSession.name);
+    } else if (roleName === 'Admin') {
+        // Admin: view only semua izin dari seluruh karyawan
+        visibleIzins = izinList;
+    } else {
+        visibleIzins = [];
+    }
+
+    const pendingIzins = visibleIzins.filter(i => i.status === 'Pending');
     if(badge) { if(pendingIzins.length > 0) { badge.innerText = pendingIzins.length; badge.classList.remove('hidden'); } else { badge.classList.add('hidden'); } }
     if(counterBadge) { if(pendingIzins.length > 0) { counterBadge.innerText = `${pendingIzins.length} Pengajuan Pending`; counterBadge.classList.remove('hidden'); } else { counterBadge.classList.add('hidden'); } }
-    if(izinList.length === 0) { container.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin.</p>'; return; }
-    container.innerHTML = izinList.map((i) => `
+    if(visibleIzins.length === 0) { container.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin.</p>'; return; }
+
+    container.innerHTML = visibleIzins.map((i) => {
+        // Tombol action: hanya Master Admin dan Supervisor Field (untuk izin yang masuk ke dia)
+        // Admin = view only, tidak ada tombol approve/reject
+        let actionButtons = '';
+        if ((roleName === 'Master Admin' || roleName === 'Supervisor Field') && i.status === 'Pending') {
+            actionButtons = `
+                <div class="flex items-center gap-2">
+                    <button onclick="updateIzinStatus(${i.id}, 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:opacity-90">Setujui</button>
+                    <button onclick="updateIzinStatus(${i.id}, 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:opacity-90">Tolak</button>
+                </div>
+            `;
+        }
+
+        return `
         <div class="bg-slate-950/40 p-4 rounded-xl border border-slate-800 flex flex-wrap justify-between items-center gap-3">
             <div>
                 <div class="flex items-center gap-2"><h5 class="text-xs font-bold text-white">${i.name}</h5><span class="px-2 py-0.5 rounded text-[9px] font-bold ${i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : i.status === 'Rejected' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span></div>
                 <p class="text-xs text-gold-400 font-semibold mt-0.5">Jenis: ${i.jenis}</p><p class="text-[11px] text-slate-300">Tanggal: ${i.start} s/d ${i.end}</p><p class="text-[11px] text-slate-400 mt-1">Alasan: "${i.desc}"</p>
             </div>
-            <div class="flex items-center gap-2">${i.status === 'Pending' ? `<button onclick="updateIzinStatus(${i.id}, 'Approved')" class="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs shadow hover:opacity-90">Setujui</button><button onclick="updateIzinStatus(${i.id}, 'Rejected')" class="px-3 py-1.5 bg-rose-500 text-white font-bold rounded-lg text-xs shadow hover:opacity-90">Tolak</button>` : ''}</div>
+            ${actionButtons}
         </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 function renderEmails() {
@@ -1186,7 +1238,8 @@ async function saveRole() {
 // BASECAMP MODAL
 // ============================================================
 function openAddBasecampModal() {
-    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
+    const roleName = activeEmployeeSession.role;
+    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
     document.getElementById('bc-modal-title').innerText = "Tambah Basecamp";
     document.getElementById('bc-edit-index').value = "-1";
     document.getElementById('bc-inp-name').value = "";
@@ -1196,7 +1249,8 @@ function openAddBasecampModal() {
     document.getElementById('basecamp-modal').classList.remove('hidden');
 }
 function openEditBasecampModal(index) {
-    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
+    const roleName = activeEmployeeSession.role;
+    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
     const b = basecamps[index];
     document.getElementById('bc-modal-title').innerText = "Edit Basecamp";
     document.getElementById('bc-edit-index').value = index;
@@ -1209,7 +1263,8 @@ function openEditBasecampModal(index) {
 function closeBasecampModal() { document.getElementById('basecamp-modal').classList.add('hidden'); }
 
 async function saveBasecamp() {
-    if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
+    const roleName = activeEmployeeSession.role;
+    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
     const index = parseInt(document.getElementById('bc-edit-index').value);
     const name = document.getElementById('bc-inp-name').value.trim();
     const lat = parseFloat(document.getElementById('bc-inp-lat').value);
@@ -1435,7 +1490,8 @@ function filterRekap() {
 }
 
 function resetRekapData() {
-    if (!isMasterAdmin()) return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
+    // C. Admin (dan role lain) tidak boleh reset data. Hanya Master Admin.
+    if (activeEmployeeSession.role !== 'Master Admin') return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
     showConfirm('Reset Data Rekap', 'Hapus seluruh data rekap absensi?', async () => {
         await supabaseClient.from('rekap_list').delete().neq('id', 0);
         rekapList = []; renderRekap(); updateDashboardStats();
@@ -1559,28 +1615,84 @@ function applyRolePermissions() {
     document.getElementById('desktop-user-initial').innerText = activeEmployeeSession.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
     document.getElementById('desktop-role-label').innerText = activeEmployeeSession.role;
     const roleName = activeEmployeeSession.role;
-    const rData = roles.find(r => r.name === roleName);
-    const accessStr = (roleName === 'Master Admin') ? 'dashboard, rekap, role, karyawan, basecamp, izin, email' : (rData ? rData.access.toLowerCase() : '');
-    const isAtasanOrManager = isMasterAdmin() || roleName.includes('Admin') || roleName.includes('Manajer') || employees.some(e => e.atasan === activeEmployeeSession.name);
-    const menuMapping = { 'dashboard': 'd-nav-dashboard', 'rekap': 'd-nav-rekap', 'role': 'd-nav-role', 'karyawan': 'd-nav-karyawan', 'basecamp': 'd-nav-basecamp', 'izin': 'd-nav-izin', 'email': 'd-nav-email' };
+
+    // Sembunyikan semua menu navigasi terlebih dahulu
+    const menuMapping = { 
+        'dashboard': 'd-nav-dashboard', 
+        'rekap': 'd-nav-rekap', 
+        'role': 'd-nav-role', 
+        'karyawan': 'd-nav-karyawan', 
+        'basecamp': 'd-nav-basecamp', 
+        'izin': 'd-nav-izin', 
+        'email': 'd-nav-email' 
+    };
     for (const [key, btnId] of Object.entries(menuMapping)) {
         const btn = document.getElementById(btnId);
-        if (btn) {
-            if (key === 'izin') {
-                if (isAtasanOrManager && (accessStr.includes('izin') || isMasterAdmin() || roleName.includes('Manajer') || roleName.includes('Admin'))) btn.classList.remove('hidden');
-                else btn.classList.add('hidden');
-            } else {
-                if (accessStr.includes(key)) btn.classList.remove('hidden');
-                else btn.classList.add('hidden');
-            }
+        if (btn) btn.classList.add('hidden');
+    }
+
+    // Dashboard selalu tampil untuk semua role
+    const dashBtn = document.getElementById('d-nav-dashboard');
+    if (dashBtn) dashBtn.classList.remove('hidden');
+
+    // Permission berdasarkan role spesifik
+    if (roleName === 'Master Admin') {
+        // Master Admin: akses penuh ke semua menu
+        for (const [key, btnId] of Object.entries(menuMapping)) {
+            if (key === 'dashboard') continue;
+            const btn = document.getElementById(btnId);
+            if (btn) btn.classList.remove('hidden');
+        }
+    } else if (roleName === 'Karyawan / Field') {
+        // A. Karyawan / Field: dashboard, rekap, email, basecamp (view only)
+        // Karyawan, Izin, Role di-hidden
+        ['rekap', 'email', 'basecamp'].forEach(key => {
+            const btn = document.getElementById(menuMapping[key]);
+            if (btn) btn.classList.remove('hidden');
+        });
+    } else if (roleName === 'Supervisor Field') {
+        // B. Supervisor Field: dashboard, rekap (read all), izin (atasan dia), email, basecamp (add/edit, no delete)
+        // Karyawan, Role di-hidden
+        ['rekap', 'izin', 'email', 'basecamp'].forEach(key => {
+            const btn = document.getElementById(menuMapping[key]);
+            if (btn) btn.classList.remove('hidden');
+        });
+    } else if (roleName === 'Admin') {
+        // C. Admin: dashboard, rekap (no reset), izin (view only all), email, basecamp (view only)
+        // Karyawan, Role di-hidden
+        ['rekap', 'izin', 'email', 'basecamp'].forEach(key => {
+            const btn = document.getElementById(menuMapping[key]);
+            if (btn) btn.classList.remove('hidden');
+        });
+    } else {
+        // Fallback: gunakan data dari tabel roles jika ada
+        const rData = roles.find(r => r.name === roleName);
+        const accessStr = rData ? rData.access.toLowerCase() : '';
+        for (const [key, btnId] of Object.entries(menuMapping)) {
+            if (key === 'dashboard') continue;
+            const btn = document.getElementById(btnId);
+            if (btn && accessStr.includes(key)) btn.classList.remove('hidden');
         }
     }
-    // Basecamp: hide "Tambah" button for view-only roles
+
+    // Basecamp: tombol "Tambah Basecamp"
     const btnAddBasecamp = document.getElementById('btn-add-basecamp');
     if (btnAddBasecamp) {
-        if (activeEmployeeSession.role === 'Karyawan / Field') btnAddBasecamp.classList.add('hidden');
-        else btnAddBasecamp.classList.remove('hidden');
+        // Hanya Master Admin dan Supervisor Field yang bisa tambah basecamp
+        if (roleName === 'Master Admin' || roleName === 'Supervisor Field') {
+            btnAddBasecamp.classList.remove('hidden');
+        } else {
+            btnAddBasecamp.classList.add('hidden');
+        }
     }
+
+    // Rekap: tombol "Reset Data" hanya untuk Master Admin
+    const btnResetRekap = document.getElementById('btn-reset-rekap');
+    if (btnResetRekap) {
+        if (roleName === 'Master Admin') btnResetRekap.classList.remove('hidden');
+        else btnResetRekap.classList.add('hidden');
+    }
+
     switchDesktopTab('dashboard');
 }
 
