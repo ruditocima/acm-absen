@@ -1129,7 +1129,6 @@ async function verifyOTP() {
 
 async function approveEmployeeAccount(index) {
     const emp = employees[index];
-    if (emp.status === 'Approved') { showToast('Akun sudah disetujui sebelumnya.', 'info'); return; }
     emp.status = 'Approved';
     await supabaseClient.from('employees').update({ status: 'Approved' }).eq('id', emp.id);
     renderEmployees(); updateDashboardStats(); populateEmailRecipients();
@@ -1188,19 +1187,8 @@ async function saveEmployee() {
         showToast('Karyawan baru ditambahkan. User harus register via mobile.', 'success');
     } else {
         const emp = employees[index];
-        const updates = {};
-        if (emp.name !== name) updates.name = name;
-        if (emp.position !== position) updates.position = position;
-        if (emp.role !== role) updates.role = role;
-        if (emp.atasan !== atasan) updates.atasan = atasan;
-
-        if (Object.keys(updates).length === 0) {
-            showToast('Tidak ada perubahan untuk disimpan.', 'info');
-            closeEmployeeModal(); return;
-        }
-
         emp.name = name; emp.position = position; emp.role = role; emp.atasan = atasan;
-        await supabaseClient.from('employees').update(updates).eq('id', id);
+        await supabaseClient.from('employees').update({ name, position, role, atasan }).eq('id', id);
         showToast('Data karyawan diperbarui.', 'success');
     }
     closeEmployeeModal(); renderEmployees(); updateDashboardStats(); populateEmailRecipients();
@@ -1239,18 +1227,8 @@ async function saveRole() {
         await supabaseClient.from('roles').insert([newRole]);
         showToast('Role baru ditambahkan.', 'success');
     } else {
-        const oldRole = roles[index];
-        const updates = {};
-        if (oldRole.name !== name) updates.name = name;
-        if (oldRole.access !== access) updates.access = access;
-
-        if (Object.keys(updates).length === 0) {
-            showToast('Tidak ada perubahan untuk disimpan.', 'info');
-            closeRoleModal(); return;
-        }
-
         roles[index] = { id, name, access };
-        await supabaseClient.from('roles').update(updates).eq('id', id);
+        await supabaseClient.from('roles').update({ name, access }).eq('id', id);
         showToast('Role diperbarui.', 'success');
     }
     closeRoleModal(); renderRoles();
@@ -1298,20 +1276,8 @@ async function saveBasecamp() {
         await supabaseClient.from('basecamps').insert([newBc]);
         showToast('Basecamp baru ditambahkan.', 'success');
     } else {
-        const b = basecamps[index];
-        const updates = {};
-        if (b.name !== name) updates.name = name;
-        if (b.lat !== lat) updates.lat = lat;
-        if (b.lng !== lng) updates.lng = lng;
-        if (b.radius !== radius) updates.radius = radius;
-
-        if (Object.keys(updates).length === 0) {
-            showToast('Tidak ada perubahan untuk disimpan.', 'info');
-            closeBasecampModal(); return;
-        }
-
-        b.name = name; b.lat = lat; b.lng = lng; b.radius = radius;
-        await supabaseClient.from('basecamps').update(updates).eq('id', b.id);
+        const b = basecamps[index]; b.name = name; b.lat = lat; b.lng = lng; b.radius = radius;
+        await supabaseClient.from('basecamps').update({ name, lat, lng, radius }).eq('id', b.id);
         showToast('Basecamp diperbarui.', 'success');
     }
     closeBasecampModal(); renderBasecamps();
