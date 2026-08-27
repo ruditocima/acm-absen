@@ -263,6 +263,20 @@ function populateEmailRecipients() {
 function renderEmployees() {
     const tbody = document.getElementById('karyawan-tbody');
     if(!tbody) return;
+
+    // Handle state kosong dengan pesan informatif
+    if (employees.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-slate-500 text-xs"><i class="fa-solid fa-circle-info text-slate-600 mb-1 block text-lg"></i>Tidak ada data karyawan yang dapat ditampilkan.<br><span class="text-[10px] text-slate-600">Pastikan Anda sudah login dan memiliki hak akses.</span></td></tr>';
+        const badge = document.getElementById('karyawan-pending-badge');
+        if(badge) badge.classList.add('hidden');
+        // Reset dropdown atasan
+        const atasanSelect = document.getElementById('inp-atasan');
+        if(atasanSelect) {
+            atasanSelect.innerHTML = '<option value="">--- (Tidak Ada Atasan)</option><option value="Master Admin">Master Admin</option>';
+        }
+        return;
+    }
+
     const pendingCount = employees.filter(e => e.status === 'Pending').length;
     const badge = document.getElementById('karyawan-pending-badge');
     if(badge) {
@@ -348,6 +362,17 @@ function renderMobileMyHistory() {
         });
     }
     container.innerHTML = html;
+}
+
+// ============================================================
+// REFRESH DATA MANUAL
+// ============================================================
+async function refreshAllData() {
+    showToast('Memuat ulang data dari server...', 'info');
+    await fetchAllDataFromSupabase();
+    renderEmployees(); renderRekap(); renderBasecamps(); renderAdminIzin();
+    renderEmails(); updateEmailBadges(); updateDashboardStats();
+    showToast('Data berhasil diperbarui!', 'success');
 }
 
 function updateDashboardStats() {
@@ -537,18 +562,20 @@ async function fetchAllDataFromSupabase() {
         const { data: eData, error: eErr } = await supabaseClient.from('employees').select('*');
         if (eErr) {
             console.warn('[Supabase] Employees fetch error:', eErr.message, eErr.code);
+            employees = []; // Reset ke empty agar tidak menampilkan data stale
             if (eErr.code === 'PGRST301' || eErr.message?.includes('JWT')) {
                 console.log('[Supabase] Employees fetch skipped: user not authenticated');
             }
-        }
-        if (eData && eData.length > 0) {
-            employees = eData.map(e => ({
+        } else {
+            employees = (eData || []).map(e => ({
                 id: e.id, name: e.name, position: e.position || '-', role: e.role,
                 atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
             }));
+            console.log('[Supabase] Employees loaded:', employees.length, 'records');
         }
     } catch (err) {
         console.error('[Supabase] Employees exception:', err);
+        employees = [];
     }
 
     // Fetch rekap (butuh login)
@@ -693,9 +720,15 @@ async function processLoginValidation(email, pass, isDesktop) {
         return false;
     }
     const authUser = authData.user;
-    let { data: empData } = await supabaseClient.from('employees').select('*').eq('auth_id', authUser.id).single();
+    let { data: empData, error: empErr } = await supabaseClient.from('employees').select('*').eq('auth_id', authUser.id).maybeSingle();
+    if (empErr) {
+        console.warn('[Auth] Fetch employee by auth_id error:', empErr.message);
+    }
     if (!empData) {
-        const { data: fallbackData } = await supabaseClient.from('employees').select('*').eq('id', email).single();
+        const { data: fallbackData, error: fallbackErr } = await supabaseClient.from('employees').select('*').eq('id', email).maybeSingle();
+        if (fallbackErr) {
+            console.warn('[Auth] Fetch employee by email error:', fallbackErr.message);
+        }
         if (fallbackData) {
             await supabaseClient.from('employees').update({ auth_id: authUser.id }).eq('id', email);
             empData = fallbackData; empData.auth_id = authUser.id;
@@ -1474,6 +1507,7 @@ function switchDesktopTab(tab) {
     if(activeEl) activeEl.classList.remove('hidden');
     if(activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
     if(tab === 'rekap') renderRekap();
+    if(tab === 'karyawan') renderEmployees();
     if(tab === 'basecamp') { renderBasecamps(); setTimeout(() => { if(bcMap) bcMap.invalidateSize(); }, 200); }
     if(tab === 'email') switchDesktopEmailSub('inbox');
 }
@@ -1564,6 +1598,17 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchAllDataFromSupabase();
         initSupabaseRealtime();
         updateServerStatusIndicator();
+
+        // Inject tombol refresh ke header tab karyawan jika belum ada
+        const karyawanHeader = document.querySelector('#d-tab-karyawan .flex.justify-between');
+        if (karyawanHeader && !document.getElementById('btn-refresh-karyawan')) {
+            const refreshBtn = document.createElement('button');
+            refreshBtn.id = 'btn-refresh-karyawan';
+            refreshBtn.className = 'px-3 py-1.5 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1 transition ml-2';
+            refreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh';
+            refreshBtn.onclick = refreshAllData;
+            karyawanHeader.appendChild(refreshBtn);
+        }
     }, 500);
 });
 
