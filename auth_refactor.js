@@ -1599,12 +1599,23 @@ function switchDesktopTab(tab) {
         const el = document.getElementById(`d-tab-${t}`);
         const btn = document.getElementById(`d-nav-${t}`);
         if(el) el.classList.add('hidden');
-        if(btn) btn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all";
+        if(btn) {
+            // PENTING: Hanya reset style pada tombol yang terlihat (tidak memiliki class 'hidden')
+            // agar class 'hidden' tidak tertimpa dan menu yang di-hide tetap hilang
+            if (!btn.classList.contains('hidden')) {
+                btn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all";
+            }
+        }
     });
     const activeEl = document.getElementById(`d-tab-${tab}`);
     const activeBtn = document.getElementById(`d-nav-${tab}`);
     if(activeEl) activeEl.classList.remove('hidden');
-    if(activeBtn) activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
+    if(activeBtn) {
+        // Pastikan tombol aktif juga tidak mengoverride hidden (jaga-jaga jika dipanggil secara tidak sengaja)
+        if (!activeBtn.classList.contains('hidden')) {
+            activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
+        }
+    }
     if(tab === 'rekap') renderRekap();
     if(tab === 'karyawan') renderEmployees();
     if(tab === 'basecamp') { renderBasecamps(); setTimeout(() => { if(bcMap) bcMap.invalidateSize(); }, 200); }
