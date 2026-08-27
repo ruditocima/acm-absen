@@ -422,13 +422,39 @@ async function refreshAllData() {
 
 function updateDashboardStats() {
     const todayStr = getWIBDateString(); // WIB, bukan UTC
-    // Karyawan dengan posisi "Administrator" tidak dihitung dalam total karyawan operasional
-    const karyawanOperasional = employees.filter(e => e.position && e.position.toLowerCase() !== 'administrator');
-    const totalKaryawan = karyawanOperasional.length;
+
+    // 1. Karyawan aktif: Approved & bukan Administrator
+    const karyawanAktif = employees.filter(e =>
+        e.status === 'Approved' &&
+        e.position &&
+        e.position.toLowerCase() !== 'administrator'
+    );
+    const totalKaryawan = karyawanAktif.length;
+
+    // 2. Kehadiran hari ini
     const todayRekap = rekapList.filter(r => r.date === todayStr);
     const tepatWaktuCount = todayRekap.filter(r => r.status === 'Tepat Waktu').length;
     const terlambatCount = todayRekap.filter(r => r.status === 'Terlambat').length;
-    const izinAlphaCount = izinList.filter(i => i.status === 'Approved' && i.start <= todayStr && i.end >= todayStr).length;
+
+    // 3. Set nama karyawan yang sudah absen hari ini
+    const hadirHariIni = new Set(
+        todayRekap.map(r => r.name)
+    );
+
+    // 4. Set nama karyawan yang punya izin Approved hari ini (hindari duplikat)
+    const izinHariIni = new Set(
+        izinList
+            .filter(i => i.status === 'Approved' && i.start <= todayStr && i.end >= todayStr)
+            .map(i => i.name)
+    );
+
+    // 5. Hitung Izin & Alpha
+    const countIzin = izinHariIni.size;
+    // Alpha = karyawan aktif yang tidak hadir DAN tidak punya izin
+    const countAlpha = Math.max(0, totalKaryawan - hadirHariIni.size - countIzin);
+    const izinAlphaCount = countIzin + countAlpha;
+
+    // 6. Render ke DOM
     const elTotal = document.getElementById('stat-total-karyawan');
     const elTepat = document.getElementById('stat-tepat-waktu');
     const elTerlambat = document.getElementById('stat-terlambat');
