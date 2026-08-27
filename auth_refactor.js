@@ -131,6 +131,49 @@ function getWIBTimeParts(date = new Date()) {
     };
 }
 
+function formatWIBTime(date) {
+    return new Date(date).toLocaleTimeString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+    });
+}
+
+function formatWIBDateTime(date) {
+    return new Date(date).toLocaleString('id-ID', {
+        timeZone: 'Asia/Jakarta',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+}
+
+function formatRekapTime(timeValue) {
+    if (!timeValue) return '--:--:--';
+    // Jika sudah format HH:MM:SS string, kembalikan apa adanya
+    if (typeof timeValue === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
+        return timeValue;
+    }
+    // Jika format ISO atau Date object, konversi ke WIB
+    try {
+        return new Date(timeValue).toLocaleTimeString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        });
+    } catch (e) {
+        return timeValue;
+    }
+}
+
+
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -329,7 +372,7 @@ function renderRekapDataToTable(dataList) {
             <td class="p-3 text-white">${r.date}</td>
             <td class="p-3 font-semibold text-white">${r.name}</td>
             <td class="p-3 text-slate-300">${r.basecamp}</td>
-            <td class="p-3 font-mono text-emerald-400">${r.time}</td>
+            <td class="p-3 font-mono text-emerald-400">${formatRekapTime(r.time)}</td>
             <td class="p-3"><span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Tepat Waktu' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}">${r.status}</span></td>
             <td class="p-3 text-rose-400 font-mono">${r.late}</td>
             <td class="p-3">${r.selfie_url ? `<button onclick="openImageZoom('${r.selfie_url}')" class="px-2 py-1 bg-slate-800 text-gold-400 border border-slate-700 hover:bg-slate-700 rounded text-[11px] font-semibold transition flex items-center gap-1"><i class="fa-solid fa-image"></i> Lihat</button>` : '-'}</td>
@@ -355,7 +398,7 @@ function renderMobileMyHistory() {
         html = '<p class="text-slate-500 text-center py-2">Belum ada riwayat tercatat.</p>';
     } else {
         myRekap.slice().reverse().forEach(r => {
-            html += `<div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center mb-2"><div><p class="text-xs font-bold text-white">${r.date}</p><p class="text-[10px] text-slate-400"><i class="fa-solid fa-location-dot text-gold-400"></i> ${r.basecamp}</p></div><div class="text-right"><p class="text-xs font-mono text-emerald-400">${r.time} WIB</p><p class="text-[10px] ${r.status === 'Tepat Waktu' ? 'text-emerald-500' : 'text-amber-500'} font-semibold">${r.status}</p></div></div>`;
+            html += `<div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center mb-2"><div><p class="text-xs font-bold text-white">${r.date}</p><p class="text-[10px] text-slate-400"><i class="fa-solid fa-location-dot text-gold-400"></i> ${r.basecamp}</p></div><div class="text-right"><p class="text-xs font-mono text-emerald-400">${formatRekapTime(r.time)} WIB</p><p class="text-[10px] ${r.status === 'Tepat Waktu' ? 'text-emerald-500' : 'text-amber-500'} font-semibold">${r.status}</p></div></div>`;
         });
         myIzin.slice().reverse().forEach(i => {
             html += `<div class="bg-slate-950/40 p-3 rounded-xl border border-slate-800 flex justify-between items-center mb-2"><div><p class="text-xs font-bold text-white">Izin: ${i.jenis}</p><p class="text-[10px] text-slate-400">${i.start} s/d ${i.end}</p></div><div class="text-right"><span class="px-2 py-0.5 rounded text-[9px] font-bold ${i.status === 'Approved' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">${i.status}</span></div></div>`;
@@ -484,7 +527,7 @@ function renderEmails() {
         else {
             mInboxList.innerHTML = inboxRows.map(e => {
                 const isRead = readIds.includes(e.id) || e.read || e.sender === userEmail;
-                const timeStr = new Date(e.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                const timeStr = formatWIBTime(e.created_at);
                 return `<div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border ${!isRead ? 'border-gold-500/50 bg-slate-900/90' : 'border-slate-800'} cursor-pointer hover:border-gold-500 transition"><div class="flex justify-between items-start mb-1"><span class="font-bold text-white flex items-center gap-1.5">${!isRead ? '<span class="w-2 h-2 rounded-full bg-gold-500 inline-block"></span>' : ''}${e.sender_name || e.sender}</span><span class="text-[10px] text-slate-400 font-mono">${timeStr}</span></div><p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p><p class="text-[11px] text-slate-300 truncate mt-0.5">${e.message}</p></div>`;
             }).join('');
         }
@@ -494,7 +537,7 @@ function renderEmails() {
     if (mSentList) {
         if (sentRows.length === 0) { mSentList.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>'; }
         else {
-            mSentList.innerHTML = sentRows.map(e => `<div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition"><div class="flex justify-between items-start mb-1"><span class="font-bold text-white">Kepada: ${getEmployeeDisplayName(e.receiver)}</span><span class="text-[10px] text-slate-400 font-mono">${new Date(e.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span></div><p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p></div>`).join('');
+            mSentList.innerHTML = sentRows.map(e => `<div onclick="openEmailDetail(${e.id})" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition"><div class="flex justify-between items-start mb-1"><span class="font-bold text-white">Kepada: ${getEmployeeDisplayName(e.receiver)}</span><span class="text-[10px] text-slate-400 font-mono">${formatWIBTime(e.created_at)}</span></div><p class="text-xs font-semibold text-gold-400 truncate">${e.subject}</p></div>`).join('');
         }
     }
 
@@ -504,7 +547,7 @@ function renderEmails() {
         else {
             dInboxTbody.innerHTML = inboxRows.map(e => {
                 const isRead = readIds.includes(e.id) || e.read || e.sender === userEmail;
-                const timeStr = new Date(e.created_at).toLocaleString('id-ID');
+                const timeStr = formatWIBDateTime(e.created_at);
                 const isBroadcast = e.receiver === 'BROADCAST';
                 return `<tr class="hover:bg-slate-900/50 ${!isRead ? 'bg-slate-900/60 font-semibold' : ''}"><td class="p-3 font-mono text-slate-400 text-[11px]">${timeStr}</td><td class="p-3 text-white">${e.sender_name || e.sender}</td><td class="p-3"><div class="text-white font-bold">${e.subject}</div><div class="text-slate-400 truncate max-w-xs font-normal">${e.message}</div></td><td class="p-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${isBroadcast ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}">${isBroadcast ? 'Broadcast' : 'Pribadi'}</span></td><td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(${e.id})" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Baca</button><button onclick="deleteEmailItem(${e.id})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>`;
             }).join('');
@@ -515,7 +558,7 @@ function renderEmails() {
     if (dSentTbody) {
         if (sentRows.length === 0) { dSentTbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>'; }
         else {
-            dSentTbody.innerHTML = sentRows.map(e => `<tr class="hover:bg-slate-900/50"><td class="p-3 font-mono text-slate-400 text-[11px]">${new Date(e.created_at).toLocaleString('id-ID')}</td><td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td><td class="p-3 text-white font-semibold">${e.subject}</td><td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(${e.id})" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Lihat</button><button onclick="deleteEmailItem(${e.id})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('');
+            dSentTbody.innerHTML = sentRows.map(e => `<tr class="hover:bg-slate-900/50"><td class="p-3 font-mono text-slate-400 text-[11px]">${formatWIBDateTime(e.created_at)}</td><td class="p-3 text-white">${getEmployeeDisplayName(e.receiver)}</td><td class="p-3 text-white font-semibold">${e.subject}</td><td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(${e.id})" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Lihat</button><button onclick="deleteEmailItem(${e.id})" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('');
         }
     }
 }
@@ -1339,7 +1382,7 @@ function openEmailDetail(emailId) {
     activeSelectedEmail = email; markEmailAsRead(email.id);
     document.getElementById('detail-email-sender').innerText = email.sender_name || email.sender;
     document.getElementById('detail-email-receiver').innerText = getEmployeeDisplayName(email.receiver);
-    document.getElementById('detail-email-time').innerText = new Date(email.created_at).toLocaleString('id-ID');
+    document.getElementById('detail-email-time').innerText = formatWIBDateTime(email.created_at);
     document.getElementById('detail-email-subject').innerText = email.subject;
     document.getElementById('detail-email-message').innerText = email.message;
     const btnReply = document.getElementById('btn-reply-email');
