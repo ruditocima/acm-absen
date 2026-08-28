@@ -953,16 +953,24 @@ async function verifyOTP() {
     }
 
     if (authError) {
-        console.warn('SignUp error:', authError);
-        const errMsg = authError.message.toLowerCase();
-        if (errMsg.includes('already') || errMsg.includes('registered')) {
+        const errMsg = (authError.message || '').toLowerCase();
+        // Tangani error "already registered" tanpa console error yang mengganggu
+        if (errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('user already')) {
             showToast('Email sudah terdaftar. Silakan login.', 'warning'); 
+            // Auto-fill email di form login agar UX lebih baik
+            const loginEmail = document.getElementById('login-email');
+            if (loginEmail && tempRegData) loginEmail.value = tempRegData.email;
             toggleAuthMode('login'); 
+            generatedOTP = null;
+            otpExpiryTime = null;
+            document.getElementById('reg-otp-input').value = '';
             return;
         } else if (errMsg.includes('rate limit')) {
             showToast('Terlalu banyak percobaan. Tunggu 1 menit.', 'warning'); 
             return;
         }
+        // Baru log ke console jika error tidak terduga
+        console.error('SignUp error:', authError);
         showToast('Gagal mendaftar: ' + authError.message, 'error'); 
         return;
     }
@@ -1063,7 +1071,6 @@ async function verifyOTP() {
     document.getElementById('reg-otp-input').value = '';
     toggleAuthMode('login');
 }
-
 async function approveEmployeeAccount(index) {
     const emp = employees[index];
     emp.status = 'Approved';
