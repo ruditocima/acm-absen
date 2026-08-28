@@ -32,7 +32,6 @@ let supabaseConnected = false;
 async function checkSupabaseConnection(retries = 2) {
     for (let i = 0; i <= retries; i++) {
         try {
-            // Query ke roles (sekarang public read, tidak recursive)
             const { data, error } = await supabaseClient.from('roles').select('id').limit(1);
             if (error) {
                 console.warn(`[Supabase] Connection check attempt ${i+1} failed:`, error.message);
@@ -67,30 +66,20 @@ function loadFallbackData() {
         basecamps = [{ id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 1500 }];
     }
 }
+
 // ============================================================
-// EMAILJS CONFIG  ->  SENDGRID VIA EMAILJS
+// EMAILJS CONFIG -> SENDGRID VIA EMAILJS
 // ============================================================
-// LANGKAH SETUP SENDGRID:
-// 1. Daftar di https://sendgrid.com (gratis 100 email/hari)
-// 2. Settings -> Sender Authentication -> Single Sender Verification
-//    -> isi data & verifikasi via email
-// 3. Settings -> API Keys -> Create API Key (Full Access) -> copy key
-// 4. Dashboard EmailJS -> Email Services -> Add New Service -> pilih SendGrid
-//    -> paste API Key SendGrid -> Save
-// 5. Copy Service ID SendGrid Anda (contoh: service_abc123) dan paste di bawah
-// ============================================================
-const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';   // Public Key EmailJS (tetap sama)
-const EMAILJS_SERVICE_ID = 'service_3w0ocfc';  // <-- GANTI INI dengan Service ID SendGrid dari EmailJS
-const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';      // Template ID tetap sama
+const EMAILJS_PUBLIC_KEY = 'il5LfNiQu0y8dsN35';
+const EMAILJS_SERVICE_ID = 'service_3w0ocfc';
+const EMAILJS_TEMPLATE_ID = 'template_09rz7kd';
 let emailjsReady = false;
 
 function initEmailJS() {
     try {
         if (typeof emailjs !== 'undefined' && typeof emailjs.init === 'function') {
-    emailjs.init(EMAILJS_PUBLIC_KEY);
-    emailjsReady = true;
-    // console.log('[EmailJS] Initialized successfully');
-}
+            emailjs.init(EMAILJS_PUBLIC_KEY);
+            emailjsReady = true;
         } else {
             console.warn('[EmailJS] Library not loaded yet, will retry...');
             emailjsReady = false;
@@ -104,11 +93,9 @@ function initEmailJS() {
 (function(){
     initEmailJS();
 })();
+
 // ============================================================
-// UTILITY FUNCTIONS
-// ============================================================
-// ============================================================
-// HELPER: WIB (Asia/Jakarta)
+// UTILITY FUNCTIONS & HELPER WIB
 // ============================================================
 function getWIBDateString(date = new Date()) {
     const parts = new Intl.DateTimeFormat('id-ID', {
@@ -158,11 +145,9 @@ function formatWIBDateTime(date) {
 
 function formatRekapTime(timeValue) {
     if (!timeValue) return '--:--:--';
-    // Jika sudah format HH:MM:SS string, kembalikan apa adanya
     if (typeof timeValue === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
         return timeValue;
     }
-    // Jika format ISO atau Date object, konversi ke WIB
     try {
         return new Date(timeValue).toLocaleTimeString('id-ID', {
             timeZone: 'Asia/Jakarta',
@@ -175,7 +160,6 @@ function formatRekapTime(timeValue) {
         return timeValue;
     }
 }
-
 
 function showToast(message, type = 'success') {
     const container = document.getElementById('toast-container');
@@ -276,7 +260,7 @@ async function initializeDeviceBinding() {
 }
 
 // ============================================================
-// RENDER FUNCTIONS (didefinisikan SEMUA sebelum dipanggil)
+// RENDER FUNCTIONS
 // ============================================================
 function updateEmailBadges() {
     const mBadge = document.getElementById('mobile-email-badge');
@@ -310,12 +294,10 @@ function renderEmployees() {
     const tbody = document.getElementById('karyawan-tbody');
     if(!tbody) return;
 
-    // Handle state kosong dengan pesan informatif
     if (employees.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" class="p-6 text-center text-slate-500 text-xs"><i class="fa-solid fa-circle-info text-slate-600 mb-1 block text-lg"></i>Tidak ada data karyawan yang dapat ditampilkan.<br><span class="text-[10px] text-slate-600">Pastikan Anda sudah login dan memiliki hak akses.</span></td></tr>';
         const badge = document.getElementById('karyawan-pending-badge');
         if(badge) badge.classList.add('hidden');
-        // Reset dropdown atasan
         const atasanSelect = document.getElementById('inp-atasan');
         if(atasanSelect) {
             atasanSelect.innerHTML = '<option value="">--- (Tidak Ada Atasan)</option><option value="Master Admin">Master Admin</option>';
@@ -350,7 +332,6 @@ function renderEmployees() {
         </tr>
     `).join('');
 
-    // === DROPDOWN ATASAN: tanpa duplikat, ada pilihan --- ===
     const atasanSelect = document.getElementById('inp-atasan');
     if(atasanSelect) {
         const opts = new Map();
@@ -410,9 +391,6 @@ function renderMobileMyHistory() {
     container.innerHTML = html;
 }
 
-// ============================================================
-// REFRESH DATA MANUAL
-// ============================================================
 async function refreshAllData() {
     showToast('Memuat ulang data dari server...', 'info');
     await fetchAllDataFromSupabase();
@@ -422,8 +400,7 @@ async function refreshAllData() {
 }
 
 function updateDashboardStats() {
-    const todayStr = getWIBDateString(); // WIB, bukan UTC
-    // Karyawan dengan posisi "Administrator" tidak dihitung dalam total karyawan operasional
+    const todayStr = getWIBDateString();
     const karyawanOperasional = employees.filter(e => e.position && e.position.toLowerCase() !== 'administrator');
     const totalKaryawan = karyawanOperasional.length;
     const todayRekap = rekapList.filter(r => r.date === todayStr);
@@ -450,9 +427,6 @@ function renderRoles() {
     if(roleSelect) roleSelect.innerHTML = roles.map(r => `<option value="${r.name}">${r.name}</option>`).join('');
 }
 
-// ============================================================
-// BASECAMP DELETE
-// ============================================================
 function deleteBasecamp(index) {
     if (activeEmployeeSession.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
     if (!isMasterAdmin()) return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
@@ -473,16 +447,13 @@ function renderBasecamps() {
     let canEdit = false;
     let canDelete = false;
 
-    // Permission basecamp berdasarkan role
     if (roleName === 'Master Admin') {
         canEdit = true;
         canDelete = true;
     } else if (roleName === 'Supervisor Field') {
-        // Supervisor: bisa tambah dan edit, TIDAK boleh hapus
         canEdit = true;
         canDelete = false;
     } else {
-        // Karyawan / Field, Admin = view only (tidak bisa edit maupun hapus)
         canEdit = false;
         canDelete = false;
     }
@@ -524,14 +495,11 @@ function renderAdminIzin() {
     const roleName = activeEmployeeSession.role;
     let visibleIzins = [];
 
-    // Filter izin berdasarkan role
     if (roleName === 'Master Admin') {
         visibleIzins = izinList;
     } else if (roleName === 'Supervisor Field') {
-        // Hanya izin yang atasan = nama Supervisor Field ini
         visibleIzins = izinList.filter(i => i.atasan === activeEmployeeSession.name);
     } else if (roleName === 'Admin') {
-        // Admin: view only semua izin dari seluruh karyawan
         visibleIzins = izinList;
     } else {
         visibleIzins = [];
@@ -543,8 +511,6 @@ function renderAdminIzin() {
     if(visibleIzins.length === 0) { container.innerHTML = '<p class="text-slate-500 text-center py-4 text-xs">Belum ada pengajuan izin.</p>'; return; }
 
     container.innerHTML = visibleIzins.map((i) => {
-        // Tombol action: hanya Master Admin dan Supervisor Field (untuk izin yang masuk ke dia)
-        // Admin = view only, tidak ada tombol approve/reject
         let actionButtons = '';
         if ((roleName === 'Master Admin' || roleName === 'Supervisor Field') && i.status === 'Pending') {
             actionButtons = `
@@ -617,7 +583,7 @@ function renderEmails() {
 }
 
 // ============================================================
-// DATA FETCH (dipindahkan ke sini setelah semua render fn defined)
+// DATA FETCH
 // ============================================================
 async function fetchAllDataFromSupabase() {
     const isConnected = await checkSupabaseConnection();
@@ -626,11 +592,9 @@ async function fetchAllDataFromSupabase() {
         loadFallbackData();
         renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
         renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
-        updateServerStatusIndicator();
         return;
     }
 
-    // Fetch roles (PUBLIC READ - tidak perlu login)
     try {
         const { data: rData, error: rErr } = await supabaseClient.from('roles').select('*');
         if (rErr) { console.warn('[Supabase] Roles fetch error:', rErr.message, rErr.code); }
@@ -643,7 +607,6 @@ async function fetchAllDataFromSupabase() {
         loadFallbackData();
     }
 
-    // Fetch basecamps (PUBLIC READ - tidak perlu login)
     try {
         const { data: bData, error: bErr } = await supabaseClient.from('basecamps').select('*');
         if (bErr) console.warn('[Supabase] Basecamps fetch error:', bErr.message);
@@ -653,28 +616,22 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Basecamps exception:', err);
     }
 
-    // Fetch employees (butuh login - auth.uid() IS NOT NULL)
     try {
         const { data: eData, error: eErr } = await supabaseClient.from('employees').select('*');
         if (eErr) {
             console.warn('[Supabase] Employees fetch error:', eErr.message, eErr.code);
-            employees = []; // Reset ke empty agar tidak menampilkan data stale
-            if (eErr.code === 'PGRST301' || eErr.message?.includes('JWT')) {
-                console.log('[Supabase] Employees fetch skipped: user not authenticated');
-            }
+            employees = [];
         } else {
             employees = (eData || []).map(e => ({
-            id: e.id, name: e.name, position: e.position || '-', role: e.role,
-            atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
+                id: e.id, name: e.name, position: e.position || '-', role: e.role,
+                atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
             }));
-            // console.log('[Supabase] Employees loaded:', employees.length, 'records');
         }
     } catch (err) {
         console.error('[Supabase] Employees exception:', err);
         employees = [];
     }
 
-    // Fetch rekap (butuh login)
     try {
         const { data: rkData, error: rkErr } = await supabaseClient.from('rekap_list').select('*');
         if (rkErr) console.warn('[Supabase] Rekap fetch error:', rkErr.message);
@@ -683,7 +640,6 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Rekap exception:', err);
     }
 
-    // Fetch izin (butuh login)
     try {
         const { data: iData, error: iErr } = await supabaseClient.from('izin_list').select('*');
         if (iErr) console.warn('[Supabase] Izin fetch error:', iErr.message);
@@ -692,7 +648,6 @@ async function fetchAllDataFromSupabase() {
         console.error('[Supabase] Izin exception:', err);
     }
 
-    // Fetch emails (butuh login)
     try {
         const { data: emData, error: emErr } = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
         if (emErr) console.warn('[Supabase] Emails fetch error:', emErr.message);
@@ -709,7 +664,6 @@ async function fetchAllDataFromSupabase() {
 
     renderRoles(); renderEmployees(); renderRekap(); renderBasecamps();
     renderAdminIzin(); populateEmailRecipients(); renderEmails(); updateDashboardStats();
-    updateServerStatusIndicator();
     renderEmployeeOfTheMonth();
     renderMobileEOM();
 }
@@ -745,7 +699,6 @@ async function initAuth() {
                 };
                 document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
                 document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-                // Re-fetch semua data setelah login (karena employees sekarang butuh auth)
                 await fetchAllDataFromSupabase();
                 const readIds = getReadEmailIds();
                 emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
@@ -762,16 +715,14 @@ async function initAuth() {
             document.getElementById('mobile-user-initial').innerText = 'T';
             employees = []; rekapList = []; izinList = []; emailsList = [];
             populateEmailRecipients(); updateEmailBadges(); switchMobileTab('daftar');
-            await fetchAllDataFromSupabase(); // Re-fetch untuk reset data
+            await fetchAllDataFromSupabase();
         } else if (event === 'SIGNED_IN' && session) {
-            // Re-fetch setelah sign in
             await fetchAllDataFromSupabase();
         }
     });
 }
 
 async function processLoginValidation(email, pass, isDesktop) {
-    // ===== DEV BYPASS (HAPUS/KOMEN BLOK INI SEBELUM PRODUCTION) =====
     if (email === 'admin@acero.com' && pass === 'admin123') {
         activeEmployeeSession = {
             id: 'admin@acero.com',
@@ -791,7 +742,6 @@ async function processLoginValidation(email, pass, isDesktop) {
         showToast('Login DEV BYPASS berhasil!', 'success');
         return true;
     }
-    // ===== END DEV BYPASS =====
 
     if(!email || !pass) { showToast('Harap isi email dan password Anda.', 'error'); return false; }
 
@@ -847,7 +797,6 @@ async function processLoginValidation(email, pass, isDesktop) {
     activeEmployeeSession = { id: empData.id, name: empData.name, position: empData.position, role: empData.role, atasan: empData.atasan, status: empData.status, deviceId: empData.device_id, auth_id: empData.auth_id };
     document.getElementById('mobile-user-title').innerText = `Halo, ${empData.name}`;
     document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase();
-    // Re-fetch semua data setelah login berhasil
     await fetchAllDataFromSupabase();
     const readIds = getReadEmailIds();
     emailsList.forEach(e => { if (readIds.includes(e.id)) e.read = true; });
@@ -909,7 +858,6 @@ async function requestOTP() {
         btnOTP.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mengirim OTP...';
     }
 
-    // Helper: lanjut ke step 2 (sukses maupun fallback)
     const proceedToStep2 = (instructionHtml, toastType = 'success', toastMsg = 'Kode OTP berhasil dikirim!') => {
         const instElem = document.getElementById('otp-instruction-text');
         if (instElem) instElem.innerHTML = instructionHtml;
@@ -922,7 +870,6 @@ async function requestOTP() {
         }
     };
 
-    // Cek apakah EmailJS tersedia
     if (typeof emailjs === 'undefined' || !emailjsReady) {
         proceedToStep2(
             `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
@@ -938,16 +885,14 @@ async function requestOTP() {
     }
 
     try {
-        // EmailJS v4: public key sebagai parameter ke-4 lebih reliable
         await emailjs.send(
             EMAILJS_SERVICE_ID,
             EMAILJS_TEMPLATE_ID,
             {
-                // Parameter untuk EmailJS template (nama harus SAMA dengan variable di template)
-                to_email: email,      // untuk template yang pakai {{to_email}}
-                email: email,         // untuk template yang pakai {{email}} (screenshot test Anda)
-                to: email,            // fallback untuk SendGrid
-                recipient: email,     // fallback tambahan
+                to_email: email,
+                email: email,
+                to: email,
+                recipient: email,
                 to_name: nama,
                 otp_code: generatedOTP,
                 from_name: 'KaryaOne ACM',
@@ -966,7 +911,6 @@ async function requestOTP() {
         console.error('EmailJS Error:', error);
         const errorMsg = (error && error.text) ? error.text : (error && error.message ? error.message : 'Unknown error');
 
-        // FALLBACK: Tetap tampilkan OTP di UI agar user bisa lanjut daftar
         proceedToStep2(
             `<div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mb-2">
                 <p class="text-amber-400 font-bold mb-1"><i class="fa-solid fa-triangle-exclamation"></i> Gagal Mengirim Email</p>
@@ -977,7 +921,6 @@ async function requestOTP() {
             'warning',
             'Email gagal terkirim. Gunakan kode OTP yang ditampilkan.'
         );
-        // JANGAN reset generatedOTP & otpExpiryTime agar user tetap bisa verifikasi
     }
 }
 
@@ -1030,7 +973,6 @@ async function verifyOTP() {
         return;
     }
 
-    // LANGSUNG LOGIN agar session aktif untuk RLS policy
     try {
         const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
             email: tempRegData.email,
@@ -1041,12 +983,9 @@ async function verifyOTP() {
         console.warn('Auto-login exception:', e);
     }
 
-    // Tunggu trigger SQL berjalan (1.5 detik)
     await new Promise(r => setTimeout(r, 1500));
 
-    // CEK: apakah trigger sudah membuat data?
     let existingEmp = null;
-    let fetchErr = null;
     try {
         const { data, error } = await supabaseClient
             .from('employees')
@@ -1054,14 +993,12 @@ async function verifyOTP() {
             .eq('id', tempRegData.email)
             .maybeSingle();
         existingEmp = data;
-        fetchErr = error;
         if (error) console.warn('[Verify] Fetch existing employee error:', error.message);
     } catch (err) {
         console.error('[Verify] Fetch existing employee exception:', err);
     }
 
     if (existingEmp) {
-        // Trigger berhasil. Update nama jika trigger pakai default 'User Baru'
         if (existingEmp.name === 'User Baru' || !existingEmp.name) {
             await supabaseClient
                 .from('employees')
@@ -1069,7 +1006,6 @@ async function verifyOTP() {
                 .eq('id', tempRegData.email);
             existingEmp.name = tempRegData.nama;
         }
-        // Update array lokal
         const idx = employees.findIndex(e => e.id === tempRegData.email);
         const empObj = { 
             id: existingEmp.id, 
@@ -1085,7 +1021,6 @@ async function verifyOTP() {
         
         showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
     } else {
-        // FALLBACK: Trigger gagal, insert manual dengan session aktif
         showToast('Menyimpan data profil...', 'info');
         const { error: insertErr } = await supabaseClient
             .from('employees')
@@ -1118,7 +1053,6 @@ async function verifyOTP() {
         }
     }
 
-    // Refresh semua data dari server
     await fetchAllDataFromSupabase();
     renderEmployees(); 
     updateDashboardStats(); 
@@ -1168,7 +1102,6 @@ function openEditEmployeeModal(index) {
     document.getElementById('inp-name').value = emp.name;
     document.getElementById('inp-position').value = emp.position;
     document.getElementById('inp-role').value = emp.role;
-    // Default ke --- (kosong) kalau tidak punya atasan
     document.getElementById('inp-atasan').value = emp.atasan || '';
     document.getElementById('inp-password').value = "••••••••";
     document.getElementById('employee-modal').classList.remove('hidden');
@@ -1295,7 +1228,6 @@ async function handleAbsen() {
     const wib = getWIBTimeParts(now);
     const currentTimeInSeconds = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
     const limitOpenInSeconds = 7 * 3600 + 45 * 60;
-    const limitMaxInSeconds = 9 * 3600 + 40 * 60;
     if (currentTimeInSeconds < limitOpenInSeconds) { showToast('Absensi belum dibuka. Mulai 07:45 WIB.', 'warning'); return; }
     if (!navigator.geolocation) { showToast('Browser tidak mendukung GPS.', 'error'); return; }
     showToast('Mendeteksi lokasi GPS...', 'info');
@@ -1306,7 +1238,6 @@ async function handleAbsen() {
             const dist = calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng));
             if (dist <= parseFloat(bc.radius)) { validBasecamp = bc; break; }
         }
-        // Tanggal WIB, bukan UTC
         pendingAbsenData = { 
             date: getWIBDateString(), 
             name: activeEmployeeSession.name, 
@@ -1315,6 +1246,7 @@ async function handleAbsen() {
         openSelfieModal();
     }, (err) => { showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error'); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
+
 function openSelfieModal() {
     document.getElementById('selfie-modal').classList.remove('hidden');
     const video = document.getElementById('selfie-video');
@@ -1363,7 +1295,6 @@ async function submitAbsenWithSelfie() {
     const canvas = document.getElementById('selfie-canvas');
     const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
     
-    // WIB explicit
     const now = new Date();
     const wib = getWIBTimeParts(now);
     const timeString = `${wib.h}:${wib.m}:${wib.s}`;
@@ -1389,6 +1320,7 @@ async function submitAbsenWithSelfie() {
         closeSelfieModal(); renderRekap(); renderMobileMyHistory(); updateDashboardStats();
     } catch (err) { console.error("Error:", err); showToast('Gagal menyimpan absensi.', 'error'); }
 }
+
 // ============================================================
 // IZIN
 // ============================================================
@@ -1493,7 +1425,6 @@ function filterRekap() {
 }
 
 function resetRekapData() {
-    // C. Admin (dan role lain) tidak boleh reset data. Hanya Master Admin.
     if (activeEmployeeSession.role !== 'Master Admin') return showToast('Akses Ditolak! Hanya Master Admin.', 'error');
     showConfirm('Reset Data Rekap', 'Hapus seluruh data rekap absensi?', async () => {
         await supabaseClient.from('rekap_list').delete().neq('id', 0);
@@ -1603,8 +1534,6 @@ function switchDesktopTab(tab) {
         const btn = document.getElementById(`d-nav-${t}`);
         if(el) el.classList.add('hidden');
         if(btn) {
-            // PENTING: Hanya reset style pada tombol yang terlihat (tidak memiliki class 'hidden')
-            // agar class 'hidden' tidak tertimpa dan menu yang di-hide tetap hilang
             if (!btn.classList.contains('hidden')) {
                 btn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all";
             }
@@ -1614,7 +1543,6 @@ function switchDesktopTab(tab) {
     const activeBtn = document.getElementById(`d-nav-${tab}`);
     if(activeEl) activeEl.classList.remove('hidden');
     if(activeBtn) {
-        // Pastikan tombol aktif juga tidak mengoverride hidden (jaga-jaga jika dipanggil secara tidak sengaja)
         if (!activeBtn.classList.contains('hidden')) {
             activeBtn.className = "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-gold-500/10 text-gold-400 border border-gold-500/20 transition-all";
         }
@@ -1630,7 +1558,6 @@ function applyRolePermissions() {
     document.getElementById('desktop-role-label').innerText = activeEmployeeSession.role;
     const roleName = activeEmployeeSession.role;
 
-    // Sembunyikan semua menu navigasi terlebih dahulu
     const menuMapping = { 
         'dashboard': 'd-nav-dashboard', 
         'rekap': 'd-nav-rekap', 
@@ -1645,41 +1572,31 @@ function applyRolePermissions() {
         if (btn) btn.classList.add('hidden');
     }
 
-    // Dashboard selalu tampil untuk semua role
     const dashBtn = document.getElementById('d-nav-dashboard');
     if (dashBtn) dashBtn.classList.remove('hidden');
 
-    // Permission berdasarkan role spesifik
     if (roleName === 'Master Admin') {
-        // Master Admin: akses penuh ke semua menu
         for (const [key, btnId] of Object.entries(menuMapping)) {
             if (key === 'dashboard') continue;
             const btn = document.getElementById(btnId);
             if (btn) btn.classList.remove('hidden');
         }
     } else if (roleName === 'Karyawan / Field') {
-        // A. Karyawan / Field: dashboard, rekap, email, basecamp (view only)
-        // Karyawan, Izin, Role di-hidden
         ['rekap', 'email', 'basecamp'].forEach(key => {
             const btn = document.getElementById(menuMapping[key]);
             if (btn) btn.classList.remove('hidden');
         });
     } else if (roleName === 'Supervisor Field') {
-        // B. Supervisor Field: dashboard, rekap (read all), izin (atasan dia), email, basecamp (add/edit, no delete)
-        // Karyawan, Role di-hidden
         ['rekap', 'izin', 'email', 'basecamp'].forEach(key => {
             const btn = document.getElementById(menuMapping[key]);
             if (btn) btn.classList.remove('hidden');
         });
     } else if (roleName === 'Admin') {
-        // C. Admin: dashboard, rekap (no reset), izin (view only all), email, basecamp (view only)
-        // Karyawan, Role di-hidden
         ['rekap', 'izin', 'email', 'basecamp'].forEach(key => {
             const btn = document.getElementById(menuMapping[key]);
             if (btn) btn.classList.remove('hidden');
         });
     } else {
-        // Fallback: gunakan data dari tabel roles jika ada
         const rData = roles.find(r => r.name === roleName);
         const accessStr = rData ? rData.access.toLowerCase() : '';
         for (const [key, btnId] of Object.entries(menuMapping)) {
@@ -1689,10 +1606,8 @@ function applyRolePermissions() {
         }
     }
 
-    // Basecamp: tombol "Tambah Basecamp"
     const btnAddBasecamp = document.getElementById('btn-add-basecamp');
     if (btnAddBasecamp) {
-        // Hanya Master Admin dan Supervisor Field yang bisa tambah basecamp
         if (roleName === 'Master Admin' || roleName === 'Supervisor Field') {
             btnAddBasecamp.classList.remove('hidden');
         } else {
@@ -1700,7 +1615,6 @@ function applyRolePermissions() {
         }
     }
 
-    // Rekap: tombol "Reset Data" hanya untuk Master Admin
     const btnResetRekap = document.getElementById('btn-reset-rekap');
     if (btnResetRekap) {
         if (roleName === 'Master Admin') btnResetRekap.classList.remove('hidden');
@@ -1723,25 +1637,22 @@ function toggleAuthMode(mode) {
 }
 
 // ============================================================
-// REALTIME
+// REALTIME & CLOCK
 // ============================================================
 function initSupabaseRealtime() {
     if (typeof supabaseClient === 'undefined') return;
     supabaseClient.channel('realtime-leaves-channel')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_list' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_list' }, () => {
             if (typeof renderAdminIzin === 'function') renderAdminIzin();
             if (typeof showToast === 'function') showToast('Data izin diperbarui real-time.', 'info');
         }).subscribe();
     supabaseClient.channel('realtime-messages-channel')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, () => {
             if (typeof renderEmails === 'function') renderEmails();
             if (typeof showToast === 'function') showToast('Pesan baru diterima!', 'success');
         }).subscribe();
 }
 
-// ============================================================
-// CLOCK
-// ============================================================
 setInterval(() => {
     const el = document.getElementById('live-clock');
     if(el) el.innerText = new Date().toLocaleTimeString('id-ID', { 
@@ -1750,11 +1661,9 @@ setInterval(() => {
     }) + ' WIB';
 }, 1000);
 
-
 // ============================================================
 // EMPLOYEE OF THE MONTH — RANKING SYSTEM
 // ============================================================
-
 const WORK_DAYS_PER_MONTH = 26;
 
 function parseLateToMinutes(lateStr) {
@@ -1958,63 +1867,11 @@ function renderMobileEOM() {
                     <p class="text-[9px] text-slate-500">Tepat</p>
                 </div>
                 <div class="bg-slate-950/50 rounded-lg py-1.5">
-                    <p class="text-rose-400 font-bold text-xs">${winner.totalLateMinutes}m</p>
-                    <p class="text-[9px] text-slate-500">Telat</p>
+                    <p class="text-rose-400 font-bold text-xs">${winner.alphaDays}</p>
+                    <p class="text-[9px] text-slate-500">Alpha</p>
                 </div>
             </div>
         </div>
     `;
     container.classList.remove('hidden');
-}
-
-// ============================================================
-// EVENT LISTENERS (PALING AKHIR - setelah semua fn defined)
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-    // Retry EmailJS init jika pertama kali gagal
-    if (!emailjsReady) initEmailJS();
-
-    document.getElementById('confirm-btn-yes').addEventListener('click', () => {
-        if (confirmCallback) confirmCallback();
-        closeConfirmModal();
-    });
-    setTimeout(async () => {
-        await initializeDeviceBinding();
-        await initAuth();
-        await fetchAllDataFromSupabase();
-        initSupabaseRealtime();
-        updateServerStatusIndicator();
-        renderEmployeeOfTheMonth();
-        renderMobileEOM();
-
-        // Inject tombol refresh ke header tab karyawan jika belum ada
-        const karyawanHeader = document.querySelector('#d-tab-karyawan .flex.justify-between');
-        if (karyawanHeader && !document.getElementById('btn-refresh-karyawan')) {
-            const refreshBtn = document.createElement('button');
-            refreshBtn.id = 'btn-refresh-karyawan';
-            refreshBtn.className = 'px-3 py-1.5 bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700 font-semibold text-xs rounded-lg flex items-center gap-1 transition ml-2';
-            refreshBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Refresh';
-            refreshBtn.onclick = refreshAllData;
-            karyawanHeader.appendChild(refreshBtn);
-        }
-    }, 500);
-});
-
-// ============================================================
-// SERVER STATUS INDICATOR (REAL)
-// ============================================================
-function updateServerStatusIndicator() {
-    const indicators = document.querySelectorAll('.server-status-indicator');
-    if (indicators.length === 0) return;
-    indicators.forEach(el => {
-        if (supabaseConnected) {
-            el.innerHTML = '<i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> Server Online (Supabase)';
-            el.classList.remove('text-rose-400');
-            el.classList.add('text-slate-400');
-        } else {
-            el.innerHTML = '<i class="fa-solid fa-circle text-rose-500 text-[8px]"></i> Server Offline / Error';
-            el.classList.remove('text-slate-400');
-            el.classList.add('text-rose-400');
-        }
-    });
 }
