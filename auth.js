@@ -104,8 +104,24 @@ async function processLoginValidation(email, pass, isDesktop) {
         auth_id: empData.auth_id
     });
 
-    document.getElementById('mobile-user-title').innerText = 'Halo, ' + escapeHtml(empData.name);
-    document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+    // Update UI Mobile & Desktop dengan format "Halo, [Nama]" dan "[Posisi]"
+    var mobileTitleEl = document.getElementById('mobile-user-title');
+    if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, ' + escapeHtml(empData.name);
+    
+    var mobilePosEl = document.getElementById('mobile-user-position');
+    if (mobilePosEl) mobilePosEl.innerText = escapeHtml(empData.position || '-');
+
+    var mobileInitialEl = document.getElementById('mobile-user-initial');
+    if (mobileInitialEl) mobileInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+
+    var desktopNameEl = document.getElementById('desktop-user-name');
+    if (desktopNameEl) desktopNameEl.innerText = 'Halo, ' + escapeHtml(empData.name);
+
+    var desktopPosEl = document.getElementById('desktop-user-position');
+    if (desktopPosEl) desktopPosEl.innerText = escapeHtml(empData.position || '-');
+
+    var desktopInitialEl = document.getElementById('desktop-user-initial');
+    if (desktopInitialEl) desktopInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
 
     await fetchAllDataFromSupabase();
 
@@ -160,9 +176,23 @@ async function handleDesktopLogin() {
 async function handleLogout(skipModeSwitch) {
     if (skipModeSwitch === undefined) skipModeSwitch = false;
     await supabaseClient.auth.signOut();
-    Store.set('activeEmployeeSession', { name: 'Tamu', id: 'tamu@gmail.com', role: 'Tamu' });
-    document.getElementById('mobile-user-title').innerText = 'Halo, Tamu';
-    document.getElementById('mobile-user-initial').innerText = 'T';
+    Store.set('activeEmployeeSession', { name: 'Guest', id: 'guest@gmail.com', role: 'Tamu' });
+    
+    // Reset teks Halo & Posisi ke default Guest
+    var mobileTitleEl = document.getElementById('mobile-user-title');
+    if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, Guest';
+    var mobilePosEl = document.getElementById('mobile-user-position');
+    if (mobilePosEl) mobilePosEl.innerText = '-';
+    var mobileInitialEl = document.getElementById('mobile-user-initial');
+    if (mobileInitialEl) mobileInitialEl.innerText = 'G';
+
+    var desktopNameEl = document.getElementById('desktop-user-name');
+    if (desktopNameEl) desktopNameEl.innerText = 'Halo, Guest';
+    var desktopPosEl = document.getElementById('desktop-user-position');
+    if (desktopPosEl) desktopPosEl.innerText = '-';
+    var desktopInitialEl = document.getElementById('desktop-user-initial');
+    if (desktopInitialEl) desktopInitialEl.innerText = 'AD';
+
     populateEmailRecipients();
     updateEmailBadges();
     showToast('Anda telah logout.', 'success');
@@ -495,8 +525,22 @@ async function initAuth() {
                     deviceId: empData.device_id,
                     auth_id: empData.auth_id
                 });
-                document.getElementById('mobile-user-title').innerText = 'Halo, ' + escapeHtml(empData.name);
-                document.getElementById('mobile-user-initial').innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+                
+                // Update UI Mobile & Desktop saat init session aktif
+                var mobileTitleEl = document.getElementById('mobile-user-title');
+                if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, ' + escapeHtml(empData.name);
+                var mobilePosEl = document.getElementById('mobile-user-position');
+                if (mobilePosEl) mobilePosEl.innerText = escapeHtml(empData.position || '-');
+                var mobileInitialEl = document.getElementById('mobile-user-initial');
+                if (mobileInitialEl) mobileInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+
+                var desktopNameEl = document.getElementById('desktop-user-name');
+                if (desktopNameEl) desktopNameEl.innerText = 'Halo, ' + escapeHtml(empData.name);
+                var desktopPosEl = document.getElementById('desktop-user-position');
+                if (desktopPosEl) desktopPosEl.innerText = escapeHtml(empData.position || '-');
+                var desktopInitialEl = document.getElementById('desktop-user-initial');
+                if (desktopInitialEl) desktopInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
+
                 await fetchAllDataFromSupabase();
                 var readIds = getReadEmailIds();
                 Store.get('emailsList').forEach(function(e) { if (readIds.includes(e.id)) e.read = true; });
@@ -513,9 +557,22 @@ async function initAuth() {
 
     supabaseClient.auth.onAuthStateChange(async function(event, session) {
         if (event === 'SIGNED_OUT') {
-            Store.set('activeEmployeeSession', { name: 'Tamu', id: 'tamu@gmail.com', role: 'Tamu' });
-            document.getElementById('mobile-user-title').innerText = 'Halo, Tamu';
-            document.getElementById('mobile-user-initial').innerText = 'T';
+            Store.set('activeEmployeeSession', { name: 'Guest', id: 'guest@gmail.com', role: 'Tamu' });
+            
+            var mobileTitleEl = document.getElementById('mobile-user-title');
+            if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, Guest';
+            var mobilePosEl = document.getElementById('mobile-user-position');
+            if (mobilePosEl) mobilePosEl.innerText = '-';
+            var mobileInitialEl = document.getElementById('mobile-user-initial');
+            if (mobileInitialEl) mobileInitialEl.innerText = 'G';
+
+            var desktopNameEl = document.getElementById('desktop-user-name');
+            if (desktopNameEl) desktopNameEl.innerText = 'Halo, Guest';
+            var desktopPosEl = document.getElementById('desktop-user-position');
+            if (desktopPosEl) desktopPosEl.innerText = '-';
+            var desktopInitialEl = document.getElementById('desktop-user-initial');
+            if (desktopInitialEl) desktopInitialEl.innerText = 'AD';
+
             Store.set('employees', []);
             Store.set('rekapList', []);
             Store.set('izinList', []);
