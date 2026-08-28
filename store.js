@@ -1,14 +1,13 @@
-
 # ============================================================
-# FILE 3: store.js — Simple State Management
+# FILE 3: store.js
 # ============================================================
-store_js = r'''// ============================================================
+store_js = '''// ============================================================
 // STORE: Simple Global State Management
 // ============================================================
 
-const Store = {
+var Store = {
     state: {
-        currentDeviceUUID: "PENDING",
+        currentDeviceUUID: 'PENDING',
         roles: [],
         employees: [],
         basecamps: [],
@@ -27,37 +26,16 @@ const Store = {
         bcMarkers: [],
         supabaseConnected: false,
         rekapPage: 0,
-        rekapTotalCount: 0,
-        isMasterAdmin() {
-            return this.activeEmployeeSession.role === 'Master Admin';
-        }
+        rekapTotalCount: 0
     },
-
-    set(key, value) {
+    set: function(key, value) {
         this.state[key] = value;
-        this.notify(key);
     },
-
-    get(key) {
+    get: function(key) {
         return this.state[key];
-    },
-
-    listeners: {},
-
-    subscribe(key, callback) {
-        if (!this.listeners[key]) this.listeners[key] = [];
-        this.listeners[key].push(callback);
-    },
-
-    notify(key) {
-        if (this.listeners[key]) {
-            this.listeners[key].forEach(cb => cb(this.state[key]));
-        }
     }
 };
 '''
 
 with open('/mnt/agents/output/store.js', 'w', encoding='utf-8') as f:
     f.write(store_js)
-
-print("✅ store.js created")

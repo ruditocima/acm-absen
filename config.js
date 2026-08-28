@@ -1,8 +1,7 @@
-
 # ============================================================
-# FILE 1: config.js — Constants & Supabase Client
+# FILE 1: config.js
 # ============================================================
-config_js = r'''// ============================================================
+config_js = '''// ============================================================
 // CONFIG: Constants, Supabase Client, Magic Numbers
 // ============================================================
 
@@ -27,7 +26,7 @@ const CONFIG = {
     },
     GPS: {
         DEFAULT_RADIUS: 1500,
-        MAX_ACCURACY: 100  // meter, tolak jika akurasi GPS lebih buruk dari ini
+        MAX_ACCURACY: 100
     },
     PAGINATION: {
         REKAP_PER_PAGE: 50
@@ -42,5 +41,3 @@ const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.
 
 with open('/mnt/agents/output/config.js', 'w', encoding='utf-8') as f:
     f.write(config_js)
-
-print("✅ config.js created")

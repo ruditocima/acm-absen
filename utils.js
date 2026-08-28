@@ -1,15 +1,10 @@
-
 # ============================================================
-# FILE 2: utils.js — Helpers, Sanitasi, Format WIB
+# FILE 2: utils.js
 # ============================================================
-utils_js = r'''// ============================================================
-// UTILS: Escape HTML, Format WIB, Toast, Confirm, Loading State
+utils_js = '''// ============================================================
+// UTILS: Escape HTML, Format WIB, Toast, Confirm, Loading
 // ============================================================
 
-/**
- * SANITASI CRITICAL: Escape HTML untuk mencegah XSS
- * Gunakan ini di SEMUA innerHTML yang menampilkan data user
- */
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
     const div = document.createElement('div');
@@ -17,7 +12,8 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function getWIBDateString(date = new Date()) {
+function getWIBDateString(date) {
+    if (!date) date = new Date();
     const parts = new Intl.DateTimeFormat('id-ID', {
         timeZone: 'Asia/Jakarta',
         year: 'numeric', month: '2-digit', day: '2-digit'
@@ -25,10 +21,11 @@ function getWIBDateString(date = new Date()) {
     const y = parts.find(p => p.type === 'year').value;
     const m = parts.find(p => p.type === 'month').value;
     const d = parts.find(p => p.type === 'day').value;
-    return `${y}-${m}-${d}`;
+    return y + '-' + m + '-' + d;
 }
 
-function getWIBTimeParts(date = new Date()) {
+function getWIBTimeParts(date) {
+    if (!date) date = new Date();
     const parts = new Intl.DateTimeFormat('id-ID', {
         timeZone: 'Asia/Jakarta',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
@@ -65,7 +62,7 @@ function formatWIBDateTime(date) {
 
 function formatRekapTime(timeValue) {
     if (!timeValue) return '--:--:--';
-    if (typeof timeValue === 'string' && /^\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
+    if (typeof timeValue === 'string' && /^\\d{2}:\\d{2}:\\d{2}$/.test(timeValue)) {
         return timeValue;
     }
     try {
@@ -82,58 +79,66 @@ function formatRekapTime(timeValue) {
 }
 
 function timeToSeconds(timeStr) {
-    const [h, m, s] = timeStr.split(':').map(Number);
-    return h * 3600 + m * 60 + (s || 0);
+    const parts = timeStr.split(':');
+    const h = parseInt(parts[0]) || 0;
+    const m = parseInt(parts[1]) || 0;
+    const s = parseInt(parts[2]) || 0;
+    return h * 3600 + m * 60 + s;
 }
 
 function calculateDistance(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const dphi = (lat2 - lat1) * Math.PI / 180;
+    const dlambda = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dphi / 2) * Math.sin(dphi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) * Math.sin(dlambda / 2) * Math.sin(dlambda / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
 
-// ============================================================
-// TOAST NOTIFICATIONS
-// ============================================================
-function showToast(message, type = 'success') {
+function showToast(message, type) {
+    if (!type) type = 'success';
     const container = document.getElementById('toast-container');
     if (!container) return;
     const toast = document.createElement('div');
-    const borderColor = type === 'success' ? 'border-emerald-500/30' : type === 'warning' ? 'border-amber-500/30' : 'border-rose-500/30';
-    const icon = type === 'success' ? 'fa-circle-check text-emerald-400' : type === 'warning' ? 'fa-triangle-exclamation text-amber-400' : 'fa-circle-xmark text-rose-400';
-    toast.className = `glass-card pointer-events-auto px-4 py-3 rounded-2xl border ${borderColor} shadow-xl flex items-center gap-3 transform translate-y-2 opacity-0 transition-all duration-300 text-xs text-white max-w-sm`;
-    toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span class="flex-1">${escapeHtml(message)}</span>`;
+    var borderColor, icon;
+    if (type === 'success') {
+        borderColor = 'border-emerald-500/30';
+        icon = 'fa-circle-check text-emerald-400';
+    } else if (type === 'warning') {
+        borderColor = 'border-amber-500/30';
+        icon = 'fa-triangle-exclamation text-amber-400';
+    } else {
+        borderColor = 'border-rose-500/30';
+        icon = 'fa-circle-xmark text-rose-400';
+    }
+    toast.className = 'glass-card pointer-events-auto px-4 py-3 rounded-2xl border ' + borderColor + ' shadow-xl flex items-center gap-3 transform translate-y-2 opacity-0 transition-all duration-300 text-xs text-white max-w-sm';
+    toast.innerHTML = '<i class="fa-solid ' + icon + ' text-base"></i><span class="flex-1">' + escapeHtml(message) + '</span>';
     container.appendChild(toast);
-    requestAnimationFrame(() => {
+    setTimeout(function() {
         toast.classList.remove('translate-y-2', 'opacity-0');
-    });
-    setTimeout(() => {
+    }, 10);
+    setTimeout(function() {
         toast.classList.add('translate-y-2', 'opacity-0');
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(function() { toast.remove(); }, 300);
     }, 3500);
 }
 
-// ============================================================
-// CONFIRM MODAL
-// ============================================================
-let confirmCallback = null;
+var confirmCallback = null;
 
-function showConfirm(title, message, callback, isDanger = true) {
+function showConfirm(title, message, callback, isDanger) {
+    if (isDanger === undefined) isDanger = true;
     document.getElementById('confirm-title').innerText = title;
     document.getElementById('confirm-message').innerText = message;
-    const btnYes = document.getElementById('confirm-btn-yes');
+    var btnYes = document.getElementById('confirm-btn-yes');
     if (isDanger) {
-        btnYes.className = "flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs shadow-md hover:bg-rose-600 transition";
-        btnYes.innerText = "Ya, Hapus/Reset";
+        btnYes.className = 'flex-1 py-2.5 rounded-xl bg-rose-500 text-white font-bold text-xs shadow-md hover:bg-rose-600 transition';
+        btnYes.innerText = 'Ya, Hapus/Reset';
     } else {
-        btnYes.className = "flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-95 transition";
-        btnYes.innerText = "Ya, Lanjutkan";
+        btnYes.className = 'flex-1 py-2.5 rounded-xl gold-gradient text-slate-950 font-bold text-xs shadow-md hover:opacity-95 transition';
+        btnYes.innerText = 'Ya, Lanjutkan';
     }
     confirmCallback = callback;
     document.getElementById('confirm-modal').classList.remove('hidden');
@@ -144,24 +149,20 @@ function closeConfirmModal() {
     confirmCallback = null;
 }
 
-// Bind tombol konfirmasi saat DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-    const confirmBtnYes = document.getElementById('confirm-btn-yes');
+document.addEventListener('DOMContentLoaded', function() {
+    var confirmBtnYes = document.getElementById('confirm-btn-yes');
     if (confirmBtnYes) {
-        confirmBtnYes.addEventListener('click', () => {
+        confirmBtnYes.addEventListener('click', function() {
             if (typeof confirmCallback === 'function') confirmCallback();
             closeConfirmModal();
         });
     }
 });
 
-// ============================================================
-// IMAGE ZOOM MODAL
-// ============================================================
 function openImageZoom(url, caption) {
-    const modal = document.getElementById('image-zoom-modal');
-    const img = document.getElementById('zoomed-image');
-    const cap = document.getElementById('zoomed-caption');
+    var modal = document.getElementById('image-zoom-modal');
+    var img = document.getElementById('zoomed-image');
+    var cap = document.getElementById('zoomed-caption');
     if (modal && img) {
         img.src = url;
         if (cap) cap.innerText = caption || 'Foto Selfie Absensi';
@@ -170,22 +171,19 @@ function openImageZoom(url, caption) {
 }
 
 function closeImageZoom() {
-    const modal = document.getElementById('image-zoom-modal');
-    const img = document.getElementById('zoomed-image');
+    var modal = document.getElementById('image-zoom-modal');
+    var img = document.getElementById('zoomed-image');
     if (modal) {
         modal.classList.add('hidden');
         if (img) img.src = '';
     }
 }
 
-// ============================================================
-// LOADING STATE HELPER (Anti-spam tombol)
-// ============================================================
-function setButtonLoading(btn, loadingText = 'Memproses...') {
+function setButtonLoading(btn, loadingText) {
     if (!btn) return;
     btn.dataset.originalHtml = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${escapeHtml(loadingText)}`;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> ' + escapeHtml(loadingText || 'Memproses...');
 }
 
 function resetButtonLoading(btn) {
@@ -194,10 +192,7 @@ function resetButtonLoading(btn) {
     btn.innerHTML = btn.dataset.originalHtml;
 }
 
-// ============================================================
-// EMAILJS INIT
-// ============================================================
-let emailjsReady = false;
+var emailjsReady = false;
 
 function initEmailJS() {
     try {
@@ -205,21 +200,17 @@ function initEmailJS() {
             emailjs.init(CONFIG.EMAILJS.PUBLIC_KEY);
             emailjsReady = true;
         } else {
-            console.warn('[EmailJS] Library not loaded yet');
             emailjsReady = false;
         }
     } catch (e) {
-        console.error('[EmailJS] Init failed:', e);
         emailjsReady = false;
     }
 }
 
-(function () {
+(function() {
     initEmailJS();
 })();
 '''
 
 with open('/mnt/agents/output/utils.js', 'w', encoding='utf-8') as f:
     f.write(utils_js)
-
-print("✅ utils.js created")

@@ -1,16 +1,12 @@
-
 # ============================================================
-# FILE 6: data.js — Fetch Data dengan Pagination & Fallback
+# FILE 4: data.js
 # ============================================================
-data_js = r'''// ============================================================
+data_js = '''// ============================================================
 // DATA: Fetch dari Supabase dengan Pagination & Fallback
 // ============================================================
 
 function loadFallbackData() {
-    const roles = Store.get('roles');
-    const basecamps = Store.get('basecamps');
-
-    if (roles.length === 0) {
+    if (Store.get('roles').length === 0) {
         Store.set('roles', [
             { id: 'ROL-01', name: 'Master Admin', access: 'Dashboard, Rekap, Role, Karyawan, Basecamp, Izin, Email' },
             { id: 'ROL-02', name: 'Manajer Lapangan', access: 'Dashboard, Rekap, Karyawan, Basecamp, Izin, Email' },
@@ -19,18 +15,36 @@ function loadFallbackData() {
             { id: 'ROL-05', name: 'Admin', access: 'Dashboard, Rekap, Basecamp, Izin, Email' }
         ]);
     }
-    if (basecamps.length === 0) {
+    if (Store.get('basecamps').length === 0) {
         Store.set('basecamps', [{ id: 1, name: 'Basecamp Pekanbaru Pusat', lat: 0.434291, lng: 101.466385, radius: 1500 }]);
     }
 }
 
-// --------------------------------------------------------
-// FETCH ALL DATA (dengan pagination untuk rekap)
-// --------------------------------------------------------
+async function checkSupabaseConnection(retries) {
+    if (retries === undefined) retries = 2;
+    for (var i = 0; i <= retries; i++) {
+        try {
+            var result = await supabaseClient.from('roles').select('id').limit(1);
+            if (result.error) {
+                console.warn('[Supabase] Connection check attempt ' + (i + 1) + ' failed:', result.error.message);
+                if (i < retries) await new Promise(function(r) { setTimeout(r, 800); });
+                continue;
+            }
+            Store.set('supabaseConnected', true);
+            return true;
+        } catch (err) {
+            console.error('[Supabase] Connection check attempt ' + (i + 1) + ' exception:', err);
+            if (i < retries) await new Promise(function(r) { setTimeout(r, 800); });
+        }
+    }
+    Store.set('supabaseConnected', false);
+    return false;
+}
+
 async function fetchAllDataFromSupabase() {
-    const isConnected = await checkSupabaseConnection();
+    var isConnected = await checkSupabaseConnection();
     if (!isConnected) {
-        showToast("Tidak dapat terhubung ke Supabase. Menggunakan data lokal.", "warning");
+        showToast('Tidak dapat terhubung ke Supabase. Menggunakan data lokal.', 'warning');
         loadFallbackData();
         renderRoles();
         renderEmployees();
@@ -43,98 +57,100 @@ async function fetchAllDataFromSupabase() {
         return;
     }
 
-    // 1. ROLES
+    // Roles
     try {
-        const { data: rData, error: rErr } = await supabaseClient.from('roles').select('*');
-        if (rErr) console.warn('[Supabase] Roles fetch error:', rErr.message, rErr.code);
-        if (rData && rData.length > 0) Store.set('roles', rData);
+        var r = await supabaseClient.from('roles').select('*');
+        if (r.error) console.warn('[Supabase] Roles fetch error:', r.error.message);
+        if (r.data && r.data.length > 0) Store.set('roles', r.data);
         else loadFallbackData();
-        const kfRole = Store.get('roles').find(r => r.name === 'Karyawan / Field');
+        var kfRole = Store.get('roles').find(function(r) { return r.name === 'Karyawan / Field'; });
         if (kfRole) kfRole.access = 'Dashboard, Rekap, Basecamp, Email';
     } catch (err) {
         console.error('[Supabase] Roles exception:', err);
         loadFallbackData();
     }
 
-    // 2. BASECAMPS
+    // Basecamps
     try {
-        const { data: bData, error: bErr } = await supabaseClient.from('basecamps').select('*');
-        if (bErr) console.warn('[Supabase] Basecamps fetch error:', bErr.message);
-        if (bData && bData.length > 0) Store.set('basecamps', bData);
+        var b = await supabaseClient.from('basecamps').select('*');
+        if (b.error) console.warn('[Supabase] Basecamps fetch error:', b.error.message);
+        if (b.data && b.data.length > 0) Store.set('basecamps', b.data);
         else if (Store.get('basecamps').length === 0) loadFallbackData();
     } catch (err) {
         console.error('[Supabase] Basecamps exception:', err);
     }
 
-    // 3. EMPLOYEES
+    // Employees
     try {
-        const { data: eData, error: eErr } = await supabaseClient.from('employees').select('*');
-        if (eErr) {
-            console.warn('[Supabase] Employees fetch error:', eErr.message, eErr.code);
+        var e = await supabaseClient.from('employees').select('*');
+        if (e.error) {
+            console.warn('[Supabase] Employees fetch error:', e.error.message);
             Store.set('employees', []);
         } else {
-            Store.set('employees', (eData || []).map(e => ({
-                id: e.id,
-                name: e.name,
-                position: e.position || '-',
-                role: e.role,
-                atasan: e.atasan,
-                status: e.status,
-                deviceId: e.device_id || 'Unbound',
-                auth_id: e.auth_id
-            })));
+            Store.set('employees', (e.data || []).map(function(emp) {
+                return {
+                    id: emp.id,
+                    name: emp.name,
+                    position: emp.position || '-',
+                    role: emp.role,
+                    atasan: emp.atasan,
+                    status: emp.status,
+                    deviceId: emp.device_id || 'Unbound',
+                    auth_id: emp.auth_id
+                };
+            }));
         }
     } catch (err) {
         console.error('[Supabase] Employees exception:', err);
         Store.set('employees', []);
     }
 
-    // 4. REKAP LIST (dengan pagination — ambil 50 terbaru)
+    // Rekap List (dengan pagination)
     try {
-        const { data: rkData, error: rkErr } = await supabaseClient
+        var rk = await supabaseClient
             .from('rekap_list')
             .select('*', { count: 'exact' })
             .order('date', { ascending: false })
             .order('time', { ascending: false })
             .range(0, CONFIG.PAGINATION.REKAP_PER_PAGE - 1);
-
-        if (rkErr) console.warn('[Supabase] Rekap fetch error:', rkErr.message);
-        if (rkData) {
-            Store.set('rekapList', rkData);
+        if (rk.error) console.warn('[Supabase] Rekap fetch error:', rk.error.message);
+        if (rk.data) {
+            Store.set('rekapList', rk.data);
             Store.set('rekapPage', 0);
         }
-        // Count total untuk pagination info
-        const { count } = await supabaseClient.from('rekap_list').select('*', { count: 'exact', head: true });
-        Store.set('rekapTotalCount', count || 0);
+        var countResult = await supabaseClient.from('rekap_list').select('*', { count: 'exact', head: true });
+        Store.set('rekapTotalCount', countResult.count || 0);
     } catch (err) {
         console.error('[Supabase] Rekap exception:', err);
     }
 
-    // 5. IZIN LIST
+    // Izin List
     try {
-        const { data: iData, error: iErr } = await supabaseClient.from('izin_list').select('*');
-        if (iErr) console.warn('[Supabase] Izin fetch error:', iErr.message);
-        if (iData) Store.set('izinList', iData);
+        var iz = await supabaseClient.from('izin_list').select('*');
+        if (iz.error) console.warn('[Supabase] Izin fetch error:', iz.error.message);
+        if (iz.data) Store.set('izinList', iz.data);
     } catch (err) {
         console.error('[Supabase] Izin exception:', err);
     }
 
-    // 6. EMAILS
+    // Emails
     try {
-        const { data: emData, error: emErr } = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
-        if (emErr) console.warn('[Supabase] Emails fetch error:', emErr.message);
-        if (emData) {
-            const readIds = getReadEmailIds();
-            Store.set('emailsList', emData.map(e => ({
-                id: e.id,
-                sender: e.sender,
-                sender_name: e.sender_name,
-                receiver: e.recipient,
-                subject: e.subject,
-                message: e.message,
-                created_at: e.created_at,
-                read: readIds.includes(e.id)
-            })));
+        var em = await supabaseClient.from('emails').select('*').order('created_at', { ascending: false });
+        if (em.error) console.warn('[Supabase] Emails fetch error:', em.error.message);
+        if (em.data) {
+            var readIds = getReadEmailIds();
+            Store.set('emailsList', em.data.map(function(e) {
+                return {
+                    id: e.id,
+                    sender: e.sender,
+                    sender_name: e.sender_name,
+                    receiver: e.recipient,
+                    subject: e.subject,
+                    message: e.message,
+                    created_at: e.created_at,
+                    read: readIds.includes(e.id)
+                };
+            }));
         }
     } catch (err) {
         console.error('[Supabase] Emails exception:', err);
@@ -152,32 +168,29 @@ async function fetchAllDataFromSupabase() {
     renderMobileEOM();
 }
 
-// --------------------------------------------------------
-// LOAD MORE REKAP (Pagination)
-// --------------------------------------------------------
 async function loadMoreRekap() {
-    const currentPage = Store.get('rekapPage');
-    const nextPage = currentPage + 1;
-    const from = nextPage * CONFIG.PAGINATION.REKAP_PER_PAGE;
-    const to = from + CONFIG.PAGINATION.REKAP_PER_PAGE - 1;
+    var currentPage = Store.get('rekapPage');
+    var nextPage = currentPage + 1;
+    var from = nextPage * CONFIG.PAGINATION.REKAP_PER_PAGE;
+    var to = from + CONFIG.PAGINATION.REKAP_PER_PAGE - 1;
 
     showToast('Memuat data rekap lebih lama...', 'info');
 
     try {
-        const { data, error } = await supabaseClient
+        var result = await supabaseClient
             .from('rekap_list')
             .select('*')
             .order('date', { ascending: false })
             .order('time', { ascending: false })
             .range(from, to);
 
-        if (error) throw error;
-        if (data && data.length > 0) {
-            const rekapList = Store.get('rekapList');
-            Store.set('rekapList', [...rekapList, ...data]);
+        if (result.error) throw result.error;
+        if (result.data && result.data.length > 0) {
+            var rekapList = Store.get('rekapList');
+            Store.set('rekapList', rekapList.concat(result.data));
             Store.set('rekapPage', nextPage);
             renderRekap();
-            showToast(`${data.length} data rekap lama dimuat.`, 'success');
+            showToast(result.data.length + ' data rekap lama dimuat.', 'success');
         } else {
             showToast('Semua data rekap sudah dimuat.', 'info');
         }
@@ -187,9 +200,6 @@ async function loadMoreRekap() {
     }
 }
 
-// --------------------------------------------------------
-// REFRESH ALL DATA
-// --------------------------------------------------------
 async function refreshAllData() {
     showToast('Memuat ulang data dari server...', 'info');
     await fetchAllDataFromSupabase();
@@ -207,4 +217,4 @@ async function refreshAllData() {
 with open('/mnt/agents/output/data.js', 'w', encoding='utf-8') as f:
     f.write(data_js)
 
-print("✅ data.js created")
+print("store.js & data.js OK")
