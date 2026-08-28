@@ -1267,12 +1267,16 @@ function captureSelfie() {
     const preview = document.getElementById('selfie-preview');
     canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;
     const ctx = canvas.getContext('2d'); ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); preview.src = dataUrl;
+    // Gunakan WebP jika browser mendukung (lebih kecil), fallback ke JPEG
+    const supportsWebP = canvas.toDataURL('image/webp').startsWith('data:image/webp');
+    const mimeType = supportsWebP ? 'image/webp' : 'image/jpeg';
+    const quality = supportsWebP ? 0.75 : 0.6;
+    const dataUrl = canvas.toDataURL(mimeType, quality); preview.src = dataUrl;
     video.classList.add('hidden'); preview.classList.remove('hidden');
     document.getElementById('btn-capture').classList.add('hidden');
     document.getElementById('btn-retake').classList.remove('hidden');
     document.getElementById('btn-submit-absen').classList.remove('hidden');
-    canvas.toBlob((blob) => { capturedBlob = blob; }, 'image/jpeg', 0.6);
+    canvas.toBlob((blob) => { capturedBlob = blob; }, mimeType, quality);
 }
 
 function retakeSelfie() {
@@ -1287,6 +1291,7 @@ function retakeSelfie() {
 
 function closeSelfieModal() {
     if (mediaStream) { mediaStream.getTracks().forEach(track => track.stop()); mediaStream = null; }
+    capturedBlob = null;
     document.getElementById('selfie-modal').classList.add('hidden');
 }
 
@@ -1875,3 +1880,20 @@ function renderMobileEOM() {
     `;
     container.classList.remove('hidden');
 }
+
+// ============================================================
+// INIT: Bind tombol konfirmasi modal & startup
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+    const confirmBtnYes = document.getElementById('confirm-btn-yes');
+    if (confirmBtnYes) {
+        confirmBtnYes.addEventListener('click', () => {
+            if (typeof confirmCallback === 'function') {
+                confirmCallback();
+            }
+            closeConfirmModal();
+        });
+    }
+    initializeDeviceBinding();
+    fetchAllDataFromSupabase();
+});
