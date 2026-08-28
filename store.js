@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 3: store.js
-# ============================================================
-store_js = '''// ============================================================
-// STORE: Simple Global State Management
-// ============================================================
-
 var Store = {
     state: {
         currentDeviceUUID: 'PENDING',
@@ -35,7 +28,3 @@ var Store = {
         return this.state[key];
     }
 };
-'''
-
-with open('/mnt/agents/output/store.js', 'w', encoding='utf-8') as f:
-    f.write(store_js)

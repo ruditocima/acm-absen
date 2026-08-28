@@ -1,11 +1,3 @@
-
-# ============================================================
-# FILE 13: dashboard.js
-# ============================================================
-dashboard_js = '''// ============================================================
-// DASHBOARD: Stats, Employee of the Month, History
-// ============================================================
-
 function updateDashboardStats() {
     var todayStr = getWIBDateString();
     var employees = Store.get('employees');
@@ -230,7 +222,3 @@ function renderMobileEOM() {
         '<div class="bg-slate-950/50 rounded-lg py-1.5"><p class="text-rose-400 font-bold text-xs">' + winner.alphaDays + '</p><p class="text-[9px] text-slate-500">Alpha</p></div></div></div>';
     container.classList.remove('hidden');
 }
-'''
-
-with open('/mnt/agents/output/dashboard.js', 'w', encoding='utf-8') as f:
-    f.write(dashboard_js)

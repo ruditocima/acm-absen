@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 2: utils.js
-# ============================================================
-utils_js = '''// ============================================================
-// UTILS: Escape HTML, Format WIB, Toast, Confirm, Loading
-// ============================================================
-
 function escapeHtml(text) {
     if (text === null || text === undefined) return '';
     const div = document.createElement('div');
@@ -210,7 +203,3 @@ function initEmailJS() {
 (function() {
     initEmailJS();
 })();
-'''
-
-with open('/mnt/agents/output/utils.js', 'w', encoding='utf-8') as f:
-    f.write(utils_js)

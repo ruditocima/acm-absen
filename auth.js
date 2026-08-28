@@ -1,11 +1,3 @@
-
-# ============================================================
-# FILE 5: auth.js
-# ============================================================
-auth_js = '''// ============================================================
-// AUTH: Login, Register, OTP, Logout, Device Binding
-// ============================================================
-
 async function initializeDeviceBinding() {
     try {
         if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Device) {
@@ -537,9 +529,3 @@ async function initAuth() {
         }
     });
 }
-'''
-
-with open('/mnt/agents/output/auth.js', 'w', encoding='utf-8') as f:
-    f.write(auth_js)
-
-print("auth.js OK")

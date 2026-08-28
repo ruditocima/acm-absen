@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 12: roles.js
-# ============================================================
-roles_js = '''// ============================================================
-// ROLES: Render, Add, Edit
-// ============================================================
-
 function renderRoles() {
     var tbody = document.getElementById('role-tbody');
     if (!tbody) return;
@@ -78,7 +71,3 @@ async function saveRole() {
     closeRoleModal();
     renderRoles();
 }
-'''
-
-with open('/mnt/agents/output/roles.js', 'w', encoding='utf-8') as f:
-    f.write(roles_js)

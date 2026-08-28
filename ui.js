@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 14: ui.js
-# ============================================================
-ui_js = '''// ============================================================
-// UI: Switch Mode, Tabs, Role Permissions, Auth Mode Toggle
-// ============================================================
-
 function switchMode(mode) {
     var session = Store.get('activeEmployeeSession');
     if (session && session.name !== 'Tamu') {
@@ -221,7 +214,3 @@ function toggleAuthMode(mode) {
         document.getElementById('reg-step-2').classList.add('hidden');
     }
 }
-'''
-
-with open('/mnt/agents/output/ui.js', 'w', encoding='utf-8') as f:
-    f.write(ui_js)

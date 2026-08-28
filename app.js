@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 15: app.js (Entry Point)
-# ============================================================
-app_js = '''// ============================================================
-// APP: Entry Point, Realtime, Clock, Init
-// ============================================================
-
 function initSupabaseRealtime() {
     if (typeof supabaseClient === 'undefined') return;
 
@@ -35,7 +28,3 @@ document.addEventListener('DOMContentLoaded', function() {
     initAuth();
     initSupabaseRealtime();
 });
-'''
-
-with open('/mnt/agents/output/app.js', 'w', encoding='utf-8') as f:
-    f.write(app_js)

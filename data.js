@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 4: data.js
-# ============================================================
-data_js = '''// ============================================================
-// DATA: Fetch dari Supabase dengan Pagination & Fallback
-// ============================================================
-
 function loadFallbackData() {
     if (Store.get('roles').length === 0) {
         Store.set('roles', [
@@ -212,9 +205,3 @@ async function refreshAllData() {
     updateDashboardStats();
     showToast('Data berhasil diperbarui!', 'success');
 }
-'''
-
-with open('/mnt/agents/output/data.js', 'w', encoding='utf-8') as f:
-    f.write(data_js)
-
-print("store.js & data.js OK")

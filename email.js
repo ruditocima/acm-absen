@@ -1,11 +1,3 @@
-
-# ============================================================
-# FILE 10: email.js
-# ============================================================
-email_js = '''// ============================================================
-// EMAIL: Send, Render, Detail, Reply, Delete
-// ============================================================
-
 function getReadEmailIds() {
     try {
         var userId = Store.get('activeEmployeeSession').id || 'tamu';
@@ -289,7 +281,3 @@ async function deleteEmailItem(emailId) {
         showToast('Pesan berhasil dihapus.', 'success');
     });
 }
-'''
-
-with open('/mnt/agents/output/email.js', 'w', encoding='utf-8') as f:
-    f.write(email_js)

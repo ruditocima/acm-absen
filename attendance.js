@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 6: attendance.js
-# ============================================================
-attendance_js = '''// ============================================================
-// ATTENDANCE: Absen, Selfie, GPS, Upload ke Supabase Storage
-// ============================================================
-
 function hasAbsenToday(employeeName) {
     var todayStr = getWIBDateString();
     var rekapList = Store.get('rekapList');
@@ -258,7 +251,3 @@ async function submitAbsenWithSelfie() {
         resetButtonLoading(btn);
     }
 }
-'''
-
-with open('/mnt/agents/output/attendance.js', 'w', encoding='utf-8') as f:
-    f.write(attendance_js)

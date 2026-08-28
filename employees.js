@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 7: employees.js
-# ============================================================
-employees_js = '''// ============================================================
-// EMPLOYEES: Render, Add, Edit, Approve, Reset Device
-// ============================================================
-
 function renderEmployees() {
     var tbody = document.getElementById('karyawan-tbody');
     if (!tbody) return;
@@ -157,7 +150,3 @@ async function saveEmployee() {
     updateDashboardStats();
     populateEmailRecipients();
 }
-'''
-
-with open('/mnt/agents/output/employees.js', 'w', encoding='utf-8') as f:
-    f.write(employees_js)

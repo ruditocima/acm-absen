@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 8: rekap.js
-# ============================================================
-rekap_js = '''// ============================================================
-// REKAP: Render Tabel, Filter, Export, Reset (dengan Pagination)
-// ============================================================
-
 function renderRekapDataToTable(dataList) {
     var tbody = document.getElementById('rekap-tbody');
     if (!tbody) return;
@@ -89,7 +82,3 @@ function exportToExcel() {
     XLSX.writeFile(workbook, 'Rekap_Absensi_Enterprise.xlsx');
     showToast('File Excel berhasil di-download.', 'success');
 }
-'''
-
-with open('/mnt/agents/output/rekap.js', 'w', encoding='utf-8') as f:
-    f.write(rekap_js)

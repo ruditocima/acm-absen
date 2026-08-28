@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 11: basecamp.js
-# ============================================================
-basecamp_js = '''// ============================================================
-// BASECAMP: Render, Map, Add, Edit, Delete
-// ============================================================
-
 function deleteBasecamp(index) {
     var session = Store.get('activeEmployeeSession');
     if (session.role === 'Karyawan / Field') return showToast('Akses Ditolak! View Only.', 'error');
@@ -144,7 +137,3 @@ async function saveBasecamp() {
     closeBasecampModal();
     renderBasecamps();
 }
-'''
-
-with open('/mnt/agents/output/basecamp.js', 'w', encoding='utf-8') as f:
-    f.write(basecamp_js)

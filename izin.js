@@ -1,10 +1,3 @@
-# ============================================================
-# FILE 9: izin.js
-# ============================================================
-izin_js = '''// ============================================================
-// IZIN: Submit, Render, Update Status
-// ============================================================
-
 async function submitMobileIzin() {
     var session = Store.get('activeEmployeeSession');
     if (session.name === 'Tamu') {
@@ -139,7 +132,3 @@ function renderAdminIzin() {
             '</div>' + actionButtons + '</div>';
     }).join('');
 }
-'''
-
-with open('/mnt/agents/output/izin.js', 'w', encoding='utf-8') as f:
-    f.write(izin_js)

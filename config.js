@@ -1,7 +1,4 @@
-# ============================================================
-# FILE 1: config.js
-# ============================================================
-config_js = '''// ============================================================
+// ============================================================
 // CONFIG: Constants, Supabase Client, Magic Numbers
 // ============================================================
 
@@ -36,8 +33,10 @@ const CONFIG = {
     }
 };
 
-const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
-'''
-
-with open('/mnt/agents/output/config.js', 'w', encoding='utf-8') as f:
-    f.write(config_js)
+// Pengecekan aman untuk memastikan Supabase sudah dimuat di HTML
+let supabaseClient = null;
+if (typeof window !== 'undefined' && window.supabase) {
+    supabaseClient = window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+} else {
+    console.error("Error: Supabase JS SDK belum dimuat. Pastikan tag <script> Supabase ditambahkan sebelum memuat file config.js ini di HTML.");
+}
