@@ -28,3 +28,5 @@ const CONFIG = {
         EXPIRY_MINUTES: 3
     }
 };
+
+window.supabaseClient = supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
