@@ -87,9 +87,10 @@ let emailjsReady = false;
 function initEmailJS() {
     try {
         if (typeof emailjs !== 'undefined' && typeof emailjs.init === 'function') {
-            emailjs.init(EMAILJS_PUBLIC_KEY);
-            emailjsReady = true;
-            console.log('[EmailJS] Initialized successfully');
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+    emailjsReady = true;
+    // console.log('[EmailJS] Initialized successfully');
+}
         } else {
             console.warn('[EmailJS] Library not loaded yet, will retry...');
             emailjsReady = false;
@@ -663,10 +664,10 @@ async function fetchAllDataFromSupabase() {
             }
         } else {
             employees = (eData || []).map(e => ({
-                id: e.id, name: e.name, position: e.position || '-', role: e.role,
-                atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
+            id: e.id, name: e.name, position: e.position || '-', role: e.role,
+            atasan: e.atasan, status: e.status, deviceId: e.device_id || 'Unbound', auth_id: e.auth_id
             }));
-            console.log('[Supabase] Employees loaded:', employees.length, 'records');
+            // console.log('[Supabase] Employees loaded:', employees.length, 'records');
         }
     } catch (err) {
         console.error('[Supabase] Employees exception:', err);
