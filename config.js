@@ -1,7 +1,3 @@
-// ============================================================
-// CONFIG: Constants, Supabase Client, Magic Numbers
-// ============================================================
-
 const CONFIG = {
     SUPABASE: {
         URL: 'https://gviqfdbuoruqldsbbrxk.supabase.co',
@@ -32,11 +28,3 @@ const CONFIG = {
         EXPIRY_MINUTES: 3
     }
 };
-
-// Pengecekan aman untuk memastikan Supabase sudah dimuat di HTML
-let supabaseClient = null;
-if (typeof window !== 'undefined' && window.supabase) {
-    supabaseClient = window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
-} else {
-    console.error("Error: Supabase JS SDK belum dimuat. Pastikan tag <script> Supabase ditambahkan sebelum memuat file config.js ini di HTML.");
-}
