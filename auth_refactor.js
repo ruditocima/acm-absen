@@ -847,6 +847,39 @@ async function requestOTP() {
     if (!email || !nama || !pass || !email.includes('@')) { showToast('Harap isi semua kolom dengan benar!', 'error'); return; }
     if (pass.length < 6) { showToast('Password minimal 6 karakter!', 'error'); return; }
 
+    // ── Cek dulu apakah email sudah terdaftar di employees ──
+    showToast('Memeriksa ketersediaan email...', 'info');
+    try {
+        const { data: existingEmp, error: checkErr } = await supabaseClient
+            .from('employees')
+            .select('id, name, status, auth_id')
+            .eq('id', email)
+            .maybeSingle();
+
+        if (!checkErr && existingEmp) {
+            if (existingEmp.status === 'Approved') {
+                showToast('Email sudah terdaftar dan aktif. Silakan login.', 'warning');
+                const loginEmail = document.getElementById('login-email');
+                if (loginEmail) loginEmail.value = email;
+                toggleAuthMode('login');
+                return;
+            }
+        }
+
+        // Coba cek apakah user sudah ada di auth (dengan signIn)
+        const { data: signInCheck, error: signInErr } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: pass
+        });
+        if (!signInErr && signInCheck && signInCheck.user) {
+            showToast('Email sudah terdaftar. Login otomatis...', 'success');
+            await processLoginValidation(email, pass, false);
+            return;
+        }
+    } catch (e) {
+        // Abaikan error pengecekan, lanjutkan ke OTP
+    }
+
     tempRegData = { email, nama, pass };
     generatedOTP = Math.floor(100000 + Math.random() * 900000).toString();
     otpExpiryTime = Date.now() + (3 * 60 * 1000);
@@ -936,62 +969,88 @@ async function verifyOTP() {
     if (otp !== generatedOTP) return showToast('Kode OTP salah!', 'error');
 
     showToast('Mendaftarkan akun ke server...', 'info');
-    
-    let authData, authError;
+
+    // ── LANGKAH 1: Cek apakah user sudah ada di Supabase Auth ──
+    let existingAuthUser = null;
     try {
-        const result = await supabaseClient.auth.signUp({
-            email: tempRegData.email, 
-            password: tempRegData.pass, 
-            options: { data: { name: tempRegData.nama } }
+        // Coba signIn dulu untuk cek apakah user sudah terdaftar
+        const { data: signInData, error: signInErr } = await supabaseClient.auth.signInWithPassword({
+            email: tempRegData.email,
+            password: tempRegData.pass
         });
-        authData = result.data; 
-        authError = result.error;
+        if (!signInErr && signInData && signInData.user) {
+            existingAuthUser = signInData.user;
+            showToast('Email sudah terdaftar. Login otomatis...', 'info');
+        }
     } catch (e) {
-        console.error('SignUp exception:', e);
-        showToast('Gagal menghubungi server. Cek koneksi internet.', 'error');
-        return;
+        // Abaikan error, lanjut ke signup
     }
 
-    if (authError) {
-        const errMsg = (authError.message || '').toLowerCase();
-        // Tangani error "already registered" tanpa console error yang mengganggu
-        if (errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('user already')) {
-            showToast('Email sudah terdaftar. Silakan login.', 'warning'); 
-            // Auto-fill email di form login agar UX lebih baik
-            const loginEmail = document.getElementById('login-email');
-            if (loginEmail && tempRegData) loginEmail.value = tempRegData.email;
-            toggleAuthMode('login'); 
-            generatedOTP = null;
-            otpExpiryTime = null;
-            document.getElementById('reg-otp-input').value = '';
-            return;
-        } else if (errMsg.includes('rate limit')) {
-            showToast('Terlalu banyak percobaan. Tunggu 1 menit.', 'warning'); 
+    let authId = null;
+    let isNewUser = false;
+
+    if (existingAuthUser) {
+        // User sudah ada di auth, gunakan ID yang sudah ada
+        authId = existingAuthUser.id;
+    } else {
+        // ── LANGKAH 2: SignUp jika belum terdaftar ──
+        let authData, authError;
+        try {
+            const result = await supabaseClient.auth.signUp({
+                email: tempRegData.email, 
+                password: tempRegData.pass, 
+                options: { data: { name: tempRegData.nama } }
+            });
+            authData = result.data; 
+            authError = result.error;
+        } catch (e) {
+            console.error('SignUp exception:', e);
+            showToast('Gagal menghubungi server. Cek koneksi internet.', 'error');
             return;
         }
-        // Baru log ke console jika error tidak terduga
-        console.error('SignUp error:', authError);
-        showToast('Gagal mendaftar: ' + authError.message, 'error'); 
-        return;
+
+        if (authError) {
+            const errMsg = (authError.message || '').toLowerCase();
+            const errStatus = authError.status || 0;
+
+            // Tangani error 422 (Unprocessable Entity) atau "already registered"
+            if (errStatus === 422 || errMsg.includes('already') || errMsg.includes('registered') || errMsg.includes('user already') || errMsg.includes('exists')) {
+                showToast('Email sudah terdaftar. Silakan login.', 'warning'); 
+                const loginEmail = document.getElementById('login-email');
+                if (loginEmail && tempRegData) loginEmail.value = tempRegData.email;
+                toggleAuthMode('login'); 
+                generatedOTP = null;
+                otpExpiryTime = null;
+                document.getElementById('reg-otp-input').value = '';
+                return;
+            } else if (errMsg.includes('rate limit') || errMsg.includes('too many')) {
+                showToast('Terlalu banyak percobaan. Tunggu 1 menit.', 'warning'); 
+                return;
+            } else if (errMsg.includes('password')) {
+                showToast('Password tidak memenuhi syarat keamanan.', 'error');
+                return;
+            }
+            console.error('SignUp error:', authError);
+            showToast('Gagal mendaftar: ' + authError.message, 'error'); 
+            return;
+        }
+
+        authId = authData && authData.user ? authData.user.id : null;
+        isNewUser = true;
+
+        // Cek apakah perlu email confirmation
+        if (authData && authData.session === null) {
+            showToast('Akun dibuat! Silakan cek email untuk konfirmasi sebelum login.', 'success');
+        }
     }
 
-    const authId = authData && authData.user ? authData.user.id : null;
     if (!authId) {
         showToast('Gagal mendapatkan ID autentikasi.', 'error');
         return;
     }
 
-    try {
-        const { error: loginErr } = await supabaseClient.auth.signInWithPassword({
-            email: tempRegData.email,
-            password: tempRegData.pass
-        });
-        if (loginErr) console.warn('Auto-login warning:', loginErr.message);
-    } catch (e) {
-        console.warn('Auto-login exception:', e);
-    }
-
-    await new Promise(r => setTimeout(r, 1500));
+    // ── LANGKAH 3: Sinkronisasi ke tabel employees ──
+    await new Promise(r => setTimeout(r, 800));
 
     let existingEmp = null;
     try {
@@ -1007,13 +1066,22 @@ async function verifyOTP() {
     }
 
     if (existingEmp) {
+        // Update nama jika masih default
         if (existingEmp.name === 'User Baru' || !existingEmp.name) {
             await supabaseClient
                 .from('employees')
-                .update({ name: tempRegData.nama })
+                .update({ name: tempRegData.nama, auth_id: authId })
                 .eq('id', tempRegData.email);
             existingEmp.name = tempRegData.nama;
+            existingEmp.auth_id = authId;
+        } else if (!existingEmp.auth_id) {
+            await supabaseClient
+                .from('employees')
+                .update({ auth_id: authId })
+                .eq('id', tempRegData.email);
+            existingEmp.auth_id = authId;
         }
+
         const idx = employees.findIndex(e => e.id === tempRegData.email);
         const empObj = { 
             id: existingEmp.id, 
@@ -1026,8 +1094,12 @@ async function verifyOTP() {
             auth_id: existingEmp.auth_id
         };
         if (idx >= 0) employees[idx] = empObj; else employees.push(empObj);
-        
-        showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
+
+        if (existingEmp.status === 'Approved') {
+            showToast('Akun sudah aktif! Silakan login.', 'success');
+        } else {
+            showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
+        }
     } else {
         showToast('Menyimpan data profil...', 'info');
         const { error: insertErr } = await supabaseClient
@@ -1042,7 +1114,7 @@ async function verifyOTP() {
                 status: 'Pending',
                 device_id: 'Unbound'
             }]);
-        
+
         if (insertErr) {
             console.error('Insert employee error:', insertErr);
             showToast('Akun dibuat, tapi gagal menyimpan profil. Hubungi admin.', 'warning');
@@ -1065,7 +1137,7 @@ async function verifyOTP() {
     renderEmployees(); 
     updateDashboardStats(); 
     populateEmailRecipients();
-    
+
     generatedOTP = null; 
     otpExpiryTime = null;
     document.getElementById('reg-otp-input').value = '';
