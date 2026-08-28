@@ -1,0 +1,46 @@
+
+# ============================================================
+# FILE 1: config.js — Constants & Supabase Client
+# ============================================================
+config_js = r'''// ============================================================
+// CONFIG: Constants, Supabase Client, Magic Numbers
+// ============================================================
+
+const CONFIG = {
+    SUPABASE: {
+        URL: 'https://gviqfdbuoruqldsbbrxk.supabase.co',
+        ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd2aXFmZGJ1b3J1cWxkc2JicnhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MjU1MzksImV4cCI6MjEwMjIwMTUzOX0.RalUZTRpAKswYK0SxdJjZWkY1wQb1V0JFKmXu8i0Lo0'
+    },
+    EMAILJS: {
+        PUBLIC_KEY: 'il5LfNiQu0y8dsN35',
+        SERVICE_ID: 'service_3w0ocfc',
+        TEMPLATE_ID: 'template_09rz7kd'
+    },
+    STORAGE: {
+        BUCKET: 'attendance-photos',
+        FOLDER: 'selfies'
+    },
+    ATTENDANCE: {
+        OPEN_TIME: '07:45',
+        MAX_TIME: '09:40',
+        WORK_DAYS_PER_MONTH: 26
+    },
+    GPS: {
+        DEFAULT_RADIUS: 1500,
+        MAX_ACCURACY: 100  // meter, tolak jika akurasi GPS lebih buruk dari ini
+    },
+    PAGINATION: {
+        REKAP_PER_PAGE: 50
+    },
+    OTP: {
+        EXPIRY_MINUTES: 3
+    }
+};
+
+const supabaseClient = window.supabase.createClient(CONFIG.SUPABASE.URL, CONFIG.SUPABASE.ANON_KEY);
+'''
+
+with open('/mnt/agents/output/config.js', 'w', encoding='utf-8') as f:
+    f.write(config_js)
+
+print("✅ config.js created")

@@ -315,3 +315,53 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO basecamps (id, name, lat, lng, radius)
 VALUES (1, 'Basecamp Pekanbaru Pusat', 0.434291, 101.466385, 1500)
 ON CONFLICT (id) DO NOTHING;
+
+-- --------------------------------------------------------
+-- 8. INDEX PERFORMANCE (tambahan)
+-- --------------------------------------------------------
+
+CREATE INDEX IF NOT EXISTS idx_rekap_date ON rekap_list(date);
+CREATE INDEX IF NOT EXISTS idx_rekap_name ON rekap_list(name);
+CREATE INDEX IF NOT EXISTS idx_rekap_date_name ON rekap_list(date, name);
+CREATE INDEX IF NOT EXISTS idx_izin_status ON izin_list(status);
+CREATE INDEX IF NOT EXISTS idx_izin_atasan ON izin_list(atasan);
+CREATE INDEX IF NOT EXISTS idx_emails_recipient ON emails(recipient);
+CREATE INDEX IF NOT EXISTS idx_emails_sender ON emails(sender);
+CREATE INDEX IF NOT EXISTS idx_emails_created ON emails(created_at DESC);
+
+-- --------------------------------------------------------
+-- 9. STORAGE BUCKET: attendance-photos
+-- --------------------------------------------------------
+
+-- Buat bucket via Supabase Dashboard UI (Storage > New Bucket)
+-- Nama: attendance-photos
+-- Public: TRUE (agar URL foto bisa diakses langsung)
+-- Allowed MIME types: image/jpeg, image/webp, image/png
+-- File size limit: 5MB
+
+-- Policy: User hanya bisa upload ke folder selfies miliknya
+CREATE POLICY "Users can upload own selfies"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'attendance-photos' AND
+  (storage.foldername(name))[1] = 'selfies'
+);
+
+-- Policy: Semua user yang login bisa baca foto
+CREATE POLICY "Authenticated users can view selfies"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'attendance-photos' AND
+  auth.role() = 'authenticated'
+);
+
+-- Policy: Hanya admin bisa hapus foto
+CREATE POLICY "Only admin can delete photos"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'attendance-photos' AND
+  EXISTS (
+    SELECT 1 FROM employees e 
+    WHERE e.auth_id = auth.uid() AND e.role = 'Master Admin'
+  )
+);
