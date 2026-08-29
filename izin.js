@@ -76,10 +76,12 @@ async function updateIzinStatus(id, newStatus) {
 
     izin.status = newStatus;
     
-    // Update status izin di Supabase
+    // 1. Update status izin di Supabase
     var updateIzinRes = await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
     if (updateIzinRes.error) {
         console.error('Supabase Error (izin_list):', updateIzinRes.error);
+        showToast('Gagal update izin ke Supabase: ' + updateIzinRes.error.message, 'error');
+        return;
     }
     
     Store.set('izinList', izinList.slice());
@@ -96,7 +98,6 @@ async function updateIzinStatus(id, newStatus) {
         for (var i = 0; i < dates.length; i++) {
             var dateStr = dates[i];
             
-            // Cek apakah sudah ada rekap untuk tanggal & nama karyawan tersebut
             var existingIndex = rekapList.findIndex(function(r) {
                 return r.date === dateStr && r.name === izin.name;
             });
@@ -106,19 +107,13 @@ async function updateIzinStatus(id, newStatus) {
                 name: izin.name,
                 basecamp: basecampName,
                 time: '-',
-                status: izin.jenis, // Mengikuti jenis izin (Sakit, Cuti Tahunan, dll)
+                status: izin.jenis, // Contoh: Cuti Tahunan, Sakit, dll
                 late: '-',
                 selfie_url: null
             };
 
             if (existingIndex !== -1) {
-                // Update di Local Store
-                rekapList[existingIndex].status = izin.jenis;
-                rekapList[existingIndex].time = '-';
-                rekapList[existingIndex].late = '-';
-                rekapList[existingIndex].basecamp = basecampName;
-
-                // Update di Supabase rekap_list
+                // Update rekap yang sudah ada di Supabase
                 var updateRekapRes = await supabaseClient.from('rekap_list')
                     .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
                     .eq('date', dateStr)
@@ -126,22 +121,31 @@ async function updateIzinStatus(id, newStatus) {
 
                 if (updateRekapRes.error) {
                     console.error('Supabase Error (Update rekap_list):', updateRekapRes.error);
+                    showToast('Gagal update rekap ke database: ' + updateRekapRes.error.message, 'error');
+                    return;
                 }
-            } else {
-                // Tambahkan ke Local Store
-                rekapList.push(rekapData);
 
-                // Insert ke Supabase rekap_list
+                rekapList[existingIndex].status = izin.jenis;
+                rekapList[existingIndex].time = '-';
+                rekapList[existingIndex].late = '-';
+                rekapList[existingIndex].basecamp = basecampName;
+            } else {
+                // Insert data baru ke Supabase rekap_list
                 var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
                 
                 if (insertRekapRes.error) {
                     console.error('Supabase Error (Insert rekap_list):', insertRekapRes.error);
+                    showToast('Gagal menyimpan rekap ke database: ' + insertRekapRes.error.message, 'error');
+                    return;
                 }
+
+                rekapList.push(rekapData);
             }
         }
 
         Store.set('rekapList', rekapList.slice());
         
+        // Panggil fungsi render ulang rekap jika ada
         if (typeof renderRekap === 'function') {
             renderRekap();
         }
@@ -153,7 +157,7 @@ async function updateIzinStatus(id, newStatus) {
         updateDashboardStats();
     }
     
-    showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi diperbarui.' : '.'), 'success');
+    showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi berhasil disimpan.' : '.'), 'success');
 }
 
 function renderAdminIzin() {
