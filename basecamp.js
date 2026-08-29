@@ -31,18 +31,45 @@ function renderBasecamps() {
         canDelete = false;
     }
 
-    container.innerHTML = basecamps.map(function(b, i) {
-        return '<div class="glass-card p-4 rounded-2xl border border-slate-800 space-y-2">' +
-            '<div class="flex justify-between items-start">' +
-            '<h5 class="text-xs font-bold text-white">' + escapeHtml(b.name) + '</h5>' +
-            ((canEdit || canDelete) ? '<div class="flex items-center gap-2">' +
-            (canEdit ? '<button onclick="openEditBasecampModal(' + i + ')" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>' : '') +
-            (canDelete ? '<button onclick="deleteBasecamp(' + i + ')" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>' : '') +
-            '</div>' : '') +
-            '</div>' +
-            '<p class="text-[11px] text-slate-400 font-mono">Lat/Lng: ' + b.lat + ', ' + b.lng + '</p>' +
-            '<p class="text-[11px] text-gold-400">Radius GPS: ' + b.radius + ' Meter</p></div>';
-    }).join('');
+    // --- AWAL PERUBAHAN TAMPILAN KE TABEL ---
+    var tableHTML = '<div class="overflow-x-auto glass-card rounded-2xl border border-slate-800">' +
+        '<table class="w-full text-left text-[11px] text-slate-400 font-mono">' +
+        '<thead class="text-xs text-white uppercase bg-slate-800/40 border-b border-slate-800">' +
+        '<tr>' +
+        '<th class="px-4 py-3">Nama Basecamp</th>' +
+        '<th class="px-4 py-3">Lat / Lng</th>' +
+        '<th class="px-4 py-3">Radius GPS</th>' +
+        ((canEdit || canDelete) ? '<th class="px-4 py-3 text-right">Aksi</th>' : '') +
+        '</tr>' +
+        '</thead>' +
+        '<tbody>';
+
+    if (basecamps.length === 0) {
+        tableHTML += '<tr><td colspan="4" class="px-4 py-4 text-center">Belum ada data basecamp.</td></tr>';
+    } else {
+        tableHTML += basecamps.map(function(b, i) {
+            var actionTd = '';
+            if (canEdit || canDelete) {
+                actionTd = '<td class="px-4 py-3">' +
+                    '<div class="flex items-center justify-end gap-2">' +
+                    (canEdit ? '<button onclick="openEditBasecampModal(' + i + ')" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>' : '') +
+                    (canDelete ? '<button onclick="deleteBasecamp(' + i + ')" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>' : '') +
+                    '</div>' +
+                    '</td>';
+            }
+
+            return '<tr class="border-b border-slate-800 hover:bg-slate-800/30 transition">' +
+                '<td class="px-4 py-3 font-bold text-white text-xs">' + escapeHtml(b.name) + '</td>' +
+                '<td class="px-4 py-3">' + b.lat + ', ' + b.lng + '</td>' +
+                '<td class="px-4 py-3 text-gold-400">' + b.radius + ' Meter</td>' +
+                actionTd +
+                '</tr>';
+        }).join('');
+    }
+
+    tableHTML += '</tbody></table></div>';
+    container.innerHTML = tableHTML;
+    // --- AKHIR PERUBAHAN TAMPILAN KE TABEL ---
 
     var bcMap = Store.get('bcMap');
     var bcMarkers = Store.get('bcMarkers');
@@ -64,7 +91,6 @@ function renderBasecamps() {
 
     Store.set('bcMarkers', bcMarkers);
 }
-
 function openAddBasecampModal() {
     var roleName = Store.get('activeEmployeeSession').role;
     if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') {
