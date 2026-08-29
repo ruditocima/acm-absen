@@ -122,10 +122,15 @@ function calculateEmployeeOfTheMonth(year, month) {
         
         // 2. Cek apakah karyawan absen di hari libur merah
         var holidayWorkedCount = 0;
+        var sundayWorkedCount = 0;
         empRekap.forEach(function(r) {
             var isHoliday = holidaysInMonth.some(function(h) { return h.date === r.date; });
             if (isHoliday) {
                 holidayWorkedCount++;
+            }
+            var rekapDateObj = new Date(r.date);
+            if (rekapDateObj.getDay() === 0) { 
+            sundayWorkedCount++;
             }
         });
 
@@ -140,6 +145,7 @@ function calculateEmployeeOfTheMonth(year, month) {
         
         // Penambahan poin bonus untuk setiap kehadiran di tanggal merah (Misal: 10 poin per hari)
         var extraHolidayBonus = holidayWorkedCount * 4; 
+        var extraSundayBonus = sundayWorkedCount * 4; 
 
         var alphaDays = Math.max(realWorkDays - uniqueDays - izinDays, 0);
         var alphaPenalty = alphaDays * 3;
