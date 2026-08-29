@@ -46,6 +46,12 @@ async function handleAbsen() {
 
             var userLat = position.coords.latitude;
             var userLng = position.coords.longitude;
+            // --- KODE TAMBAHAN UNTUK MENGUBAH TEKS DI LAYAR ---
+            var koordEl = document.getElementById('koordinat-display');
+            if (koordEl) {
+                koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
+            }
+            // --------------------------------------------------
             var basecamps = Store.get('basecamps');
             var validBasecamp = null;
 
