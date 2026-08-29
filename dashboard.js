@@ -196,8 +196,7 @@ function renderEmployeeOfTheMonth() {
     var currentMonthName = monthNames[now.getMonth()];
 
     var html = '<div class="flex items-center justify-between mb-3">' +
-        '<h4 class="text-xs font-bold text-gold-400 uppercase tracking-wider"><i class="fa-solid fa-trophy"></i> Karyawan Terbaik — ' + currentMonthName + ' ' + now.getFullYear() + '</h4>' +
-        '<span class="text-[10px] text-slate-500">Berdasarkan ' + CONFIG.ATTENDANCE.WORK_DAYS_PER_MONTH + ' hari kerja</span></div>';
+        '<h4 class="text-xs font-bold text-gold-400 uppercase tracking-wider"><i class="fa-solid fa-trophy"></i> Karyawan Terbaik — ' + currentMonthName + ' ' + now.getFullYear() + '</h4></div>';
 
     if (winner) {
         html += '<div class="bg-gradient-to-r from-gold-500/10 to-transparent border border-gold-500/30 rounded-2xl p-4 mb-4 flex items-center gap-4">' +
@@ -205,11 +204,7 @@ function renderEmployeeOfTheMonth() {
             '<div class="flex-1 min-w-0">' +
             '<div class="flex items-center gap-2"><h5 class="text-sm font-bold text-white truncate">' + escapeHtml(winner.name) + '</h5>' +
             '<span class="px-2 py-0.5 rounded-full bg-gold-500/20 text-gold-400 text-[9px] font-bold border border-gold-500/30">#1</span></div>' +
-            '<p class="text-[11px] text-slate-400">' + escapeHtml(winner.position) + ' · ' + escapeHtml(winner.role) + '</p>' +
-            '<div class="flex gap-3 mt-1.5 text-[10px]">' +
-            '<span class="text-emerald-400 font-semibold"><i class="fa-solid fa-check"></i> ' + winner.uniqueDays + ' Hadir</span>' +
-            '<span class="text-gold-400 font-semibold"><i class="fa-solid fa-clock"></i> ' + winner.tepatWaktu + ' Tepat Waktu</span>' +
-            '<span class="text-rose-400 font-semibold"><i class="fa-solid fa-xmark"></i> ' + winner.alphaDays + ' Alpha</span></div></div>' +
+            '<p class="text-[11px] text-slate-400">' + escapeHtml(winner.position) + '</p></div>' +
             '<div class="text-right shrink-0"><span class="text-2xl font-black text-gold-400">' + winner.totalScore + '</span>' +
             '<p class="text-[9px] text-slate-500 uppercase">Skor</p></div></div>';
     }
@@ -222,6 +217,7 @@ function renderEmployeeOfTheMonth() {
         html += '<div class="flex items-center gap-3 bg-slate-950/40 p-3 rounded-xl border border-slate-800">' +
             '<span class="w-5 text-center font-black ' + medalColor + ' text-sm">' + s.rank + '</span>' +
             '<div class="flex-1 min-w-0"><p class="text-xs font-semibold text-white truncate">' + escapeHtml(s.name) + '</p>' +
+            '<p class="text-[10px] text-slate-400 truncate">' + escapeHtml(s.position) + '</p>' +
             '<div class="w-full bg-slate-800 rounded-full h-1.5 mt-1.5"><div class="bg-gold-500 h-1.5 rounded-full transition-all" style="width: ' + barWidth + '%"></div></div></div>' +
             '<span class="text-xs font-bold text-gold-400 shrink-0">' + s.totalScore + '</span></div>';
     });
@@ -229,7 +225,6 @@ function renderEmployeeOfTheMonth() {
 
     container.innerHTML = html;
 }
-
 function renderMobileEOM() {
     var container = document.getElementById('mobile-eom-section');
     if (!container) return;
@@ -254,10 +249,6 @@ function renderMobileEOM() {
         '<div class="flex-1"><p class="text-sm font-bold text-white">' + escapeHtml(winner.name) + '</p>' +
         '<p class="text-[10px] text-slate-400">' + escapeHtml(winner.position) + '</p></div>' +
         '<div class="text-right"><p class="text-lg font-black text-gold-400">' + winner.totalScore + '</p>' +
-        '<p class="text-[9px] text-slate-500">skor</p></div></div>' +
-        '<div class="grid grid-cols-3 gap-2 mt-3 text-center">' +
-        '<div class="bg-slate-950/50 rounded-lg py-1.5"><p class="text-emerald-400 font-bold text-xs">' + winner.uniqueDays + '</p><p class="text-[9px] text-slate-500">Hadir</p></div>' +
-        '<div class="bg-slate-950/50 rounded-lg py-1.5"><p class="text-gold-400 font-bold text-xs">' + winner.tepatWaktu + '</p><p class="text-[9px] text-slate-500">Tepat</p></div>' +
-        '<div class="bg-slate-950/50 rounded-lg py-1.5"><p class="text-rose-400 font-bold text-xs">' + winner.alphaDays + '</p><p class="text-[9px] text-slate-500">Alpha</p></div></div></div>';
+        '<p class="text-[9px] text-slate-500">skor</p></div></div></div>';
     container.classList.remove('hidden');
 }
