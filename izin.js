@@ -74,7 +74,7 @@ async function updateIzinStatus(id, newStatus) {
         return;
     }
 
-    // 1. Update status di local store dan langsung render UI agar instan (tanpa tunggu refresh)
+    // 1. Update status di local store dan langsung render UI agar instan
     izin.status = newStatus;
     Store.set('izinList', izinList.slice());
 
@@ -87,7 +87,7 @@ async function updateIzinStatus(id, newStatus) {
     // 2. Update status izin di Supabase
     var updateIzinRes = await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
     if (updateIzinRes.error) {
-        console.error('Supabase Error (izin_list):', updateIzinRes.error);
+        console.error('Supabase Error (izin_list):', updateIzinRes.error.message);
         showToast('Gagal update izin ke Supabase: ' + updateIzinRes.error.message, 'error');
         return;
     }
@@ -114,14 +114,39 @@ async function updateIzinStatus(id, newStatus) {
                 selfie_url: null
             };
 
-            // Gunakan upsert ke Supabase rekap_list untuk menghindari duplikasi/error constraint
-            var upsertRekapRes = await supabaseClient.from('rekap_list')
-                .upsert(rekapData, { onConflict: 'date,name' });
+            // Cek apakah data rekap untuk tanggal & nama tersebut sudah ada di Supabase
+            var checkRes = await supabaseClient.from('rekap_list')
+                .select('date, name')
+                .eq('date', dateStr)
+                .eq('name', izin.name);
 
-            if (upsertRekapRes.error) {
-                console.error('Supabase Error (Upsert rekap_list):', upsertRekapRes.error);
-                showToast('Gagal menyimpan rekap ke database: ' + upsertRekapRes.error.message, 'error');
+            if (checkRes.error) {
+                console.error('Supabase Error (Check rekap_list):', checkRes.error.message);
+                showToast('Gagal mengecek rekap database: ' + checkRes.error.message, 'error');
                 return;
+            }
+
+            if (checkRes.data && checkRes.data.length > 0) {
+                // Jika sudah ada, lakukan Update
+                var updateRekapRes = await supabaseClient.from('rekap_list')
+                    .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
+                    .eq('date', dateStr)
+                    .eq('name', izin.name);
+
+                if (updateRekapRes.error) {
+                    console.error('Supabase Error (Update rekap_list):', updateRekapRes.error.message);
+                    showToast('Gagal update rekap ke database: ' + updateRekapRes.error.message, 'error');
+                    return;
+                }
+            } else {
+                // Jika belum ada, lakukan Insert
+                var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
+                
+                if (insertRekapRes.error) {
+                    console.error('Supabase Error (Insert rekap_list):', insertRekapRes.error.message);
+                    showToast('Gagal menyimpan rekap ke database: ' + insertRekapRes.error.message, 'error');
+                    return;
+                }
             }
 
             // Sinkronisasi data ke local rekapList array
@@ -149,6 +174,7 @@ async function updateIzinStatus(id, newStatus) {
     
     showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi berhasil disimpan.' : '.'), 'success');
 }
+
 function renderAdminIzin() {
     var container = document.getElementById('admin-izin-container');
     var badge = document.getElementById('sidebar-izin-badge');
