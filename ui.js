@@ -79,7 +79,7 @@ function switchMobileEmailSub(sub) {
 }
 
 function switchDesktopTab(tab) {
-    ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email'].forEach(function(t) {
+    ['dashboard', 'rekap', 'role', 'karyawan', 'basecamp', 'izin', 'email', 'libur'].forEach(function(t) {
         var el = document.getElementById('d-tab-' + t);
         var btn = document.getElementById('d-nav-' + t);
         if (el) el.classList.add('hidden');
@@ -105,6 +105,7 @@ function switchDesktopTab(tab) {
         }, 200);
     }
     if (tab === 'email') switchDesktopEmailSub('inbox');
+    if (tab === 'libur') renderLibur(); // Pastikan fungsi render hari libur sudah ada
 }
 
 function switchDesktopEmailSub(sub) {
@@ -146,7 +147,8 @@ function applyRolePermissions() {
         'karyawan': 'd-nav-karyawan',
         'basecamp': 'd-nav-basecamp',
         'izin': 'd-nav-izin',
-        'email': 'd-nav-email'
+        'email': 'd-nav-email',
+        'libur': 'd-nav-libur' // Tambahkan ini
     };
 
     for (var key in menuMapping) {
@@ -175,7 +177,7 @@ function applyRolePermissions() {
             if (b) b.classList.remove('hidden');
         });
     } else if (roleName === 'Admin') {
-        ['rekap', 'izin', 'email', 'basecamp'].forEach(function(key) {
+        ['rekap', 'izin', 'email', 'basecamp', 'libur'].forEach(function(key) { // Tambahkan 'libur' di sini jika Admin juga boleh mengakses
             var b = document.getElementById(menuMapping[key]);
             if (b) b.classList.remove('hidden');
         });
