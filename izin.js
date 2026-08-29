@@ -74,9 +74,17 @@ async function updateIzinStatus(id, newStatus) {
         return;
     }
 
+    // 1. Update status di local store dan langsung render UI agar instan (tanpa tunggu refresh)
     izin.status = newStatus;
-    
-    // 1. Update status izin di Supabase
+    Store.set('izinList', izinList.slice());
+
+    renderAdminIzin();
+    renderMobileMyHistory();
+    if (typeof updateDashboardStats === 'function') {
+        updateDashboardStats();
+    }
+
+    // 2. Update status izin di Supabase
     var updateIzinRes = await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
     if (updateIzinRes.error) {
         console.error('Supabase Error (izin_list):', updateIzinRes.error);
@@ -84,9 +92,7 @@ async function updateIzinStatus(id, newStatus) {
         return;
     }
     
-    Store.set('izinList', izinList.slice());
-
-    // JIKA STATUS DISETUJUI (APPROVED), CATAT OTOMATIS KE REKAP ABSENSI
+    // 3. JIKA STATUS DISETUJUI (APPROVED), CATAT OTOMATIS KE REKAP ABSENSI & SUPABASE
     if (newStatus === 'Approved') {
         var dates = getDatesInRange(izin.start, izin.end);
         var employeesList = Store.get('employeesList') || [];
@@ -97,10 +103,6 @@ async function updateIzinStatus(id, newStatus) {
 
         for (var i = 0; i < dates.length; i++) {
             var dateStr = dates[i];
-            
-            var existingIndex = rekapList.findIndex(function(r) {
-                return r.date === dateStr && r.name === izin.name;
-            });
 
             var rekapData = {
                 date: dateStr,
@@ -112,33 +114,27 @@ async function updateIzinStatus(id, newStatus) {
                 selfie_url: null
             };
 
+            // Gunakan upsert ke Supabase rekap_list untuk menghindari duplikasi/error constraint
+            var upsertRekapRes = await supabaseClient.from('rekap_list')
+                .upsert(rekapData, { onConflict: 'date,name' });
+
+            if (upsertRekapRes.error) {
+                console.error('Supabase Error (Upsert rekap_list):', upsertRekapRes.error);
+                showToast('Gagal menyimpan rekap ke database: ' + upsertRekapRes.error.message, 'error');
+                return;
+            }
+
+            // Sinkronisasi data ke local rekapList array
+            var existingIndex = rekapList.findIndex(function(r) {
+                return r.date === dateStr && r.name === izin.name;
+            });
+
             if (existingIndex !== -1) {
-                // Update rekap yang sudah ada di Supabase
-                var updateRekapRes = await supabaseClient.from('rekap_list')
-                    .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
-                    .eq('date', dateStr)
-                    .eq('name', izin.name);
-
-                if (updateRekapRes.error) {
-                    console.error('Supabase Error (Update rekap_list):', updateRekapRes.error);
-                    showToast('Gagal update rekap ke database: ' + updateRekapRes.error.message, 'error');
-                    return;
-                }
-
                 rekapList[existingIndex].status = izin.jenis;
                 rekapList[existingIndex].time = '-';
                 rekapList[existingIndex].late = '-';
                 rekapList[existingIndex].basecamp = basecampName;
             } else {
-                // Insert data baru ke Supabase rekap_list
-                var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
-                
-                if (insertRekapRes.error) {
-                    console.error('Supabase Error (Insert rekap_list):', insertRekapRes.error);
-                    showToast('Gagal menyimpan rekap ke database: ' + insertRekapRes.error.message, 'error');
-                    return;
-                }
-
                 rekapList.push(rekapData);
             }
         }
@@ -150,16 +146,9 @@ async function updateIzinStatus(id, newStatus) {
             renderRekap();
         }
     }
-
-    renderAdminIzin();
-    renderMobileMyHistory();
-    if (typeof updateDashboardStats === 'function') {
-        updateDashboardStats();
-    }
     
     showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi berhasil disimpan.' : '.'), 'success');
 }
-
 function renderAdminIzin() {
     var container = document.getElementById('admin-izin-container');
     var badge = document.getElementById('sidebar-izin-badge');
