@@ -1,6 +1,7 @@
-// Variabel global untuk melacak instance channel aktif
+// Variabel global untuk melacak instance channel dan timer reconnect
 let leavesChannel = null;
 let messagesChannel = null;
+let reconnectTimer = null;
 
 function initSupabaseRealtime() {
     if (typeof supabaseClient === 'undefined') {
@@ -8,7 +9,13 @@ function initSupabaseRealtime() {
         return;
     }
 
-    // Bersihkan referensi channel sebelumnya jika ada
+    // Batalkan timer reconnect yang sedang berjalan untuk menghindari duplikasi loop
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    // Bersihkan referensi channel sebelumnya jika ada[cite: 2]
     if (leavesChannel) {
         supabaseClient.removeChannel(leavesChannel);
         leavesChannel = null;
@@ -18,7 +25,7 @@ function initSupabaseRealtime() {
         messagesChannel = null;
     }
 
-    // Pembersihan tambahan untuk channel lama di dalam klien Supabase
+    // Pembersihan tambahan untuk channel lama di dalam klien Supabase[cite: 2]
     const existingChannels = supabaseClient.getChannels();
     existingChannels.forEach(function(ch) {
         if (ch.topic && (ch.topic.includes('realtime-leaves-channel') || ch.topic.includes('realtime-messages-channel'))) {
@@ -26,7 +33,18 @@ function initSupabaseRealtime() {
         }
     });
 
-    // Inisialisasi ulang realtime-leaves-channel dengan auto-retry
+    // Handler error terpusat agar retry timer hanya dipanggil sekali meskipun kedua channel gagal bersamaan
+    const handleChannelError = function(channelName, err) {
+        console.error(`Gagal terhubung ke ${channelName}:`, err);
+        if (!reconnectTimer) {
+            reconnectTimer = setTimeout(function() {
+                reconnectTimer = null;
+                initSupabaseRealtime();
+            }, 5000);
+        }
+    };
+
+    // Inisialisasi ulang realtime-leaves-channel
     leavesChannel = supabaseClient.channel('realtime-leaves-channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_list' }, function(payload) {
             if (typeof renderAdminIzin === 'function') renderAdminIzin();
@@ -34,13 +52,11 @@ function initSupabaseRealtime() {
         })
         .subscribe(function(status, err) {
             if (status === 'CHANNEL_ERROR') {
-                console.error('Gagal terhubung ke realtime-leaves-channel:', err);
-                // Coba hubungkan kembali setelah 5 detik jika terjadi error
-                setTimeout(initSupabaseRealtime, 5000);
+                handleChannelError('realtime-leaves-channel', err);
             }
         });
 
-    // Inisialisasi ulang realtime-messages-channel dengan auto-retry
+    // Inisialisasi ulang realtime-messages-channel
     messagesChannel = supabaseClient.channel('realtime-messages-channel')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, function(payload) {
             if (typeof renderEmails === 'function') renderEmails();
@@ -48,14 +64,12 @@ function initSupabaseRealtime() {
         })
         .subscribe(function(status, err) {
             if (status === 'CHANNEL_ERROR') {
-                console.error('Gagal terhubung ke realtime-messages-channel:', err);
-                // Coba hubungkan kembali setelah 5 detik jika terjadi error
-                setTimeout(initSupabaseRealtime, 5000);
+                handleChannelError('realtime-messages-channel', err);
             }
         });
 }
 
-// Live clock interval tetap dipertahankan
+// Live clock interval tetap dipertahankan[cite: 2]
 setInterval(function() {
     var el = document.getElementById('live-clock');
     if (el) {
