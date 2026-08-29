@@ -90,10 +90,22 @@ function countIzinDaysInMonth(izinList, employeeName, year, month) {
 function calculateEmployeeOfTheMonth(year, month) {
     var startStr = year + '-' + String(month + 1).padStart(2, '0') + '-01';
     var endStr = year + '-' + String(month + 1).padStart(2, '0') + '-31';
+    
     var monthlyRekap = Store.get('rekapList').filter(function(r) { return r.date >= startStr && r.date <= endStr; });
     var employees = Store.get('employees');
     var izinList = Store.get('izinList');
+    var holidays = Store.get('holidays') || []; // Ambil data hari libur
     var results = [];
+
+    // Filter hari libur khusus untuk bulan yang sedang dihitung
+    var holidaysInMonth = holidays.filter(function(h) {
+        return h.date >= startStr && h.date <= endStr;
+    });
+
+    // 1. Perhitungan Hari Kerja Real
+    // Mengambil konfigurasi default (26 hari) dikurangi jumlah hari libur nasional di bulan tersebut
+    var baseWorkDays = CONFIG.ATTENDANCE.WORK_DAYS_PER_MONTH || 26;
+    var realWorkDays = Math.max(1, baseWorkDays - holidaysInMonth.length); 
 
     employees.forEach(function(emp) {
         if (emp.status !== 'Approved') return;
@@ -107,14 +119,33 @@ function calculateEmployeeOfTheMonth(year, month) {
         empRekap.forEach(function(r) { totalLateMinutes += parseLateToMinutes(r.late); });
 
         var izinDays = countIzinDaysInMonth(izinList, emp.name, year, month);
-        var attendanceScore = Math.min((uniqueDays / CONFIG.ATTENDANCE.WORK_DAYS_PER_MONTH) * 35, 35);
+        
+        // 2. Cek apakah karyawan absen di hari libur merah
+        var holidayWorkedCount = 0;
+        empRekap.forEach(function(r) {
+            var isHoliday = holidaysInMonth.some(function(h) { return h.date === r.date; });
+            if (isHoliday) {
+                holidayWorkedCount++;
+            }
+        });
+
+        // Menggunakan realWorkDays untuk perhitungan persentase kehadiran
+        var attendanceScore = Math.min((uniqueDays / realWorkDays) * 35, 35);
         var punctualityScore = uniqueDays > 0 ? (tepatWaktu / uniqueDays) * 35 : 0;
+        
         var latePenalty = Math.min(totalLateMinutes / 30, 20);
         var disciplineScore = Math.max(20 - latePenalty, 0);
-        var perfectBonus = (uniqueDays >= CONFIG.ATTENDANCE.WORK_DAYS_PER_MONTH && totalLateMinutes === 0) ? 10 : 0;
-        var alphaDays = Math.max(CONFIG.ATTENDANCE.WORK_DAYS_PER_MONTH - uniqueDays - izinDays, 0);
+        
+        var perfectBonus = (uniqueDays >= realWorkDays && totalLateMinutes === 0) ? 10 : 0;
+        
+        // Penambahan poin bonus untuk setiap kehadiran di tanggal merah (Misal: 10 poin per hari)
+        var extraHolidayBonus = holidayWorkedCount * 4; 
+
+        var alphaDays = Math.max(realWorkDays - uniqueDays - izinDays, 0);
         var alphaPenalty = alphaDays * 3;
-        var totalScore = attendanceScore + punctualityScore + disciplineScore + perfectBonus - alphaPenalty;
+        
+        // Tambahkan extraHolidayBonus ke totalScore
+        var totalScore = attendanceScore + punctualityScore + disciplineScore + perfectBonus + extraHolidayBonus - alphaPenalty;
 
         results.push({
             rank: 0,
@@ -126,10 +157,12 @@ function calculateEmployeeOfTheMonth(year, month) {
             totalLateMinutes: Math.round(totalLateMinutes),
             izinDays: izinDays,
             alphaDays: alphaDays,
+            holidayWorked: holidayWorkedCount, // Data tambahan untuk UI jika diperlukan
             attendanceScore: +attendanceScore.toFixed(2),
             punctualityScore: +punctualityScore.toFixed(2),
             disciplineScore: +disciplineScore.toFixed(2),
             perfectBonus: perfectBonus,
+            extraHolidayBonus: extraHolidayBonus, // Data tambahan
             alphaPenalty: alphaPenalty,
             totalScore: +Math.max(totalScore, 0).toFixed(2)
         });
