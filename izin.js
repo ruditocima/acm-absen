@@ -54,16 +54,86 @@ async function submitMobileIzin() {
     resetButtonLoading(btn);
 }
 
-// Helper untuk menghasilkan rentang tanggal (Array of Dates)
-function getDatesInRange(startDate, endDate) {
-    var dates = [];
-    var curr = new Date(startDate);
-    var last = new Date(endDate);
-    while (curr <= last) {
-        dates.push(curr.toISOString().split('T')[0]);
-        curr.setDate(curr.getDate() + 1);
+// Helper untuk mendapatkan tanggal hari ini berformat YYYY-MM-DD
+function getTodayDateString() {
+    var d = new Date();
+    var year = d.getFullYear();
+    var month = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return year + '-' + month + '-' + day;
+}
+
+// Helper untuk menyinkronkan izin yang approved ke rekap_list secara bertahap sesuai tanggal hari ini
+async function syncApprovedIzinsToRekap() {
+    var izinList = Store.get('izinList') || [];
+    var approvedIzins = izinList.filter(function(i) { return i.status === 'Approved'; });
+    if (approvedIzins.length === 0) return;
+
+    var todayStr = getTodayDateString();
+    var employeesList = Store.get('employeesList') || [];
+    var rekapList = Store.get('rekapList') || [];
+    var updated = false;
+
+    for (var j = 0; j < approvedIzins.length; j++) {
+        var izin = approvedIzins[j];
+        var dates = getDatesInRange(izin.start, izin.end);
+        var emp = employeesList.find(function(e) { return e.name === izin.name; });
+        var basecampName = emp ? (emp.basecamp || '-') : '-';
+
+        for (var i = 0; i < dates.length; i++) {
+            var dateStr = dates[i];
+            
+            // PENTING: Hanya masukkan ke rekap jika tanggal tersebut sudah tiba atau lewat (dateStr <= todayStr)
+            if (dateStr > todayStr) {
+                continue;
+            }
+
+            var existingIndex = rekapList.findIndex(function(r) {
+                return r.date === dateStr && r.name === izin.name;
+            });
+
+            var rekapData = {
+                date: dateStr,
+                name: izin.name,
+                basecamp: basecampName,
+                time: '-',
+                status: izin.jenis,
+                late: '-',
+                selfie_url: null
+            };
+
+            if (existingIndex !== -1) {
+                if (rekapList[existingIndex].status !== izin.jenis || rekapList[existingIndex].basecamp !== basecampName) {
+                    var updateRekapRes = await supabaseClient.from('rekap_list')
+                        .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
+                        .eq('date', dateStr)
+                        .eq('name', izin.name);
+
+                    if (!updateRekapRes.error) {
+                        rekapList[existingIndex].status = izin.jenis;
+                        rekapList[existingIndex].time = '-';
+                        rekapList[existingIndex].late = '-';
+                        rekapList[existingIndex].basecamp = basecampName;
+                        updated = true;
+                    }
+                }
+            } else {
+                var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
+                
+                if (!insertRekapRes.error) {
+                    rekapList.push(rekapData);
+                    updated = true;
+                }
+            }
+        }
     }
-    return dates;
+
+    if (updated) {
+        Store.set('rekapList', rekapList.slice());
+        if (typeof renderRekap === 'function') {
+            renderRekap();
+        }
+    }
 }
 
 async function updateIzinStatus(id, newStatus) {
@@ -86,69 +156,9 @@ async function updateIzinStatus(id, newStatus) {
     
     Store.set('izinList', izinList.slice());
 
-    // JIKA STATUS DISETUJUI (APPROVED), CATAT OTOMATIS KE REKAP ABSENSI
+    // JIKA STATUS DISETUJUI (APPROVED), SINKRONKAN OTOMATIS KE REKAP SESUAI TANGGAL HARI INI
     if (newStatus === 'Approved') {
-        var dates = getDatesInRange(izin.start, izin.end);
-        var employeesList = Store.get('employeesList') || [];
-        var emp = employeesList.find(function(e) { return e.name === izin.name; });
-        var basecampName = emp ? (emp.basecamp || '-') : '-';
-
-        var rekapList = Store.get('rekapList') || [];
-
-        for (var i = 0; i < dates.length; i++) {
-            var dateStr = dates[i];
-            
-            var existingIndex = rekapList.findIndex(function(r) {
-                return r.date === dateStr && r.name === izin.name;
-            });
-
-            var rekapData = {
-                date: dateStr,
-                name: izin.name,
-                basecamp: basecampName,
-                time: '-',
-                status: izin.jenis, // Contoh: Cuti Tahunan, Sakit, dll
-                late: '-',
-                selfie_url: null
-            };
-
-            if (existingIndex !== -1) {
-                // Update rekap yang sudah ada di Supabase
-                var updateRekapRes = await supabaseClient.from('rekap_list')
-                    .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
-                    .eq('date', dateStr)
-                    .eq('name', izin.name);
-
-                if (updateRekapRes.error) {
-                    console.error('Supabase Error (Update rekap_list):', updateRekapRes.error);
-                    showToast('Gagal update rekap ke database: ' + updateRekapRes.error.message, 'error');
-                    return;
-                }
-
-                rekapList[existingIndex].status = izin.jenis;
-                rekapList[existingIndex].time = '-';
-                rekapList[existingIndex].late = '-';
-                rekapList[existingIndex].basecamp = basecampName;
-            } else {
-                // Insert data baru ke Supabase rekap_list
-                var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
-                
-                if (insertRekapRes.error) {
-                    console.error('Supabase Error (Insert rekap_list):', insertRekapRes.error);
-                    showToast('Gagal menyimpan rekap ke database: ' + insertRekapRes.error.message, 'error');
-                    return;
-                }
-
-                rekapList.push(rekapData);
-            }
-        }
-
-        Store.set('rekapList', rekapList.slice());
-        
-        // Panggil fungsi render ulang rekap jika ada
-        if (typeof renderRekap === 'function') {
-            renderRekap();
-        }
+        await syncApprovedIzinsToRekap();
     }
 
     renderAdminIzin();
@@ -157,9 +167,8 @@ async function updateIzinStatus(id, newStatus) {
         updateDashboardStats();
     }
     
-    showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi berhasil disimpan.' : '.'), 'success');
+    showToast('Status izin diubah menjadi ' + newStatus + (newStatus === 'Approved' ? ' & Rekap Absensi berhasil disinkronkan.' : '.'), 'success');
 }
-
 function renderAdminIzin() {
     var container = document.getElementById('admin-izin-container');
     var badge = document.getElementById('sidebar-izin-badge');
