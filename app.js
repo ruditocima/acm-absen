@@ -1,63 +1,61 @@
+// Variabel global untuk melacak instance channel aktif
+let leavesChannel = null;
+let messagesChannel = null;
+
 function initSupabaseRealtime() {
     if (typeof supabaseClient === 'undefined') {
-        // Coba lagi setelah 1 detik jika supabaseClient belum siap dimuat
         setTimeout(initSupabaseRealtime, 1000);
         return;
     }
 
-    // Membersihkan channel lama yang relevan secara menyeluruh
-    const targetTopics = ['realtime-leaves-channel', 'realtime-messages-channel'];
+    // Bersihkan referensi channel sebelumnya jika ada
+    if (leavesChannel) {
+        supabaseClient.removeChannel(leavesChannel);
+        leavesChannel = null;
+    }
+    if (messagesChannel) {
+        supabaseClient.removeChannel(messagesChannel);
+        messagesChannel = null;
+    }
+
+    // Pembersihan tambahan untuk channel lama di dalam klien Supabase
     const existingChannels = supabaseClient.getChannels();
     existingChannels.forEach(function(ch) {
-        if (ch.topic && targetTopics.some(topic => ch.topic.includes(topic))) {
+        if (ch.topic && (ch.topic.includes('realtime-leaves-channel') || ch.topic.includes('realtime-messages-channel'))) {
             supabaseClient.removeChannel(ch);
         }
     });
 
-    // Inisialisasi Channel Izin List dengan penanganan error dan reconnect
-    const leavesChannel = supabaseClient.channel('realtime-leaves-channel');
-    leavesChannel
+    // Inisialisasi ulang realtime-leaves-channel dengan auto-retry
+    leavesChannel = supabaseClient.channel('realtime-leaves-channel')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'izin_list' }, function(payload) {
-            try {
-                if (typeof renderAdminIzin === 'function') renderAdminIzin(payload);
-                if (typeof showToast === 'function') showToast('Data izin diperbarui real-time.', 'info');
-            } catch (err) {
-                console.error('Error pada renderAdminIzin:', err);
-            }
+            if (typeof renderAdminIzin === 'function') renderAdminIzin();
+            if (typeof showToast === 'function') showToast('Data izin diperbarui real-time.', 'info');
         })
         .subscribe(function(status, err) {
-            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.error('Gagal terhubung ke realtime-leaves-channel:', err || status);
-                // Coba sambungkan kembali setelah 5 detik
-                setTimeout(function() {
-                    if (leavesChannel) leavesChannel.subscribe();
-                }, 5000);
+            if (status === 'CHANNEL_ERROR') {
+                console.error('Gagal terhubung ke realtime-leaves-channel:', err);
+                // Coba hubungkan kembali setelah 5 detik jika terjadi error
+                setTimeout(initSupabaseRealtime, 5000);
             }
         });
 
-    // Inisialisasi Channel Emails dengan penanganan error dan reconnect
-    const messagesChannel = supabaseClient.channel('realtime-messages-channel');
-    messagesChannel
+    // Inisialisasi ulang realtime-messages-channel dengan auto-retry
+    messagesChannel = supabaseClient.channel('realtime-messages-channel')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, function(payload) {
-            try {
-                if (typeof renderEmails === 'function') renderEmails(payload);
-                if (typeof showToast === 'function') showToast('Pesan baru diterima!', 'success');
-            } catch (err) {
-                console.error('Error pada renderEmails:', err);
-            }
+            if (typeof renderEmails === 'function') renderEmails();
+            if (typeof showToast === 'function') showToast('Pesan baru diterima!', 'success');
         })
         .subscribe(function(status, err) {
-            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-                console.error('Gagal terhubung ke realtime-messages-channel:', err || status);
-                // Coba sambungkan kembali setelah 5 detik
-                setTimeout(function() {
-                    if (messagesChannel) messagesChannel.subscribe();
-                }, 5000);
+            if (status === 'CHANNEL_ERROR') {
+                console.error('Gagal terhubung ke realtime-messages-channel:', err);
+                // Coba hubungkan kembali setelah 5 detik jika terjadi error
+                setTimeout(initSupabaseRealtime, 5000);
             }
         });
 }
 
-// Interval live clock tetap berjalan efisien
+// Live clock interval tetap dipertahankan
 setInterval(function() {
     var el = document.getElementById('live-clock');
     if (el) {
