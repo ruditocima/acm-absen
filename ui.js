@@ -2,7 +2,6 @@ function switchMode(mode) {
     var session = Store.get('activeEmployeeSession');
     if (session && session.name !== 'Tamu') {
         handleLogout(true).then(function() {
-            showToast('Logout otomatis: beralih mode perangkat.', 'info');
             executeSwitchMode(mode);
         });
         return;
