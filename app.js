@@ -1,12 +1,10 @@
 function initSupabaseRealtime() {
     if (typeof supabaseClient === 'undefined') return;
 
-    // Menghapus channel lama jika sudah ada untuk menghindari duplikasi
+    // Menghapus semua channel aktif untuk menghindari duplikasi listener saat inisialisasi ulang[cite: 1]
     const existingChannels = supabaseClient.getChannels();
     existingChannels.forEach(function(ch) {
-        if (ch.topic === 'realtime:realtime-leaves-channel' || ch.topic === 'realtime:realtime-messages-channel') {
-            supabaseClient.removeChannel(ch);
-        }
+        supabaseClient.removeChannel(ch);
     });
 
     supabaseClient.channel('realtime-leaves-channel')
