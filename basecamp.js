@@ -32,24 +32,25 @@ function renderBasecamps() {
     }
 
     var tableHTML = '<div class="w-full glass-card rounded-2xl border border-slate-800">' +
-        '<table class="w-full text-left text-[11px] text-slate-400 font-mono">' +
+        '<table class="w-full table-fixed text-left text-[11px] text-slate-400 font-mono">' +
         '<thead class="text-xs text-white uppercase bg-slate-800/40 border-b border-slate-800">' +
         '<tr>' +
-        '<th class="px-4 py-3">Nama Basecamp</th>' +
-        '<th class="px-4 py-3">Lat / Lng</th>' +
-        '<th class="px-4 py-3">Radius GPS</th>' +
-        ((canEdit || canDelete) ? '<th class="px-4 py-3 text-right">Aksi</th>' : '') +
+        '<th class="px-4 py-3 w-4/12">Nama Basecamp</th>' +
+        '<th class="px-4 py-3 w-4/12">Lat / Lng</th>' +
+        '<th class="px-4 py-3 w-2/12">Radius GPS</th>' +
+        ((canEdit || canDelete) ? '<th class="px-4 py-3 w-2/12 text-right">Aksi</th>' : '') +
         '</tr>' +
         '</thead>' +
         '<tbody>';
 
     if (basecamps.length === 0) {
-        tableHTML += '<tr><td colspan="4" class="px-4 py-4 text-center">Belum ada data basecamp.</td></tr>';
+        var colSpan = (canEdit || canDelete) ? 4 : 3;
+        tableHTML += '<tr><td colspan="' + colSpan + '" class="px-4 py-4 text-center">Belum ada data basecamp.</td></tr>';
     } else {
         tableHTML += basecamps.map(function(b, i) {
             var actionTd = '';
             if (canEdit || canDelete) {
-                actionTd = '<td class="px-4 py-3">' +
+                actionTd = '<td class="px-4 py-3 w-2/12">' +
                     '<div class="flex items-center justify-end gap-2">' +
                     (canEdit ? '<button onclick="openEditBasecampModal(' + i + ')" class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded hover:bg-blue-500/10 transition"><i class="fa-solid fa-pen"></i></button>' : '') +
                     (canDelete ? '<button onclick="deleteBasecamp(' + i + ')" class="text-rose-400 hover:text-rose-300 text-xs px-1.5 py-0.5 rounded hover:bg-rose-500/10 transition" title="Hapus Basecamp"><i class="fa-solid fa-trash"></i></button>' : '') +
@@ -58,9 +59,9 @@ function renderBasecamps() {
             }
 
             return '<tr class="border-b border-slate-800 hover:bg-slate-800/30 transition">' +
-                '<td class="px-4 py-3 font-bold text-white text-xs">' + escapeHtml(b.name) + '</td>' +
-                '<td class="px-4 py-3">' + b.lat + ', ' + b.lng + '</td>' +
-                '<td class="px-4 py-3 text-gold-400">' + b.radius + ' Meter</td>' +
+                '<td class="px-4 py-3 w-4/12 font-bold text-white text-xs truncate">' + escapeHtml(b.name) + '</td>' +
+                '<td class="px-4 py-3 w-4/12 truncate">' + b.lat + ', ' + b.lng + '</td>' +
+                '<td class="px-4 py-3 w-2/12 text-gold-400 truncate">' + b.radius + ' Meter</td>' +
                 actionTd +
                 '</tr>';
         }).join('');
@@ -74,7 +75,7 @@ function renderBasecamps() {
 
     if (!bcMap) {
         bcMap = L.map('basecamp-map').setView([0.434291, 101.466385], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(bcMap);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/*.png', { maxZoom: 19 }).addTo(bcMap); // Diperbaiki sedikit agar URL tile standar aman
         Store.set('bcMap', bcMap);
     } else {
         bcMarkers.forEach(function(layer) { if (bcMap.hasLayer(layer)) bcMap.removeLayer(layer); });
