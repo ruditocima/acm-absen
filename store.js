@@ -1,6 +1,7 @@
 var Store = {
     state: {
         currentDeviceUUID: 'PENDING',
+        holidays: [], // Tambahkan array ini (Format: [{ date: '2026-08-17', desc: 'Hari Kemerdekaan' }])
         roles: [],
         employees: [],
         basecamps: [],
