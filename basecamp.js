@@ -23,12 +23,10 @@ function renderBasecamps() {
     var canEdit = false;
     var canDelete = false;
 
+    // Supervisor Field diatur menjadi View Only (canEdit dan canDelete bernilai false)[cite: 1]
     if (roleName === 'Master Admin') {
         canEdit = true;
         canDelete = true;
-    } else if (roleName === 'Supervisor Field') {
-        canEdit = true;
-        canDelete = false;
     }
 
     container.innerHTML = basecamps.map(function(b, i) {
@@ -67,8 +65,9 @@ function renderBasecamps() {
 
 function openAddBasecampModal() {
     var roleName = Store.get('activeEmployeeSession').role;
-    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') {
-        return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
+    // Blokir Supervisor Field dari membuka modal tambah basecamp[cite: 2]
+    if (roleName !== 'Master Admin') {
+        return showToast('Akses Ditolak! Hanya Master Admin yang dapat menambah basecamp.', 'error');
     }
     document.getElementById('bc-modal-title').innerText = 'Tambah Basecamp';
     document.getElementById('bc-edit-index').value = '-1';
@@ -81,8 +80,9 @@ function openAddBasecampModal() {
 
 function openEditBasecampModal(index) {
     var roleName = Store.get('activeEmployeeSession').role;
-    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') {
-        return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
+    // Blokir Supervisor Field dari membuka modal edit basecamp[cite: 2]
+    if (roleName !== 'Master Admin') {
+        return showToast('Akses Ditolak! Hanya Master Admin yang dapat mengubah basecamp.', 'error');
     }
     var basecamps = Store.get('basecamps');
     var b = basecamps[index];
@@ -101,8 +101,9 @@ function closeBasecampModal() {
 
 async function saveBasecamp() {
     var roleName = Store.get('activeEmployeeSession').role;
-    if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') {
-        return showToast('Akses Ditolak! Anda tidak memiliki izin.', 'error');
+    // Batasi proses penyimpanan hanya untuk Master Admin[cite: 2]
+    if (roleName !== 'Master Admin') {
+        return showToast('Akses Ditolak! Hanya Master Admin yang dapat menyimpan basecamp.', 'error');
     }
 
     var index = parseInt(document.getElementById('bc-edit-index').value);
