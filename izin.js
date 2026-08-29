@@ -55,6 +55,7 @@ async function submitMobileIzin() {
 }
 
 // Helper untuk menghasilkan rentang tanggal (Array of Dates)
+// Helper untuk menghasilkan rentang tanggal (Array of Dates)
 function getDatesInRange(startDate, endDate) {
     var dates = [];
     var curr = new Date(startDate);
@@ -87,8 +88,9 @@ async function updateIzinStatus(id, newStatus) {
     // 2. Update status izin di Supabase
     var updateIzinRes = await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
     if (updateIzinRes.error) {
-        console.error('Supabase Error (izin_list):', updateIzinRes.error.message);
-        showToast('Gagal update izin ke Supabase: ' + updateIzinRes.error.message, 'error');
+        var errMessage = updateIzinRes.error.message || JSON.stringify(updateIzinRes.error);
+        console.error('Supabase Error (izin_list):', errMessage);
+        showToast('Gagal update izin ke Supabase: ' + errMessage, 'error');
         return;
     }
     
@@ -116,35 +118,45 @@ async function updateIzinStatus(id, newStatus) {
 
             // Cek apakah data rekap untuk tanggal & nama tersebut sudah ada di Supabase
             var checkRes = await supabaseClient.from('rekap_list')
-                .select('date, name')
+                .select('id, date, name')
                 .eq('date', dateStr)
                 .eq('name', izin.name);
 
             if (checkRes.error) {
-                console.error('Supabase Error (Check rekap_list):', checkRes.error.message);
-                showToast('Gagal mengecek rekap database: ' + checkRes.error.message, 'error');
+                var checkErr = checkRes.error.message || JSON.stringify(checkRes.error);
+                console.error('Supabase Error (Check rekap_list):', checkErr);
+                showToast('Gagal mengecek rekap database: ' + checkErr, 'error');
                 return;
             }
 
             if (checkRes.data && checkRes.data.length > 0) {
-                // Jika sudah ada, lakukan Update
-                var updateRekapRes = await supabaseClient.from('rekap_list')
-                    .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName })
-                    .eq('date', dateStr)
-                    .eq('name', izin.name);
+                // Jika sudah ada, ambil ID barisnya untuk melakukan Update secara aman
+                var existingRecordId = checkRes.data[0].id;
+                var updateQuery = supabaseClient.from('rekap_list')
+                    .update({ status: izin.jenis, time: '-', late: '-', basecamp: basecampName });
+
+                if (existingRecordId) {
+                    updateQuery = updateQuery.eq('id', existingRecordId);
+                } else {
+                    updateQuery = updateQuery.eq('date', dateStr).eq('name', izin.name);
+                }
+
+                var updateRekapRes = await updateQuery;
 
                 if (updateRekapRes.error) {
-                    console.error('Supabase Error (Update rekap_list):', updateRekapRes.error.message);
-                    showToast('Gagal update rekap ke database: ' + updateRekapRes.error.message, 'error');
+                    var upErr = updateRekapRes.error.message || JSON.stringify(updateRekapRes.error);
+                    console.error('Supabase Error (Update rekap_list):', upErr);
+                    showToast('Gagal update rekap ke database: ' + upErr, 'error');
                     return;
                 }
             } else {
-                // Jika belum ada, lakukan Insert
+                // Jika belum ada, lakukan Insert data baru
                 var insertRekapRes = await supabaseClient.from('rekap_list').insert([rekapData]);
                 
                 if (insertRekapRes.error) {
-                    console.error('Supabase Error (Insert rekap_list):', insertRekapRes.error.message);
-                    showToast('Gagal menyimpan rekap ke database: ' + insertRekapRes.error.message, 'error');
+                    var insErr = insertRekapRes.error.message || JSON.stringify(insertRekapRes.error);
+                    console.error('Supabase Error (Insert rekap_list):', insErr);
+                    showToast('Gagal menyimpan rekap ke database: ' + insErr, 'error');
                     return;
                 }
             }
