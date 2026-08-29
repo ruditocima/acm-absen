@@ -1,7 +1,11 @@
 function initSupabaseRealtime() {
-    if (typeof supabaseClient === 'undefined') return;
+    if (typeof supabaseClient === 'undefined') {
+        // Coba lagi setelah 1 detik jika supabaseClient belum siap dimuat
+        setTimeout(initSupabaseRealtime, 1000);
+        return;
+    }
 
-    // Perbaikan: Menggunakan .includes() agar pencocokan topic lebih aman dari perubahan suffix Supabase
+    // Menghapus channel lama dengan aman menggunakan .includes() untuk menghindari perubahan format topik
     const existingChannels = supabaseClient.getChannels();
     existingChannels.forEach(function(ch) {
         if (ch.topic && (ch.topic.includes('realtime-leaves-channel') || ch.topic.includes('realtime-messages-channel'))) {
@@ -34,10 +38,12 @@ function initSupabaseRealtime() {
 
 setInterval(function() {
     var el = document.getElementById('live-clock');
-    if (el) el.innerText = new Date().toLocaleTimeString('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        hour12: false
-    }) + ' WIB';
+    if (el) {
+        el.innerText = new Date().toLocaleTimeString('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour12: false
+        }) + ' WIB';
+    }
 }, 1000);
 
 document.addEventListener('DOMContentLoaded', function() {
