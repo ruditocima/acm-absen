@@ -31,8 +31,7 @@ function renderBasecamps() {
         canDelete = false;
     }
 
-    // --- AWAL PERUBAHAN TAMPILAN KE TABEL ---
-    var tableHTML = '<div class="overflow-x-auto glass-card rounded-2xl border border-slate-800">' +
+    var tableHTML = '<div class="w-full glass-card rounded-2xl border border-slate-800">' +
         '<table class="w-full text-left text-[11px] text-slate-400 font-mono">' +
         '<thead class="text-xs text-white uppercase bg-slate-800/40 border-b border-slate-800">' +
         '<tr>' +
@@ -69,7 +68,6 @@ function renderBasecamps() {
 
     tableHTML += '</tbody></table></div>';
     container.innerHTML = tableHTML;
-    // --- AKHIR PERUBAHAN TAMPILAN KE TABEL ---
 
     var bcMap = Store.get('bcMap');
     var bcMarkers = Store.get('bcMarkers');
@@ -91,6 +89,7 @@ function renderBasecamps() {
 
     Store.set('bcMarkers', bcMarkers);
 }
+
 function openAddBasecampModal() {
     var roleName = Store.get('activeEmployeeSession').role;
     if (roleName !== 'Master Admin' && roleName !== 'Supervisor Field') {
