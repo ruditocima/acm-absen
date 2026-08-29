@@ -126,7 +126,7 @@ function switchDesktopEmailSub(sub) {
         var rec = document.getElementById('d-email-recipient');
         var subj = document.getElementById('d-email-subject');
         var msg = document.getElementById('d-email-message');
-        if (rec) rec.value = 'BROADCAST';
+        if (rec) rec.value = 'Broadcast';
         if (subj) subj.value = '';
         if (msg) msg.value = '';
     }
