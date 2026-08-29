@@ -499,61 +499,29 @@ async function verifyOTP() {
 
 async function initAuth() {
     try {
-        var sessionResult = await supabaseClient.auth.getSession();
-        if (sessionResult.error) {
-            console.warn('[Auth] Session error:', sessionResult.error.message);
-            return;
-        }
-        var session = sessionResult.data.session;
-        if (session && session.user) {
-            var empData = null;
-            try {
-                var empResult = await supabaseClient.from('employees').select('*').eq('auth_id', session.user.id).maybeSingle();
-                if (empResult.error) console.warn('[Auth] Employee fetch error:', empResult.error.message);
-                empData = empResult.data;
-            } catch (err) {
-                console.error('[Auth] Employee fetch exception:', err);
-            }
-            if (empData && empData.status === 'Approved') {
-                Store.set('activeEmployeeSession', {
-                    id: empData.id,
-                    name: empData.name,
-                    position: empData.position,
-                    role: empData.role,
-                    atasan: empData.atasan,
-                    status: empData.status,
-                    deviceId: empData.device_id,
-                    auth_id: empData.auth_id
-                });
-                
-                // Update UI Mobile & Desktop saat init session aktif
-                var mobileTitleEl = document.getElementById('mobile-user-title');
-                if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, ' + escapeHtml(empData.name);
-                var mobilePosEl = document.getElementById('mobile-user-position');
-                if (mobilePosEl) mobilePosEl.innerText = escapeHtml(empData.position || '-');
-                var mobileInitialEl = document.getElementById('mobile-user-initial');
-                if (mobileInitialEl) mobileInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
-
-                var desktopNameEl = document.getElementById('desktop-user-name');
-                if (desktopNameEl) desktopNameEl.innerText = 'Halo, ' + escapeHtml(empData.name);
-                var desktopPosEl = document.getElementById('desktop-user-position');
-                if (desktopPosEl) desktopPosEl.innerText = escapeHtml(empData.position || '-');
-                var desktopInitialEl = document.getElementById('desktop-user-initial');
-                if (desktopInitialEl) desktopInitialEl.innerText = empData.name.split(' ').map(function(n) { return n[0]; }).join('').substring(0, 2).toUpperCase();
-
-                await fetchAllDataFromSupabase();
-                var readIds = getReadEmailIds();
-                Store.get('emailsList').forEach(function(e) { if (readIds.includes(e.id)) e.read = true; });
-                renderMobileMyHistory();
-                renderEmails();
-                renderAdminIzin();
-                updateEmailBadges();
-                populateEmailRecipients();
-            }
-        }
+        // Paksa sign out saat halaman dimuat/direfresh agar selalu kembali sebagai guest
+        await supabaseClient.auth.signOut();
     } catch (err) {
         console.error('[Auth] Init auth exception:', err);
     }
+
+    // Set default session ke Guest
+    Store.set('activeEmployeeSession', { name: 'Guest', id: 'guest@gmail.com', role: 'Tamu' });
+    
+    // Reset UI ke Guest untuk Mobile & Desktop
+    var mobileTitleEl = document.getElementById('mobile-user-title');
+    if (mobileTitleEl) mobileTitleEl.innerText = 'Halo, Guest';
+    var mobilePosEl = document.getElementById('mobile-user-position');
+    if (mobilePosEl) mobilePosEl.innerText = '-';
+    var mobileInitialEl = document.getElementById('mobile-user-initial');
+    if (mobileInitialEl) mobileInitialEl.innerText = 'G';
+
+    var desktopNameEl = document.getElementById('desktop-user-name');
+    if (desktopNameEl) desktopNameEl.innerText = 'Halo, Guest';
+    var desktopPosEl = document.getElementById('desktop-user-position');
+    if (desktopPosEl) desktopPosEl.innerText = '-';
+    var desktopInitialEl = document.getElementById('desktop-user-initial');
+    if (desktopInitialEl) desktopInitialEl.innerText = 'AD';
 
     supabaseClient.auth.onAuthStateChange(async function(event, session) {
         if (event === 'SIGNED_OUT') {
