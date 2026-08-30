@@ -1,11 +1,11 @@
 async function submitMobileIzin() {
     var session = Store.get('activeEmployeeSession');
-    if (session.name === 'Tamu') {
+    if (!session || session.name === 'Tamu') {
         showToast('Silakan login terlebih dahulu.', 'error');
         switchMobileTab('daftar');
         return;
     }
-
+  
     var btn = document.querySelector('#m-tab-izin button[onclick="submitMobileIzin()"]');
     setButtonLoading(btn, 'Mengajukan...');
 
