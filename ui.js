@@ -28,6 +28,11 @@ function executeSwitchMode(mode) {
 }
 
 function switchMobileTab(tab) {
+    if (tab === 'logout') {
+        mobileLogout();
+        return;
+    }
+
     ['daftar', 'absen', 'izin', 'email'].forEach(function(t) {
         var tabEl = document.getElementById('m-tab-' + t);
         if (tabEl) tabEl.classList.add('hidden');
@@ -49,6 +54,16 @@ function switchMobileTab(tab) {
 
     if (tab === 'email') switchMobileEmailSub('inbox');
     if (tab === 'izin') renderMobileMyHistory();
+}
+
+function mobileLogout() {
+    if (typeof handleLogout === 'function') {
+        handleLogout(true);
+    } else {
+        // Fallback jika fungsi handleLogout global tidak ditemukan
+        Store.set('activeEmployeeSession', null);
+        window.location.reload();
+    }
 }
 
 function switchMobileEmailSub(sub) {
@@ -147,7 +162,7 @@ function applyRolePermissions() {
         'basecamp': 'd-nav-basecamp',
         'izin': 'd-nav-izin',
         'email': 'd-nav-email',
-        'libur': 'd-nav-libur' // Tambahkan ini
+        'libur': 'd-nav-libur'
     };
 
     for (var key in menuMapping) {
@@ -176,7 +191,7 @@ function applyRolePermissions() {
             if (b) b.classList.remove('hidden');
         });
     } else if (roleName === 'Admin') {
-        ['rekap', 'izin', 'email', 'basecamp', 'libur'].forEach(function(key) { // Tambahkan 'libur' di sini jika Admin juga boleh mengakses
+        ['rekap', 'izin', 'email', 'basecamp', 'libur'].forEach(function(key) {
             var b = document.getElementById(menuMapping[key]);
             if (b) b.classList.remove('hidden');
         });
