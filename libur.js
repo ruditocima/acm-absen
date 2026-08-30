@@ -1,17 +1,26 @@
-// Helper untuk memastikan koneksi Supabase client sudah siap
+// Helper yang aman untuk mendeteksi atau menginisialisasi Supabase client
 function getSupabaseClient() {
-    // Jika supabase sudah berupa instance client (memiliki method .from)
+    // 1. Jika variable 'supabase' global sudah berupa instance client (memiliki method .from)
     if (typeof supabase !== 'undefined' && supabase && typeof supabase.from === 'function') {
         return supabase;
     }
-    // Jika window.supabase memuat createClient dan variabel URL/KEY tersedia di global scope
+    // 2. Jika tersimpan di window.supabaseClient
+    if (typeof window.supabaseClient !== 'undefined' && window.supabaseClient && typeof window.supabaseClient.from === 'function') {
+        return window.supabaseClient;
+    }
+    // 3. Jika window.supabase adalah CDN library, coba buat instance otomatis jika config URL & KEY tersedia
     if (window.supabase && typeof window.supabase.createClient === 'function') {
-        if (typeof SUPABASE_URL !== 'undefined' && typeof SUPABASE_ANON_KEY !== 'undefined') {
-            window._supaInstance = window._supaInstance || window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        var url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : (window.SUPABASE_URL || '');
+        var key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : (window.SUPABASE_ANON_KEY || window.SUPABASE_KEY || '');
+        
+        if (url && key) {
+            if (!window._supaInstance) {
+                window._supaInstance = window.supabase.createClient(url, key);
+            }
             return window._supaInstance;
         }
     }
-    return window.supabase;
+    return null;
 }
 
 // Membuka modal tambah libur
@@ -42,13 +51,16 @@ async function saveLibur() {
 
     if (!date || !desc) {
         if (typeof showToast === 'function') showToast('Harap isi tanggal dan keterangan libur!', 'error');
+        else alert('Harap isi tanggal dan keterangan libur!');
         return;
     }
 
     var db = getSupabaseClient();
     if (!db || typeof db.from !== 'function') {
-        if (typeof showToast === 'function') showToast('Koneksi Supabase belum terinisialisasi dengan benar di config.js', 'error');
-        console.error('Supabase client not initialized properly.');
+        var errMsg = 'Koneksi Supabase belum siap. Periksa urutan script di index.html!';
+        console.error(errMsg);
+        if (typeof showToast === 'function') showToast(errMsg, 'error');
+        else alert(errMsg);
         return;
     }
 
@@ -75,7 +87,8 @@ async function renderLibur() {
 
     var db = getSupabaseClient();
     if (!db || typeof db.from !== 'function') {
-        tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-center text-rose-400">Koneksi Database Supabase Belum Terhubung</td></tr>';
+        console.warn('Supabase client belum terinisialisasi pada renderLibur.');
+        tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-center text-rose-400">Koneksi Database Belum Siap (Periksa Urutan Script HTML)</td></tr>';
         return;
     }
 
