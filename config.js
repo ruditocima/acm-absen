@@ -19,7 +19,7 @@ const CONFIG = {
     },
     GPS: {
         DEFAULT_RADIUS: 1500,
-        MAX_ACCURACY: 500
+        MAX_ACCURACY: 5000
     },
     PAGINATION: {
         REKAP_PER_PAGE: 50
