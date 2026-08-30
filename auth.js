@@ -154,6 +154,37 @@ async function handleLogin() {
     }
 }
 
+async function handleForgotPassword() {
+    var btn = document.querySelector('#forgot-step button[onclick="handleForgotPassword()"]');
+    setButtonLoading(btn, 'Mengirim email reset...');
+
+    var email = document.getElementById('forgot-email').value.trim();
+    if (!email || email.indexOf('@') < 0) {
+        showToast('Harap masukkan email yang valid!', 'error');
+        resetButtonLoading(btn);
+        return;
+    }
+
+    try {
+        var { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+            redirectTo: window.location.href
+        });
+
+        if (error) {
+            showToast('Gagal mengirim reset password: ' + error.message, 'error');
+        } else {
+            showToast('Tautan reset password telah dikirim ke email Anda. Cek inbox/spam.', 'success');
+            document.getElementById('forgot-email').value = '';
+            toggleAuthMode('login');
+        }
+    } catch (e) {
+        console.error('Reset password exception:', e);
+        showToast('Terjadi kesalahan saat menghubungi server.', 'error');
+    }
+
+    resetButtonLoading(btn);
+}
+
 async function handleDesktopLogin() {
     var btn = document.querySelector('#desktop-login-section button[onclick="handleDesktopLogin()"]');
     setButtonLoading(btn, 'Memproses login...');
