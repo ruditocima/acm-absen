@@ -217,8 +217,8 @@ async function submitAbsenWithSelfie() {
         return;
     }
 
-    // Payload dikirim tanpa tanggal, waktu, status, dan late manual dari HP.
-    // Database Supabase (Trigger SQL) yang akan mengisi data tersebut berdasarkan waktu server WIB yang valid.
+    // Hanya mengirim data esensial. Waktu, tanggal, status, dan keterlambatan 
+    // sepenuhnya dihitung dan diisi secara otomatis oleh Trigger SQL Supabase[cite: 3].
     var newRekap = {
         name: pendingAbsenData.name,
         basecamp: pendingAbsenData.basecamp,
