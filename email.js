@@ -13,7 +13,7 @@ function markEmailAsRead(emailId) {
         readIds.push(emailId);
         localStorage.setItem('read_emails_' + userId, JSON.stringify(readIds));
     }
-    var emailsList = Store.get('emailsList');
+    var emailsList = Store.get('emailsList') || [];
     var email = emailsList.find(function(e) { return e.id === emailId; });
     if (email) email.read = true;
     updateEmailBadges();
@@ -22,7 +22,7 @@ function markEmailAsRead(emailId) {
 
 function getEmployeeDisplayName(emailOrId) {
     if (!emailOrId || emailOrId === 'BROADCAST') return 'BROADCAST (Semua Karyawan)';
-    var employees = Store.get('employees');
+    var employees = Store.get('employees') || [];
     var emp = employees.find(function(e) { return e.id === emailOrId; });
     return emp ? emp.name : emailOrId;
 }
@@ -30,8 +30,11 @@ function getEmployeeDisplayName(emailOrId) {
 function populateEmailRecipients() {
     var mSelect = document.getElementById('m-email-recipient');
     var dSelect = document.getElementById('d-email-recipient');
-    var currentUserId = Store.get('activeEmployeeSession').id ? Store.get('activeEmployeeSession').id.toLowerCase() : '';
-    var employees = Store.get('employees');
+    var session = Store.get('activeEmployeeSession');
+    if (!session || session.name === 'Tamu' || session.name === 'Guest') return;
+
+    var currentUserId = session.id ? session.id.toLowerCase() : '';
+    var employees = Store.get('employees') || [];
 
     var optionsHtml = '<option value="BROADCAST">BROADCAST (Kirim ke Seluruh Karyawan)</option>' +
         employees.filter(function(emp) { return emp.id.toLowerCase() !== currentUserId && emp.status === 'Approved'; })
@@ -46,7 +49,7 @@ function updateEmailBadges() {
     var sBadge = document.getElementById('sidebar-email-badge');
     var session = Store.get('activeEmployeeSession');
 
-    if (!session || session.name === 'Tamu') {
+    if (!session || session.name === 'Tamu' || session.name === 'Guest') {
         if (mBadge) mBadge.classList.add('hidden');
         if (sBadge) sBadge.classList.add('hidden');
         return;
@@ -54,7 +57,7 @@ function updateEmailBadges() {
 
     var userEmail = session.id;
     var readIds = getReadEmailIds();
-    var emailsList = Store.get('emailsList');
+    var emailsList = Store.get('emailsList') || [];
     var unreadCount = emailsList.filter(function(e) {
         var isForMe = (e.receiver === userEmail || e.receiver === 'BROADCAST');
         var isNotMyOwn = (e.sender !== userEmail);
@@ -87,8 +90,8 @@ function renderEmails() {
     var mSentList = document.getElementById('mobile-sent-list');
     var dSentTbody = document.getElementById('desktop-sent-tbody');
 
-    // Pengaman jika sesi tamu atau belum login
-    if (!session || session.name === 'Tamu') {
+    // Pengaman ketat: Cegah eksekusi jika status masih Tamu atau Guest
+    if (!session || session.name === 'Tamu' || session.name === 'Guest' || session.role === 'Tamu') {
         if (mInboxList) mInboxList.innerHTML = '<p class="text-slate-500 text-center py-4">Silakan login untuk melihat pesan.</p>';
         if (dInboxTbody) dInboxTbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Silakan login untuk melihat pesan.</td></tr>';
         if (mSentList) mSentList.innerHTML = '<p class="text-slate-500 text-center py-4">Silakan login.</p>';
@@ -98,8 +101,6 @@ function renderEmails() {
 
     var userEmail = session.id;
     var emailsList = Store.get('emailsList') || [];
-    
-    // Deklarasi variabel inboxRows dan sentRows secara aman di awal fungsi
     var inboxRows = emailsList.filter(function(e) { return e && (e.receiver === userEmail || e.receiver === 'BROADCAST'); });
     var sentRows = emailsList.filter(function(e) { return e && e.sender === userEmail; });
     var readIds = getReadEmailIds();
@@ -171,11 +172,12 @@ function renderEmails() {
         }
     }
 }
+
 async function sendAppEmail(mode) {
     var session = Store.get('activeEmployeeSession');
-    if (!session || session.name === 'Tamu') {
-    showToast('Silakan login terlebih dahulu.', 'error');
-    return;
+    if (!session || session.name === 'Tamu' || session.name === 'Guest') {
+        showToast('Silakan login terlebih dahulu.', 'error');
+        return;
     }
 
     var prefix = mode === 'mobile' ? 'm' : 'd';
@@ -210,7 +212,7 @@ async function sendAppEmail(mode) {
     }
 
     if (result.data && result.data.length > 0) {
-        var emailsList = Store.get('emailsList');
+        var emailsList = Store.get('emailsList') || [];
         emailsList.unshift({
             id: result.data[0].id,
             sender: result.data[0].sender,
@@ -232,7 +234,7 @@ async function sendAppEmail(mode) {
 }
 
 function openEmailDetail(emailId) {
-    var emailsList = Store.get('emailsList');
+    var emailsList = Store.get('emailsList') || [];
     var email = emailsList.find(function(e) { return e.id === emailId; });
     if (!email) return;
 
@@ -241,13 +243,16 @@ function openEmailDetail(emailId) {
 
     document.getElementById('detail-email-sender').innerText = escapeHtml(email.sender_name || email.sender);
     document.getElementById('detail-email-receiver').innerText = escapeHtml(getEmployeeDisplayName(email.receiver));
-    document.getElementById('detail-email-time').innerText = formatWIBDateTime(email.created_at);
+    document.getElementById('detail-email-time').innerText = typeof formatWIBDateTime === 'function' ? formatWIBDateTime(email.created_at) : email.created_at;
     document.getElementById('detail-email-subject').innerText = escapeHtml(email.subject);
     document.getElementById('detail-email-message').innerText = escapeHtml(email.message);
 
     var btnReply = document.getElementById('btn-reply-email');
-    if (email.sender === Store.get('activeEmployeeSession').id) btnReply.classList.add('hidden');
-    else btnReply.classList.remove('hidden');
+    var session = Store.get('activeEmployeeSession');
+    if (btnReply) {
+        if (session && email.sender === session.id) btnReply.classList.add('hidden');
+        else btnReply.classList.remove('hidden');
+    }
 
     document.getElementById('email-detail-modal').classList.remove('hidden');
 }
@@ -283,7 +288,7 @@ function replyEmail() {
 async function deleteEmailItem(emailId) {
     showConfirm('Hapus Pesan', 'Apakah Anda yakin ingin menghapus pesan ini?', async function() {
         await supabaseClient.from('emails').delete().eq('id', emailId);
-        var emailsList = Store.get('emailsList');
+        var emailsList = Store.get('emailsList') || [];
         Store.set('emailsList', emailsList.filter(function(e) { return e.id !== emailId; }));
         renderEmails();
         updateEmailBadges();
