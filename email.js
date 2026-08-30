@@ -82,13 +82,15 @@ function updateEmailBadges() {
 
 function renderEmails() {
     var session = Store.get('activeEmployeeSession');
-    if (!session || session.name === 'Tamu') return;
+    if (!session || session.name === 'Tamu') {
+        var mInboxList = document.getElementById('mobile-inbox-list');
+        var dInboxTbody = document.getElementById('desktop-inbox-tbody');
+        if (mInboxList) mInboxList.innerHTML = '<p class="text-slate-500 text-center py-4">Silakan login untuk melihat pesan.</p>';
+        if (dInboxTbody) dInboxTbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Silakan login untuk melihat pesan.</td></tr>';
+        return;
+    }
 
     var userEmail = session.id;
-    var emailsList = Store.get('emailsList');
-    var inboxRows = emailsList.filter(function(e) { return e.receiver === userEmail || e.receiver === 'BROADCAST'; });
-    var sentRows = emailsList.filter(function(e) { return e.sender === userEmail; });
-    var readIds = getReadEmailIds();
 
     // Mobile Inbox
     var mInboxList = document.getElementById('mobile-inbox-list');
