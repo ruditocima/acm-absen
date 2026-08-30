@@ -1,3 +1,14 @@
+function dataURItoBlob(dataURI) {
+    var byteString = atob(dataURI.split(',')[1]);
+    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+}
+
 async function handleAbsen() {
     var session = Store.get('activeEmployeeSession');
     if (session.name === 'Tamu') {
@@ -148,9 +159,9 @@ function captureSelfie() {
     document.getElementById('btn-retake').classList.remove('hidden');
     document.getElementById('btn-submit-absen').classList.remove('hidden');
 
-    canvas.toBlob(function(blob) {
-        Store.set('capturedBlob', blob);
-    }, mimeType, quality);
+    // Konversi langsung secara sinkron agar blob selalu siap dan tidak macet
+    var blob = dataURItoBlob(dataUrl);
+    Store.set('capturedBlob', blob);
 }
 
 function retakeSelfie() {
@@ -177,18 +188,24 @@ function closeSelfieModal() {
 async function submitAbsenWithSelfie() {
     var pendingAbsenData = Store.get('pendingAbsenData');
     if (!pendingAbsenData) {
-        showToast('Data absensi tidak ditemukan.', 'error');
+        showToast('Data absensi tidak ditemukan. Silakan ulangi proses dari awal.', 'error');
         return;
     }
 
     var btn = document.getElementById('btn-submit-absen');
     setButtonLoading(btn, 'Mengunggah foto...');
 
-    var canvas = document.getElementById('selfie-canvas');
     var blob = Store.get('capturedBlob');
+    if (!blob) {
+        var preview = document.getElementById('selfie-preview');
+        if (preview && preview.src && preview.src.startsWith('data:')) {
+            blob = dataURItoBlob(preview.src);
+            Store.set('capturedBlob', blob);
+        }
+    }
 
     if (!blob) {
-        showToast('Foto belum diambil.', 'error');
+        showToast('Foto belum diambil atau tidak valid.', 'error');
         resetButtonLoading(btn);
         return;
     }
@@ -197,7 +214,14 @@ async function submitAbsenWithSelfie() {
 
     try {
         var session = Store.get('activeEmployeeSession');
-        var fileName = CONFIG.STORAGE.FOLDER + '/' + pendingAbsenData.date + '_' + session.id.replace(/[@.]/g, '_') + '_' + Date.now() + '.jpg';
+        if (!session || !session.id) {
+            showToast('Sesi login habis. Silakan login kembali.', 'error');
+            resetButtonLoading(btn);
+            return;
+        }
+
+        var cleanId = session.id.replace(/[@.]/g, '_');
+        var fileName = CONFIG.STORAGE.FOLDER + '/' + pendingAbsenData.date + '_' + cleanId + '_' + Date.now() + '.jpg';
 
         var uploadResult = await supabaseClient
             .storage
@@ -210,7 +234,7 @@ async function submitAbsenWithSelfie() {
 
         if (uploadResult.error) {
             console.error('Storage upload error:', uploadResult.error);
-            showToast('Gagal mengunggah foto ke server.', 'error');
+            showToast('Gagal mengunggah foto ke server: ' + (uploadResult.error.message || ''), 'error');
             resetButtonLoading(btn);
             return;
         }
@@ -237,7 +261,12 @@ async function submitAbsenWithSelfie() {
 
     try {
         var insertResult = await supabaseClient.from('rekap_list').insert([newRekap]).select();
-        if (insertResult.error) throw insertResult.error;
+        if (insertResult.error) {
+            console.error('Database insert error:', insertResult.error);
+            showToast('Gagal menyimpan database: ' + insertResult.error.message, 'error');
+            resetButtonLoading(btn);
+            return;
+        }
 
         var savedRecord = insertResult.data && insertResult.data.length > 0 ? insertResult.data[0] : newRekap;
         var timeString = savedRecord.time || '00:00:00';
