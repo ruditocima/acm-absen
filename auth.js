@@ -153,36 +153,111 @@ async function handleLogin() {
         switchMobileTab('absen');
     }
 }
+let recoveryEmailStore = '';
 
-async function handleForgotPassword() {
-    var btn = document.querySelector('#forgot-step button[onclick="handleForgotPassword()"]');
-    setButtonLoading(btn, 'Mengirim email reset...');
+async function handleSendOtp() {
+    var btn = document.querySelector('#forgot-sub-email button');
+    if (btn) setButtonLoading(btn, 'Mengirim OTP...');
 
     var email = document.getElementById('forgot-email').value.trim();
     if (!email || email.indexOf('@') < 0) {
         showToast('Harap masukkan email yang valid!', 'error');
-        resetButtonLoading(btn);
+        if (btn) resetButtonLoading(btn);
         return;
     }
 
     try {
-        var { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.href
-        });
+        recoveryEmailStore = email;
+        var { data, error } = await supabaseClient.auth.resetPasswordForEmail(email);
 
         if (error) {
-            showToast('Gagal mengirim reset password: ' + error.message, 'error');
+            showToast('Gagal mengirim OTP: ' + error.message, 'error');
         } else {
-            showToast('Tautan reset password telah dikirim ke email Anda. Cek inbox/spam.', 'success');
-            document.getElementById('forgot-email').value = '';
-            toggleAuthMode('login');
+            showToast('Kode OTP telah dikirim ke email Anda. Cek inbox/spam.', 'success');
+            document.getElementById('forgot-sub-email').classList.add('hidden');
+            document.getElementById('forgot-sub-otp').classList.remove('hidden');
+            document.getElementById('forgot-sub-newpass').classList.add('hidden');
         }
     } catch (e) {
-        console.error('Reset password exception:', e);
+        console.error('Send OTP exception:', e);
         showToast('Terjadi kesalahan saat menghubungi server.', 'error');
     }
 
-    resetButtonLoading(btn);
+    if (btn) resetButtonLoading(btn);
+}
+
+function resetForgotFlowToEmail() {
+    document.getElementById('forgot-sub-email').classList.remove('hidden');
+    document.getElementById('forgot-sub-otp').classList.add('hidden');
+    document.getElementById('forgot-sub-newpass').classList.add('hidden');
+}
+
+async function handleVerifyOtp() {
+    var btn = document.querySelector('#forgot-sub-otp button');
+    if (btn) setButtonLoading(btn, 'Memverifikasi...');
+
+    var otpCode = document.getElementById('forgot-otp-code').value.trim();
+    if (!otpCode || otpCode.length < 6) {
+        showToast('Masukkan 6 digit kode OTP dengan benar!', 'error');
+        if (btn) resetButtonLoading(btn);
+        return;
+    }
+
+    try {
+        var { data, error } = await supabaseClient.auth.verifyOtp({
+            email: recoveryEmailStore,
+            token: otpCode,
+            type: 'recovery'
+        });
+
+        if (error) {
+            showToast('Kode OTP salah atau kedaluwarsa: ' + error.message, 'error');
+        } else {
+            showToast('OTP terverifikasi! Silakan buat password baru.', 'success');
+            document.getElementById('forgot-sub-email').classList.add('hidden');
+            document.getElementById('forgot-sub-otp').classList.add('hidden');
+            document.getElementById('forgot-sub-newpass').classList.remove('hidden');
+        }
+    } catch (e) {
+        console.error('Verify OTP exception:', e);
+        showToast('Terjadi kesalahan saat memverifikasi OTP.', 'error');
+    }
+
+    if (btn) resetButtonLoading(btn);
+}
+
+async function handleUpdatePassword() {
+    var btn = document.querySelector('#forgot-sub-newpass button');
+    if (btn) setButtonLoading(btn, 'Menyimpan...');
+
+    var newPass = document.getElementById('forgot-new-pass').value;
+    if (!newPass || newPass.length < 6) {
+        showToast('Password baru minimal 6 karakter!', 'error');
+        if (btn) resetButtonLoading(btn);
+        return;
+    }
+
+    try {
+        var { data, error } = await supabaseClient.auth.updateUser({
+            password: newPass
+        });
+
+        if (error) {
+            showToast('Gagal mengubah password: ' + error.message, 'error');
+        } else {
+            showToast('Password berhasil diubah! Silakan login.', 'success');
+            document.getElementById('forgot-email').value = '';
+            document.getElementById('forgot-otp-code').value = '';
+            document.getElementById('forgot-new-pass').value = '';
+            resetForgotFlowToEmail();
+            toggleAuthMode('login');
+        }
+    } catch (e) {
+        console.error('Update password exception:', e);
+        showToast('Terjadi kesalahan saat menyimpan password.', 'error');
+    }
+
+    if (btn) resetButtonLoading(btn);
 }
 
 async function handleDesktopLogin() {
