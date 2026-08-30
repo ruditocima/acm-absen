@@ -1,110 +1,121 @@
 function dataURItoBlob(dataURI) {
-    var byteString = atob(dataURI.split(',')[1]);
-    var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
-    var ab = new ArrayBuffer(byteString.length);
-    var ia = new Uint8Array(ab);
-    for (var i = 0; i < byteString.length; i++) {
-        ia[i] = byteString.charCodeAt(i);
+    try {
+        var parts = dataURI.split(',');
+        var byteString = atob(parts[1]);
+        var mimeString = parts[0].split(':')[1].split(';')[0];
+        var ab = new ArrayBuffer(byteString.length);
+        var ia = new Uint8Array(ab);
+        for (var i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], { type: mimeString });
+    } catch (e) {
+        console.error('Error converting DataURI to Blob:', e);
+        return null;
     }
-    return new Blob([ab], { type: mimeString });
 }
 
 async function handleAbsen() {
-    var session = Store.get('activeEmployeeSession');
-    if (!session || session.name === 'Tamu') {
-        showToast('Silakan login terlebih dahulu.', 'error');
-        if (typeof switchMobileTab === 'function') switchMobileTab('daftar');
-        return;
-    }
+    try {
+        var session = Store.get('activeEmployeeSession');
+        if (!session || !session.name || session.name === 'Tamu') {
+            showToast('Silakan login terlebih dahulu.', 'error');
+            if (typeof switchMobileTab === 'function') switchMobileTab('daftar');
+            return;
+        }
 
-    // Ambil waktu & tanggal resmi langsung dari Server Database (Kebal manipulasi jam HP)
-    var { data: timeData, error: timeErr } = await supabaseClient.rpc('get_current_wib_time');
-    if (timeErr || !timeData || timeData.length === 0) {
-        showToast('Gagal memvalidasi waktu server. Periksa koneksi.', 'error');
-        return;
-    }
+        // 1. Ambil waktu server resmi WIB (Kebal manipulasi jam HP)
+        var { data: timeData, error: timeErr } = await supabaseClient.rpc('get_current_wib_time');
+        if (timeErr || !timeData || timeData.length === 0) {
+            showToast('Gagal memvalidasi waktu server. Periksa koneksi.', 'error');
+            return;
+        }
 
-    var serverTime = timeData[0];
-    var serverDateStr = serverTime.wib_date;
-    var currentTimeInSeconds = parseInt(serverTime.total_seconds);
+        var serverTime = timeData[0];
+        var serverDateStr = serverTime.wib_date;
+        var currentTimeInSeconds = parseInt(serverTime.total_seconds);
 
-    // Cek apakah sudah absen hari ini berdasarkan tanggal server
-    var rekapList = Store.get('rekapList') || [];
-    var alreadyAbsen = rekapList.some(function(r) { 
-        return r.name === session.name && r.date === serverDateStr; 
-    });
+        // 2. Cek absen hari ini berdasarkan tanggal server WIB
+        var rekapList = Store.get('rekapList') || [];
+        var alreadyAbsen = rekapList.some(function(r) { 
+            return r.name === session.name && r.date === serverDateStr; 
+        });
 
-    if (alreadyAbsen) {
-        showToast('Anda sudah absen hari ini. Hanya 1 kali absen per hari.', 'warning');
-        return;
-    }
+        if (alreadyAbsen) {
+            showToast('Anda sudah absen hari ini. Hanya 1 kali absen per hari.', 'warning');
+            return;
+        }
 
-    var limitOpenInSeconds = typeof timeToSeconds === 'function' ? timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME) : 0;
-    if (currentTimeInSeconds < limitOpenInSeconds) {
-        showToast('Absensi belum dibuka. Mulai ' + CONFIG.ATTENDANCE.OPEN_TIME + ' WIB.', 'warning');
-        return;
-    }
+        var limitOpenInSeconds = typeof timeToSeconds === 'function' ? timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME) : 0;
+        if (currentTimeInSeconds < limitOpenInSeconds) {
+            showToast('Absensi belum dibuka. Mulai ' + CONFIG.ATTENDANCE.OPEN_TIME + ' WIB.', 'warning');
+            return;
+        }
 
-    if (!navigator.geolocation) {
-        showToast('Browser tidak mendukung GPS.', 'error');
-        return;
-    }
+        if (!navigator.geolocation) {
+            showToast('Browser tidak mendukung GPS.', 'error');
+            return;
+        }
 
-    var btn = document.querySelector('#m-tab-absen button[onclick*="handleAbsen"]');
-    if (typeof setButtonLoading === 'function' && btn) {
-        setButtonLoading(btn, 'Mendeteksi lokasi...');
-    }
+        var btn = document.querySelector('#m-tab-absen button[onclick*="handleAbsen"]');
+        if (typeof setButtonLoading === 'function' && btn) {
+            setButtonLoading(btn, 'Mendeteksi lokasi...');
+        }
 
-    navigator.geolocation.getCurrentPosition(
-        function(position) {
-            if (typeof resetButtonLoading === 'function' && btn) {
-                resetButtonLoading(btn);
-            }
-
-            if (position.coords.accuracy > CONFIG.GPS.MAX_ACCURACY) {
-                showToast('Akurasi GPS terlalu rendah (' + Math.round(position.coords.accuracy) + 'm). Coba lagi di lokasi terbuka.', 'warning');
-                return;
-            }
-
-            var userLat = position.coords.latitude;
-            var userLng = position.coords.longitude;
-            
-            var koordEl = document.getElementById('koordinat-display');
-            if (koordEl) {
-                koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
-            }
-
-            var basecamps = Store.get('basecamps') || [];
-            var validBasecamp = null;
-
-            for (var i = 0; i < basecamps.length; i++) {
-                var bc = basecamps[i];
-                var dist = typeof calculateDistance === 'function' ? calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng)) : 0;
-                if (dist <= parseFloat(bc.radius)) {
-                    validBasecamp = bc;
-                    break;
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                if (typeof resetButtonLoading === 'function' && btn) {
+                    resetButtonLoading(btn);
                 }
-            }
 
-            Store.set('pendingAbsenData', {
-                date: serverDateStr,
-                name: session.name,
-                basecamp: validBasecamp ? validBasecamp.name : 'Dinas Luar / Lapangan (Terverifikasi GPS)',
-                lat: userLat,
-                lng: userLng,
-                accuracy: position.coords.accuracy
-            });
+                if (position.coords.accuracy > (CONFIG.GPS ? CONFIG.GPS.MAX_ACCURACY : 100)) {
+                    showToast('Akurasi GPS terlalu rendah (' + Math.round(position.coords.accuracy) + 'm). Coba lagi di lokasi terbuka.', 'warning');
+                    return;
+                }
 
-            openSelfieModal();
-        },
-        function(err) {
-            if (typeof resetButtonLoading === 'function' && btn) {
-                resetButtonLoading(btn);
-            }
-            showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+                var userLat = position.coords.latitude;
+                var userLng = position.coords.longitude;
+                
+                var koordEl = document.getElementById('koordinat-display');
+                if (koordEl) {
+                    koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
+                }
+
+                var basecamps = Store.get('basecamps') || [];
+                var validBasecamp = null;
+
+                for (var i = 0; i < basecamps.length; i++) {
+                    var bc = basecamps[i];
+                    var dist = typeof calculateDistance === 'function' ? calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng)) : 0;
+                    if (dist <= parseFloat(bc.radius)) {
+                        validBasecamp = bc;
+                        break;
+                    }
+                }
+
+                Store.set('pendingAbsenData', {
+                    date: serverDateStr,
+                    name: session.name,
+                    basecamp: validBasecamp ? validBasecamp.name : 'Dinas Luar / Lapangan (Terverifikasi GPS)',
+                    lat: userLat,
+                    lng: userLng,
+                    accuracy: position.coords.accuracy
+                });
+
+                openSelfieModal();
+            },
+            function(err) {
+                if (typeof resetButtonLoading === 'function' && btn) {
+                    resetButtonLoading(btn);
+                }
+                showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error');
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } catch (err) {
+        console.error('Error in handleAbsen:', err);
+        showToast('Terjadi kesalahan sistem saat memproses lokasi.', 'error');
+    }
 }
 
 function openSelfieModal() {
@@ -217,43 +228,38 @@ function closeSelfieModal() {
 }
 
 async function submitAbsenWithSelfie() {
-    var pendingAbsenData = Store.get('pendingAbsenData');
-    if (!pendingAbsenData) {
-        showToast('Data absensi tidak ditemukan. Silakan ulangi proses dari awal.', 'error');
-        return;
-    }
-
     var btn = document.getElementById('btn-submit-absen');
     if (typeof setButtonLoading === 'function' && btn) {
         setButtonLoading(btn, 'Mengunggah foto...');
     }
 
-    var blob = Store.get('capturedBlob');
-    if (!blob) {
-        var preview = document.getElementById('selfie-preview');
-        if (preview && preview.src && preview.src.startsWith('data:')) {
-            blob = dataURItoBlob(preview.src);
-            Store.set('capturedBlob', blob);
-        }
-    }
-
-    if (!blob) {
-        showToast('Foto selfie belum diambil atau tidak valid.', 'error');
-        if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
-        return;
-    }
-
-    var selfieUrl = null;
-
     try {
-        var session = Store.get('activeEmployeeSession');
-        if (!session || !session.id) {
-            showToast('Sesi login habis. Silakan login kembali.', 'error');
+        var pendingAbsenData = Store.get('pendingAbsenData');
+        if (!pendingAbsenData) {
+            showToast('Data absensi tidak ditemukan. Silakan ulangi proses dari awal.', 'error');
             if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
 
-        var cleanId = session.id.replace(/[@.]/g, '_');
+        var blob = Store.get('capturedBlob');
+        if (!blob) {
+            var preview = document.getElementById('selfie-preview');
+            if (preview && preview.src && preview.src.startsWith('data:')) {
+                blob = dataURItoBlob(preview.src);
+                Store.set('capturedBlob', blob);
+            }
+        }
+
+        if (!blob) {
+            showToast('Foto selfie belum diambil atau tidak valid.', 'error');
+            if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
+            return;
+        }
+
+        // Penanganan fallback ID sesi login yang aman
+        var session = Store.get('activeEmployeeSession') || {};
+        var userId = session.id || session.email || session.name || 'user_' + Date.now();
+        var cleanId = String(userId).replace(/[@.\s]/g, '_');
         var fileName = CONFIG.STORAGE.FOLDER + '/' + pendingAbsenData.date + '_' + cleanId + '_' + Date.now() + '.jpg';
 
         var uploadResult = await supabaseClient
@@ -267,34 +273,28 @@ async function submitAbsenWithSelfie() {
 
         if (uploadResult.error) {
             console.error('Storage upload error:', uploadResult.error);
-            showToast('Gagal mengunggah foto ke server: ' + (uploadResult.error.message || ''), 'error');
+            showToast('Gagal mengunggah foto: ' + (uploadResult.error.message || 'Kesalahan storage'), 'error');
             if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
 
         var urlResult = supabaseClient.storage.from(CONFIG.STORAGE.BUCKET).getPublicUrl(fileName);
-        selfieUrl = urlResult.data.publicUrl;
-    } catch (err) {
-        console.error('Storage exception:', err);
-        showToast('Gagal mengunggah foto.', 'error');
-        if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
-        return;
-    }
+        var selfieUrl = urlResult.data.publicUrl;
 
-    var newRekap = {
-        name: pendingAbsenData.name,
-        basecamp: pendingAbsenData.basecamp,
-        selfie_url: selfieUrl,
-        lat: pendingAbsenData.lat,
-        lng: pendingAbsenData.lng,
-        accuracy: pendingAbsenData.accuracy
-    };
+        var newRekap = {
+            date: pendingAbsenData.date, // Tanggal resmi server WIB
+            name: pendingAbsenData.name,
+            basecamp: pendingAbsenData.basecamp,
+            selfie_url: selfieUrl,
+            lat: pendingAbsenData.lat,
+            lng: pendingAbsenData.lng,
+            accuracy: pendingAbsenData.accuracy
+        };
 
-    try {
         var insertResult = await supabaseClient.from('rekap_list').insert([newRekap]).select();
         if (insertResult.error) {
             console.error('Database insert error:', insertResult.error);
-            showToast('Gagal menyimpan database: ' + insertResult.error.message, 'error');
+            showToast('Gagal menyimpan ke database: ' + insertResult.error.message, 'error');
             if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
@@ -315,9 +315,10 @@ async function submitAbsenWithSelfie() {
         if (typeof renderRekap === 'function') renderRekap();
         if (typeof renderMobileMyHistory === 'function') renderMobileMyHistory();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+
     } catch (err) {
-        console.error('Error:', err);
-        showToast('Gagal menyimpan absensi.', 'error');
+        console.error('Exception during submit:', err);
+        showToast('Terjadi kesalahan sistem saat mengirim absen.', 'error');
     } finally {
         if (typeof resetButtonLoading === 'function' && btn) {
             resetButtonLoading(btn);
@@ -325,7 +326,7 @@ async function submitAbsenWithSelfie() {
     }
 }
 
-// Daftarkan fungsi ke objek window agar dapat diakses via onclick HTML
+// Bind fungsi ke window agar dapat dipanggil dari event handler HTML
 window.handleAbsen = handleAbsen;
 window.openSelfieModal = openSelfieModal;
 window.captureSelfie = captureSelfie;
