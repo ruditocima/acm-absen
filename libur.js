@@ -21,7 +21,7 @@ function saveLibur() {
     }
 
     var holidays = Store.get('holidays') || [];
-    holidays.push({ date: date, desc: desc });
+    holidays.push({ date: date, description: desc });
     
     // Urutkan berdasarkan tanggal
     holidays.sort(function(a, b) {
