@@ -20,19 +20,20 @@ async function saveLibur() {
         return;
     }
 
-    var { error } = await supabase
+    var { data, error } = await supabase
         .from('holidays')
         .insert([{ date: date, description: desc }]);
 
     if (error) {
-        if (typeof showToast === 'function') showToast('Gagal menyimpan hari libur: ' + error.message, 'error');
+        console.error('Supabase Insert Error:', error);
+        if (typeof showToast === 'function') showToast('Gagal menyimpan: ' + error.message, 'error');
         return;
     }
 
     if (typeof showToast === 'function') showToast('Hari libur berhasil ditambahkan.', 'success');
     
     closeLiburModal();
-    renderLibur(); // Render ulang tabel dari Supabase
+    renderLibur();
 }
 
 // Menampilkan data di tabel tab libur dari Supabase
@@ -46,7 +47,8 @@ async function renderLibur() {
         .order('date', { ascending: true });
 
     if (error) {
-        if (typeof showToast === 'function') showToast('Gagal memuat data hari libur: ' + error.message, 'error');
+        console.error('Supabase Select Error:', error);
+        if (typeof showToast === 'function') showToast('Gagal memuat data: ' + error.message, 'error');
         return;
     }
 
@@ -57,7 +59,6 @@ async function renderLibur() {
     } else {
         holidays.forEach(function(h) {
             var safeDate = typeof escapeHtml === 'function' ? escapeHtml(h.date) : h.date;
-            // Menyesuaikan dengan nama kolom 'description' di skema Supabase
             var safeDesc = typeof escapeHtml === 'function' ? escapeHtml(h.description) : h.description;
             
             html += '<tr class="hover:bg-slate-800/50">' +
@@ -80,7 +81,8 @@ async function deleteLibur(id) {
         .eq('id', id);
 
     if (error) {
-        if (typeof showToast === 'function') showToast('Gagal menghapus hari libur: ' + error.message, 'error');
+        console.error('Supabase Delete Error:', error);
+        if (typeof showToast === 'function') showToast('Gagal menghapus: ' + error.message, 'error');
         return;
     }
 
