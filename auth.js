@@ -605,3 +605,7 @@ async function initAuth() {
         }
     });
 }
+
+window.showForgotPassword = showForgotPassword;
+window.backToLogin = backToLogin;
+window.handleForgotPassword = handleForgotPassword;
