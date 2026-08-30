@@ -1,9 +1,3 @@
-function hasAbsenToday(employeeName) {
-    var todayStr = getWIBDateString();
-    var rekapList = Store.get('rekapList');
-    return rekapList.some(function(r) { return r.name === employeeName && r.date === todayStr; });
-}
-
 async function handleAbsen() {
     var session = Store.get('activeEmployeeSession');
     if (session.name === 'Tamu') {
@@ -12,8 +6,31 @@ async function handleAbsen() {
         return;
     }
 
-    if (hasAbsenToday(session.name)) {
+    // 1. Ambil waktu & tanggal resmi langsung dari Server Database (Kebal manipulasi jam HP)
+    var { data: timeData, error: timeErr } = await supabaseClient.rpc('get_current_wib_time');
+    if (timeErr || !timeData || timeData.length === 0) {
+        showToast('Gagal memvalidasi waktu server. Periksa koneksi.', 'error');
+        return;
+    }
+
+    var serverTime = timeData[0];
+    var serverDateStr = serverTime.wib_date;
+    var currentTimeInSeconds = parseInt(serverTime.total_seconds);
+
+    // 2. Cek apakah sudah absen hari ini berdasarkan tanggal server
+    var rekapList = Store.get('rekapList');
+    var alreadyAbsen = rekapList.some(function(r) { 
+        return r.name === session.name && r.date === serverDateStr; 
+    });
+
+    if (alreadyAbsen) {
         showToast('Anda sudah absen hari ini. Hanya 1 kali absen per hari.', 'warning');
+        return;
+    }
+
+    var limitOpenInSeconds = timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME);
+    if (currentTimeInSeconds < limitOpenInSeconds) {
+        showToast('Absensi belum dibuka. Mulai ' + CONFIG.ATTENDANCE.OPEN_TIME + ' WIB.', 'warning');
         return;
     }
 
@@ -36,12 +53,12 @@ async function handleAbsen() {
 
             var userLat = position.coords.latitude;
             var userLng = position.coords.longitude;
-            // --- KODE TAMBAHAN UNTUK MENGUBAH TEKS DI LAYAR ---
+            
             var koordEl = document.getElementById('koordinat-display');
             if (koordEl) {
                 koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
             }
-            // --------------------------------------------------
+
             var basecamps = Store.get('basecamps');
             var validBasecamp = null;
 
@@ -54,8 +71,9 @@ async function handleAbsen() {
                 }
             }
 
+            // Simpan tanggal menggunakan tanggal server yang sah
             Store.set('pendingAbsenData', {
-                date: getWIBDateString(),
+                date: serverDateStr,
                 name: session.name,
                 basecamp: validBasecamp ? validBasecamp.name : 'Dinas Luar / Lapangan (Terverifikasi GPS)',
                 lat: userLat,
@@ -98,7 +116,6 @@ function captureSelfie() {
     var canvas = document.getElementById('selfie-canvas');
     var preview = document.getElementById('selfie-preview');
     
-    // Batasi resolusi maksimum untuk mempercepat upload
     var maxWidth = 640;
     var maxHeight = 480;
     var width = video.videoWidth || 640;
@@ -207,9 +224,8 @@ async function submitAbsenWithSelfie() {
         return;
     }
 
-    // Payload dikirim murni tanpa tanggal, waktu, status, dan keterlambatan manual dari HP.
-    // Tombol tetap berfungsi tanpa batasan waktu lokal, dan Trigger SQL Supabase 
-    // akan mencatat waktu server real (misal 23:52:52) serta menghitung durasi keterlambatan secara akurat.
+    // Hanya kirim data esensial. Biarkan Trigger SQL Supabase yang mengisi 
+    // waktu, tanggal, status, dan keterlambatan berdasarkan jam server real.
     var newRekap = {
         name: pendingAbsenData.name,
         basecamp: pendingAbsenData.basecamp,
