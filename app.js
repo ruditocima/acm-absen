@@ -8,12 +8,26 @@ function initSupabaseRealtime() {
         }).subscribe();
 
     supabaseClient.channel('realtime-messages-channel')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, function() {
-            if (typeof renderEmails === 'function') renderEmails();
-            if (typeof showToast === 'function') showToast('Pesan baru diterima!', 'success');
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'emails' }, function(payload) {
+            handleIncomingEmail(payload.new);
         }).subscribe();
 }
 
+function handleIncomingEmail(emailData) {
+    var session = Store.get('activeEmployeeSession');
+    if (!session || session.name === 'Tamu') {
+        return; // Abaikan jika masih tamu/belum login
+    }
+
+    var emailsList = Store.get('emailsList') || [];
+    emailsList.unshift(emailData);
+    Store.set('emailsList', emailsList);
+    if (typeof renderEmails === 'function') renderEmails();
+    if (typeof updateEmailBadges === 'function') updateEmailBadges();
+    if (typeof showToast === 'function') showToast('Pesan baru diterima!', 'success');
+}
+
+// ... (lanjutan fungsi initAuth dan event listener DOMContentLoaded lainnya)
 // Implementasi fungsi initAuth untuk memisahkan error akun tidak terdaftar dan password salah
 function initAuth() {
     const loginForm = document.getElementById('login-form'); // Sesuaikan dengan ID form login Anda
