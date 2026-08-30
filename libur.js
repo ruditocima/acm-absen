@@ -10,8 +10,8 @@ function closeLiburModal() {
     document.getElementById('inp-libur-desc').value = '';
 }
 
-// Menyimpan data libur baru
-function saveLibur() {
+// Menyimpan data libur baru ke Supabase
+async function saveLibur() {
     var date = document.getElementById('inp-libur-date').value;
     var desc = document.getElementById('inp-libur-desc').value;
 
@@ -20,43 +20,51 @@ function saveLibur() {
         return;
     }
 
-    var holidays = Store.get('holidays') || [];
-    holidays.push({ date: date, description: desc });
-    
-    // Urutkan berdasarkan tanggal
-    holidays.sort(function(a, b) {
-        return new Date(a.date) - new Date(b.date);
-    });
+    var { error } = await supabase
+        .from('holidays')
+        .insert([{ date: date, description: desc }]);
 
-    Store.set('holidays', holidays);
-    
+    if (error) {
+        if (typeof showToast === 'function') showToast('Gagal menyimpan hari libur: ' + error.message, 'error');
+        return;
+    }
+
     if (typeof showToast === 'function') showToast('Hari libur berhasil ditambahkan.', 'success');
     
     closeLiburModal();
-    renderLibur(); // Render ulang tabel
+    renderLibur(); // Render ulang tabel dari Supabase
 }
 
-// Menampilkan data di tabel tab libur
-function renderLibur() {
+// Menampilkan data di tabel tab libur dari Supabase
+async function renderLibur() {
     var tbody = document.getElementById('libur-tbody');
     if (!tbody) return;
 
-    var holidays = Store.get('holidays') || [];
+    var { data: holidays, error } = await supabase
+        .from('holidays')
+        .select('*')
+        .order('date', { ascending: true });
+
+    if (error) {
+        if (typeof showToast === 'function') showToast('Gagal memuat data hari libur: ' + error.message, 'error');
+        return;
+    }
+
     var html = '';
 
-    if (holidays.length === 0) {
+    if (!holidays || holidays.length === 0) {
         html = '<tr><td colspan="3" class="p-3 text-center text-slate-500">Belum ada data hari libur</td></tr>';
     } else {
-        holidays.forEach(function(h, index) {
-            // Asumsi fungsi escapeHtml sudah ada di utils.js
+        holidays.forEach(function(h) {
             var safeDate = typeof escapeHtml === 'function' ? escapeHtml(h.date) : h.date;
-            var safeDesc = typeof escapeHtml === 'function' ? escapeHtml(h.desc) : h.desc;
+            // Menyesuaikan dengan nama kolom 'description' di skema Supabase
+            var safeDesc = typeof escapeHtml === 'function' ? escapeHtml(h.description) : h.description;
             
             html += '<tr class="hover:bg-slate-800/50">' +
                 '<td class="p-3">' + safeDate + '</td>' +
                 '<td class="p-3">' + safeDesc + '</td>' +
                 '<td class="p-3 text-right">' +
-                    '<button onclick="deleteLibur(' + index + ')" class="px-3 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-trash"></i> Hapus</button>' +
+                    '<button onclick="deleteLibur(\x27' + h.id + '\x27)" class="px-3 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/30 hover:bg-rose-500/30 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-trash"></i> Hapus</button>' +
                 '</td>' +
                 '</tr>';
         });
@@ -64,11 +72,18 @@ function renderLibur() {
     tbody.innerHTML = html;
 }
 
-// Menghapus data libur
-function deleteLibur(index) {
-    var holidays = Store.get('holidays') || [];
-    holidays.splice(index, 1);
-    Store.set('holidays', holidays);
+// Menghapus data libur dari Supabase berdasarkan ID (UUID)
+async function deleteLibur(id) {
+    var { error } = await supabase
+        .from('holidays')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        if (typeof showToast === 'function') showToast('Gagal menghapus hari libur: ' + error.message, 'error');
+        return;
+    }
+
     renderLibur();
     if (typeof showToast === 'function') showToast('Hari libur berhasil dihapus.', 'info');
 }
