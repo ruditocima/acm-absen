@@ -164,9 +164,9 @@ function renderEmails() {
 
 async function sendAppEmail(mode) {
     var session = Store.get('activeEmployeeSession');
-    if (session.name === 'Tamu') {
-        showToast('Silakan login terlebih dahulu.', 'error');
-        return;
+    if (!session || session.name === 'Tamu') {
+    showToast('Silakan login terlebih dahulu.', 'error');
+    return;
     }
 
     var prefix = mode === 'mobile' ? 'm' : 'd';
