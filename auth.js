@@ -27,6 +27,15 @@ async function processLoginValidation(email, pass, isDesktop) {
         showToast('Harap isi email dan password Anda.', 'error');
         return false;
     }
+    try {
+        var empCheck = await supabaseClient.from('employees').select('id').eq('id', email).maybeSingle();
+        if (!empCheck.data) {
+            showToast('Akun belum terdaftar di sistem. Silakan daftar via menu Mobile (HP).', 'warning');
+            return false;
+        }
+    } catch (e) {
+        console.warn('Check employee error:', e);
+    }
 
     var authData, authError;
     try {
@@ -42,7 +51,8 @@ async function processLoginValidation(email, pass, isDesktop) {
     if (authError || !authData || !authData.user) {
         var errMsg = (authError && authError.message) ? authError.message.toLowerCase() : '';
         if (errMsg.indexOf('invalid login credentials') >= 0 || errMsg.indexOf('user not found') >= 0) {
-            showToast('Akun belum terdaftar di sistem. Silakan daftar via menu Mobile (HP).', 'warning');
+            // Karena email sudah dipastikan terdaftar di atas, error ini pasti karena password salah
+            showToast('Password Anda salah.', 'error');
         } else if (errMsg.indexOf('email not confirmed') >= 0) {
             showToast('Email belum dikonfirmasi. Cek inbox atau hubungi Admin.', 'warning');
         } else {
@@ -50,7 +60,6 @@ async function processLoginValidation(email, pass, isDesktop) {
         }
         return false;
     }
-
     var authUser = authData.user;
 
     var empResult = await supabaseClient.from('employees').select('*').eq('auth_id', authUser.id).maybeSingle();
