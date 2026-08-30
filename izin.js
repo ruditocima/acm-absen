@@ -55,7 +55,6 @@ async function submitMobileIzin() {
 }
 
 // Helper untuk menghasilkan rentang tanggal (Array of Dates)
-// Helper untuk menghasilkan rentang tanggal (Array of Dates)
 function getDatesInRange(startDate, endDate) {
     var dates = [];
     var curr = new Date(startDate);
@@ -111,7 +110,7 @@ async function updateIzinStatus(id, newStatus) {
                 name: izin.name,
                 basecamp: basecampName,
                 time: '-',
-                status: izin.jenis, // Contoh: Cuti Tahunan, Sakit, dll
+                // status: izin.jenis, // Contoh: Cuti, Sakit, dll
                 late: '-',
                 selfie_url: null
             };
