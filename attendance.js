@@ -11,13 +11,13 @@ function dataURItoBlob(dataURI) {
 
 async function handleAbsen() {
     var session = Store.get('activeEmployeeSession');
-    if (session.name === 'Tamu') {
+    if (!session || session.name === 'Tamu') {
         showToast('Silakan login terlebih dahulu.', 'error');
-        switchMobileTab('daftar');
+        if (typeof switchMobileTab === 'function') switchMobileTab('daftar');
         return;
     }
 
-    // 1. Ambil waktu & tanggal resmi langsung dari Server Database (Kebal manipulasi jam HP)
+    // Ambil waktu & tanggal resmi langsung dari Server Database (Kebal manipulasi jam HP)
     var { data: timeData, error: timeErr } = await supabaseClient.rpc('get_current_wib_time');
     if (timeErr || !timeData || timeData.length === 0) {
         showToast('Gagal memvalidasi waktu server. Periksa koneksi.', 'error');
@@ -28,8 +28,8 @@ async function handleAbsen() {
     var serverDateStr = serverTime.wib_date;
     var currentTimeInSeconds = parseInt(serverTime.total_seconds);
 
-    // 2. Cek apakah sudah absen hari ini berdasarkan tanggal server
-    var rekapList = Store.get('rekapList');
+    // Cek apakah sudah absen hari ini berdasarkan tanggal server
+    var rekapList = Store.get('rekapList') || [];
     var alreadyAbsen = rekapList.some(function(r) { 
         return r.name === session.name && r.date === serverDateStr; 
     });
@@ -39,7 +39,7 @@ async function handleAbsen() {
         return;
     }
 
-    var limitOpenInSeconds = timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME);
+    var limitOpenInSeconds = typeof timeToSeconds === 'function' ? timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME) : 0;
     if (currentTimeInSeconds < limitOpenInSeconds) {
         showToast('Absensi belum dibuka. Mulai ' + CONFIG.ATTENDANCE.OPEN_TIME + ' WIB.', 'warning');
         return;
@@ -50,12 +50,16 @@ async function handleAbsen() {
         return;
     }
 
-    var btn = document.querySelector('#m-tab-absen button[onclick="handleAbsen()"]');
-    setButtonLoading(btn, 'Mendeteksi lokasi...');
+    var btn = document.querySelector('#m-tab-absen button[onclick*="handleAbsen"]');
+    if (typeof setButtonLoading === 'function' && btn) {
+        setButtonLoading(btn, 'Mendeteksi lokasi...');
+    }
 
     navigator.geolocation.getCurrentPosition(
         function(position) {
-            resetButtonLoading(btn);
+            if (typeof resetButtonLoading === 'function' && btn) {
+                resetButtonLoading(btn);
+            }
 
             if (position.coords.accuracy > CONFIG.GPS.MAX_ACCURACY) {
                 showToast('Akurasi GPS terlalu rendah (' + Math.round(position.coords.accuracy) + 'm). Coba lagi di lokasi terbuka.', 'warning');
@@ -70,19 +74,18 @@ async function handleAbsen() {
                 koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
             }
 
-            var basecamps = Store.get('basecamps');
+            var basecamps = Store.get('basecamps') || [];
             var validBasecamp = null;
 
             for (var i = 0; i < basecamps.length; i++) {
                 var bc = basecamps[i];
-                var dist = calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng));
+                var dist = typeof calculateDistance === 'function' ? calculateDistance(userLat, userLng, parseFloat(bc.lat), parseFloat(bc.lng)) : 0;
                 if (dist <= parseFloat(bc.radius)) {
                     validBasecamp = bc;
                     break;
                 }
             }
 
-            // Simpan tanggal menggunakan tanggal server yang sah
             Store.set('pendingAbsenData', {
                 date: serverDateStr,
                 name: session.name,
@@ -95,7 +98,9 @@ async function handleAbsen() {
             openSelfieModal();
         },
         function(err) {
-            resetButtonLoading(btn);
+            if (typeof resetButtonLoading === 'function' && btn) {
+                resetButtonLoading(btn);
+            }
             showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -103,19 +108,31 @@ async function handleAbsen() {
 }
 
 function openSelfieModal() {
-    document.getElementById('selfie-modal').classList.remove('hidden');
+    var modal = document.getElementById('selfie-modal');
+    if (modal) modal.classList.remove('hidden');
+    
     var video = document.getElementById('selfie-video');
-    video.classList.remove('hidden');
-    document.getElementById('selfie-canvas').classList.add('hidden');
-    document.getElementById('selfie-preview').classList.add('hidden');
-    document.getElementById('btn-capture').classList.remove('hidden');
-    document.getElementById('btn-retake').classList.add('hidden');
-    document.getElementById('btn-submit-absen').classList.add('hidden');
+    if (video) video.classList.remove('hidden');
+    
+    var canvas = document.getElementById('selfie-canvas');
+    if (canvas) canvas.classList.add('hidden');
+    
+    var preview = document.getElementById('selfie-preview');
+    if (preview) preview.classList.add('hidden');
+    
+    var btnCapture = document.getElementById('btn-capture');
+    if (btnCapture) btnCapture.classList.remove('hidden');
+    
+    var btnRetake = document.getElementById('btn-retake');
+    if (btnRetake) btnRetake.classList.add('hidden');
+    
+    var btnSubmit = document.getElementById('btn-submit-absen');
+    if (btnSubmit) btnSubmit.classList.add('hidden');
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
         .then(function(stream) {
             Store.set('mediaStream', stream);
-            video.srcObject = stream;
+            if (video) video.srcObject = stream;
         })
         .catch(function(err) {
             showToast('Gagal mengakses kamera: ' + err.message, 'error');
@@ -127,6 +144,8 @@ function captureSelfie() {
     var canvas = document.getElementById('selfie-canvas');
     var preview = document.getElementById('selfie-preview');
     
+    if (!video || !canvas || !preview) return;
+
     var maxWidth = 640;
     var maxHeight = 480;
     var width = video.videoWidth || 640;
@@ -155,11 +174,15 @@ function captureSelfie() {
 
     video.classList.add('hidden');
     preview.classList.remove('hidden');
-    document.getElementById('btn-capture').classList.add('hidden');
-    document.getElementById('btn-retake').classList.remove('hidden');
-    document.getElementById('btn-submit-absen').classList.remove('hidden');
+    
+    var btnCapture = document.getElementById('btn-capture');
+    var btnRetake = document.getElementById('btn-retake');
+    var btnSubmit = document.getElementById('btn-submit-absen');
+    
+    if (btnCapture) btnCapture.classList.add('hidden');
+    if (btnRetake) btnRetake.classList.remove('hidden');
+    if (btnSubmit) btnSubmit.classList.remove('hidden');
 
-    // Konversi langsung secara sinkron agar blob selalu siap dan tidak macet
     var blob = dataURItoBlob(dataUrl);
     Store.set('capturedBlob', blob);
 }
@@ -167,11 +190,18 @@ function captureSelfie() {
 function retakeSelfie() {
     var video = document.getElementById('selfie-video');
     var preview = document.getElementById('selfie-preview');
-    video.classList.remove('hidden');
-    preview.classList.add('hidden');
-    document.getElementById('btn-capture').classList.remove('hidden');
-    document.getElementById('btn-retake').classList.add('hidden');
-    document.getElementById('btn-submit-absen').classList.add('hidden');
+    
+    if (video) video.classList.remove('hidden');
+    if (preview) preview.classList.add('hidden');
+    
+    var btnCapture = document.getElementById('btn-capture');
+    var btnRetake = document.getElementById('btn-retake');
+    var btnSubmit = document.getElementById('btn-submit-absen');
+    
+    if (btnCapture) btnCapture.classList.remove('hidden');
+    if (btnRetake) btnRetake.classList.add('hidden');
+    if (btnSubmit) btnSubmit.classList.add('hidden');
+    
     Store.set('capturedBlob', null);
 }
 
@@ -182,7 +212,8 @@ function closeSelfieModal() {
         Store.set('mediaStream', null);
     }
     Store.set('capturedBlob', null);
-    document.getElementById('selfie-modal').classList.add('hidden');
+    var modal = document.getElementById('selfie-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 async function submitAbsenWithSelfie() {
@@ -193,7 +224,9 @@ async function submitAbsenWithSelfie() {
     }
 
     var btn = document.getElementById('btn-submit-absen');
-    setButtonLoading(btn, 'Mengunggah foto...');
+    if (typeof setButtonLoading === 'function' && btn) {
+        setButtonLoading(btn, 'Mengunggah foto...');
+    }
 
     var blob = Store.get('capturedBlob');
     if (!blob) {
@@ -205,8 +238,8 @@ async function submitAbsenWithSelfie() {
     }
 
     if (!blob) {
-        showToast('Foto belum diambil atau tidak valid.', 'error');
-        resetButtonLoading(btn);
+        showToast('Foto selfie belum diambil atau tidak valid.', 'error');
+        if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
         return;
     }
 
@@ -216,7 +249,7 @@ async function submitAbsenWithSelfie() {
         var session = Store.get('activeEmployeeSession');
         if (!session || !session.id) {
             showToast('Sesi login habis. Silakan login kembali.', 'error');
-            resetButtonLoading(btn);
+            if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
 
@@ -235,7 +268,7 @@ async function submitAbsenWithSelfie() {
         if (uploadResult.error) {
             console.error('Storage upload error:', uploadResult.error);
             showToast('Gagal mengunggah foto ke server: ' + (uploadResult.error.message || ''), 'error');
-            resetButtonLoading(btn);
+            if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
 
@@ -244,12 +277,10 @@ async function submitAbsenWithSelfie() {
     } catch (err) {
         console.error('Storage exception:', err);
         showToast('Gagal mengunggah foto.', 'error');
-        resetButtonLoading(btn);
+        if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
         return;
     }
 
-    // Hanya kirim data esensial. Biarkan Trigger SQL Supabase yang mengisi 
-    // waktu, tanggal, status, dan keterlambatan berdasarkan jam server real.
     var newRekap = {
         name: pendingAbsenData.name,
         basecamp: pendingAbsenData.basecamp,
@@ -264,14 +295,14 @@ async function submitAbsenWithSelfie() {
         if (insertResult.error) {
             console.error('Database insert error:', insertResult.error);
             showToast('Gagal menyimpan database: ' + insertResult.error.message, 'error');
-            resetButtonLoading(btn);
+            if (typeof resetButtonLoading === 'function' && btn) resetButtonLoading(btn);
             return;
         }
 
         var savedRecord = insertResult.data && insertResult.data.length > 0 ? insertResult.data[0] : newRekap;
         var timeString = savedRecord.time || '00:00:00';
 
-        var rekapList = Store.get('rekapList');
+        var rekapList = Store.get('rekapList') || [];
         rekapList.push(savedRecord);
         Store.set('rekapList', rekapList.slice());
 
@@ -281,13 +312,23 @@ async function submitAbsenWithSelfie() {
         if (jamMasukEl) jamMasukEl.innerText = timeString + ' WIB';
 
         closeSelfieModal();
-        renderRekap();
-        renderMobileMyHistory();
-        updateDashboardStats();
+        if (typeof renderRekap === 'function') renderRekap();
+        if (typeof renderMobileMyHistory === 'function') renderMobileMyHistory();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } catch (err) {
         console.error('Error:', err);
         showToast('Gagal menyimpan absensi.', 'error');
     } finally {
-        resetButtonLoading(btn);
+        if (typeof resetButtonLoading === 'function' && btn) {
+            resetButtonLoading(btn);
+        }
     }
 }
+
+// Daftarkan fungsi ke objek window agar dapat diakses via onclick HTML
+window.handleAbsen = handleAbsen;
+window.openSelfieModal = openSelfieModal;
+window.captureSelfie = captureSelfie;
+window.retakeSelfie = retakeSelfie;
+window.closeSelfieModal = closeSelfieModal;
+window.submitAbsenWithSelfie = submitAbsenWithSelfie;
