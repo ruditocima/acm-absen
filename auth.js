@@ -484,57 +484,6 @@ async function verifyOTP() {
             showToast('Registrasi berhasil! Akun Pending. Tunggu approval Admin.', 'success');
         }
     }
-    function showForgotPassword() {
-    var loginStep = document.getElementById('login-step');
-    var regStep1 = document.getElementById('reg-step-1');
-    var regStep2 = document.getElementById('reg-step-2');
-    var forgotStep = document.getElementById('forgot-step');
-
-    if (loginStep) loginStep.classList.add('hidden');
-    if (regStep1) regStep1.classList.add('hidden');
-    if (regStep2) regStep2.classList.add('hidden');
-    if (forgotStep) forgotStep.classList.remove('hidden');
-}
-
-function backToLogin() {
-    var forgotStep = document.getElementById('forgot-step');
-    var loginStep = document.getElementById('login-step');
-    if (forgotStep) forgotStep.classList.add('hidden');
-    if (loginStep) loginStep.classList.remove('hidden');
-}
-
-async function handleForgotPassword() {
-    var emailEl = document.getElementById('forgot-email');
-    if (!emailEl) return;
-    var email = emailEl.value.trim();
-
-    if (!email) {
-        showToast('Harap masukkan email Anda.', 'error');
-        return;
-    }
-
-    var btn = document.querySelector('#forgot-step button[onclick="handleForgotPassword()"]');
-    setButtonLoading(btn, 'Mengirim instruksi...');
-
-    try {
-        var { data, error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-            redirectTo: window.location.href
-        });
-
-        if (error) {
-            showToast('Gagal mengirim reset password: ' + error.message, 'error');
-        } else {
-            showToast('Instruksi reset password telah dikirim ke email Anda. Silakan cek inbox.', 'success');
-            emailEl.value = '';
-            backToLogin();
-        }
-    } catch (e) {
-        console.error('Reset password exception:', e);
-        showToast('Terjadi kesalahan saat mereset password.', 'error');
-    } finally {
-        resetButtonLoading(btn);
-    }
-}
 
     await fetchAllDataFromSupabase();
     renderEmployees();
@@ -605,7 +554,3 @@ async function initAuth() {
         }
     });
 }
-
-window.showForgotPassword = showForgotPassword;
-window.backToLogin = backToLogin;
-window.handleForgotPassword = handleForgotPassword;
