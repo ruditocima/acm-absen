@@ -82,29 +82,36 @@ function updateEmailBadges() {
 
 function renderEmails() {
     var session = Store.get('activeEmployeeSession');
+    var mInboxList = document.getElementById('mobile-inbox-list');
+    var dInboxTbody = document.getElementById('desktop-inbox-tbody');
+    var mSentList = document.getElementById('mobile-sent-list');
+    var dSentTbody = document.getElementById('desktop-sent-tbody');
+
+    // Pengaman jika sesi tamu atau belum login
     if (!session || session.name === 'Tamu') {
-        var mInboxList = document.getElementById('mobile-inbox-list');
-        var dInboxTbody = document.getElementById('desktop-inbox-tbody');
         if (mInboxList) mInboxList.innerHTML = '<p class="text-slate-500 text-center py-4">Silakan login untuk melihat pesan.</p>';
         if (dInboxTbody) dInboxTbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Silakan login untuk melihat pesan.</td></tr>';
+        if (mSentList) mSentList.innerHTML = '<p class="text-slate-500 text-center py-4">Silakan login.</p>';
+        if (dSentTbody) dSentTbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Silakan login.</td></tr>';
         return;
     }
 
     var userEmail = session.id;
-    var emailsList = Store.get('emailsList') || []; // Pengaman agar tidak undefined/null
-    var inboxRows = emailsList.filter(function(e) { return e.receiver === userEmail || e.receiver === 'BROADCAST'; });
-    var sentRows = emailsList.filter(function(e) { return e.sender === userEmail; });
+    var emailsList = Store.get('emailsList') || [];
+    
+    // Deklarasi variabel inboxRows dan sentRows secara aman di awal fungsi
+    var inboxRows = emailsList.filter(function(e) { return e && (e.receiver === userEmail || e.receiver === 'BROADCAST'); });
+    var sentRows = emailsList.filter(function(e) { return e && e.sender === userEmail; });
     var readIds = getReadEmailIds();
 
     // Mobile Inbox
-    var mInboxList = document.getElementById('mobile-inbox-list');
     if (mInboxList) {
         if (inboxRows.length === 0) {
             mInboxList.innerHTML = '<p class="text-slate-500 text-center py-4">Kotak masuk kosong.</p>';
         } else {
             mInboxList.innerHTML = inboxRows.map(function(e) {
                 var isRead = readIds.indexOf(e.id) >= 0 || e.read || e.sender === userEmail;
-                var timeStr = formatWIBTime(e.created_at);
+                var timeStr = typeof formatWIBTime === 'function' ? formatWIBTime(e.created_at) : '';
                 return '<div onclick="openEmailDetail(' + e.id + ')" class="glass-card p-3 rounded-xl border ' + (!isRead ? 'border-gold-500/50 bg-slate-900/90' : 'border-slate-800') + ' cursor-pointer hover:border-gold-500 transition">' +
                     '<div class="flex justify-between items-start mb-1">' +
                     '<span class="font-bold text-white flex items-center gap-1.5">' + (!isRead ? '<span class="w-2 h-2 rounded-full bg-gold-500 inline-block"></span>' : '') + escapeHtml(e.sender_name || e.sender) + '</span>' +
@@ -116,7 +123,6 @@ function renderEmails() {
     }
 
     // Mobile Sent
-    var mSentList = document.getElementById('mobile-sent-list');
     if (mSentList) {
         if (sentRows.length === 0) {
             mSentList.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada pesan terkirim.</p>';
@@ -125,21 +131,20 @@ function renderEmails() {
                 return '<div onclick="openEmailDetail(' + e.id + ')" class="glass-card p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-gold-500 transition">' +
                     '<div class="flex justify-between items-start mb-1">' +
                     '<span class="font-bold text-white">Kepada: ' + escapeHtml(getEmployeeDisplayName(e.receiver)) + '</span>' +
-                    '<span class="text-[10px] text-slate-400 font-mono">' + formatWIBTime(e.created_at) + '</span></div>' +
+                    '<span class="text-[10px] text-slate-400 font-mono">' + (typeof formatWIBTime === 'function' ? formatWIBTime(e.created_at) : '') + '</span></div>' +
                     '<p class="text-xs font-semibold text-gold-400 truncate">' + escapeHtml(e.subject) + '</p></div>';
             }).join('');
         }
     }
 
     // Desktop Inbox
-    var dInboxTbody = document.getElementById('desktop-inbox-tbody');
     if (dInboxTbody) {
         if (inboxRows.length === 0) {
             dInboxTbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">Kotak masuk kosong.</td></tr>';
         } else {
             dInboxTbody.innerHTML = inboxRows.map(function(e) {
                 var isRead = readIds.indexOf(e.id) >= 0 || e.read || e.sender === userEmail;
-                var timeStr = formatWIBDateTime(e.created_at);
+                var timeStr = typeof formatWIBDateTime === 'function' ? formatWIBDateTime(e.created_at) : '';
                 var isBroadcast = e.receiver === 'BROADCAST';
                 return '<tr class="hover:bg-slate-900/50 ' + (!isRead ? 'bg-slate-900/60 font-semibold' : '') + '">' +
                     '<td class="p-3 font-mono text-slate-400 text-[11px]">' + timeStr + '</td>' +
@@ -152,14 +157,13 @@ function renderEmails() {
     }
 
     // Desktop Sent
-    var dSentTbody = document.getElementById('desktop-sent-tbody');
     if (dSentTbody) {
         if (sentRows.length === 0) {
             dSentTbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">Belum ada pesan terkirim.</td></tr>';
         } else {
             dSentTbody.innerHTML = sentRows.map(function(e) {
                 return '<tr class="hover:bg-slate-900/50">' +
-                    '<td class="p-3 font-mono text-slate-400 text-[11px]">' + formatWIBDateTime(e.created_at) + '</td>' +
+                    '<td class="p-3 font-mono text-slate-400 text-[11px]">' + (typeof formatWIBDateTime === 'function' ? formatWIBDateTime(e.created_at) : '') + '</td>' +
                     '<td class="p-3 text-white">' + escapeHtml(getEmployeeDisplayName(e.receiver)) + '</td>' +
                     '<td class="p-3 text-white font-semibold">' + escapeHtml(e.subject) + '</td>' +
                     '<td class="p-3 text-right space-x-1"><button onclick="openEmailDetail(' + e.id + ')" class="px-2.5 py-1 bg-slate-800 text-gold-400 hover:bg-slate-700 rounded text-[11px] font-semibold transition">Lihat</button><button onclick="deleteEmailItem(' + e.id + ')" class="px-2.5 py-1 bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 rounded text-[11px] font-semibold transition"><i class="fa-solid fa-trash"></i></button></td></tr>';
@@ -167,7 +171,6 @@ function renderEmails() {
         }
     }
 }
-
 async function sendAppEmail(mode) {
     var session = Store.get('activeEmployeeSession');
     if (!session || session.name === 'Tamu') {
