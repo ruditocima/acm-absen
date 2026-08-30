@@ -1,12 +1,25 @@
+// Helper sinkron untuk mengubah DataURL menjadi Blob (menghindari race condition toBlob)
+function dataURItoBlob(dataURI) {
+    var splitData = dataURI.split(',');
+    var byteString = atob(splitData[1]);
+    var mimeString = splitData[0].split(':')[1].split(';')[0];
+    var ab = new ArrayBuffer(byteString.length);
+    var ia = new Uint8Array(ab);
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+    }
+    return new Blob([ab], { type: mimeString });
+}
+
 function hasAbsenToday(employeeName) {
     var todayStr = getWIBDateString();
-    var rekapList = Store.get('rekapList');
+    var rekapList = Store.get('rekapList') || [];
     return rekapList.some(function(r) { return r.name === employeeName && r.date === todayStr; });
 }
 
-async function handleAbsen() {
+async function handleAbsen(buttonElement) {
     var session = Store.get('activeEmployeeSession');
-    if (session.name === 'Tamu') {
+    if (!session || session.name === 'Tamu') {
         showToast('Silakan login terlebih dahulu.', 'error');
         switchMobileTab('daftar');
         return;
@@ -19,7 +32,7 @@ async function handleAbsen() {
 
     var now = new Date();
     var wib = getWIBTimeParts(now);
-    var currentTimeInSeconds = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
+    var currentTimeInSeconds = parseInt(wib.h, 10) * 3600 + parseInt(wib.m, 10) * 60 + parseInt(wib.s, 10);
     var limitOpenInSeconds = timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME);
 
     if (currentTimeInSeconds < limitOpenInSeconds) {
@@ -32,7 +45,7 @@ async function handleAbsen() {
         return;
     }
 
-    var btn = document.querySelector('#m-tab-absen button[onclick="handleAbsen()"]');
+    var btn = buttonElement || document.querySelector('#m-tab-absen button[onclick*="handleAbsen"]');
     setButtonLoading(btn, 'Mendeteksi lokasi...');
 
     navigator.geolocation.getCurrentPosition(
@@ -46,13 +59,13 @@ async function handleAbsen() {
 
             var userLat = position.coords.latitude;
             var userLng = position.coords.longitude;
-            // --- KODE TAMBAHAN UNTUK MENGUBAH TEKS DI LAYAR ---
+            
             var koordEl = document.getElementById('koordinat-display');
             if (koordEl) {
                 koordEl.innerHTML = '<i class="fa-solid fa-location-dot"></i> Koordinat: ' + userLat.toFixed(5) + ', ' + userLng.toFixed(5);
             }
-            // --------------------------------------------------
-            var basecamps = Store.get('basecamps');
+
+            var basecamps = Store.get('basecamps') || [];
             var validBasecamp = null;
 
             for (var i = 0; i < basecamps.length; i++) {
@@ -77,29 +90,47 @@ async function handleAbsen() {
         },
         function(err) {
             resetButtonLoading(btn);
-            showToast('Gagal mendeteksi GPS. Aktifkan izin lokasi.', 'error');
+            var errorMsg = 'Gagal mendeteksi GPS.';
+            if (err.code === 1) errorMsg = 'Izin GPS ditolak. Aktifkan izin lokasi.';
+            else if (err.code === 2) errorMsg = 'Lokasi tidak tersedia.';
+            else if (err.code === 3) errorMsg = 'Waktu permintaan GPS habis.';
+            showToast(errorMsg, 'error');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
 }
 
 function openSelfieModal() {
-    document.getElementById('selfie-modal').classList.remove('hidden');
+    var modal = document.getElementById('selfie-modal');
+    if (modal) modal.classList.remove('hidden');
+    
     var video = document.getElementById('selfie-video');
-    video.classList.remove('hidden');
-    document.getElementById('selfie-canvas').classList.add('hidden');
-    document.getElementById('selfie-preview').classList.add('hidden');
-    document.getElementById('btn-capture').classList.remove('hidden');
-    document.getElementById('btn-retake').classList.add('hidden');
-    document.getElementById('btn-submit-absen').classList.add('hidden');
+    if (video) video.classList.remove('hidden');
+    
+    var canvas = document.getElementById('selfie-canvas');
+    var preview = document.getElementById('selfie-preview');
+    if (canvas) canvas.classList.add('hidden');
+    if (preview) preview.classList.add('hidden');
+    
+    var btnCapture = document.getElementById('btn-capture');
+    var btnRetake = document.getElementById('btn-retake');
+    var btnSubmit = document.getElementById('btn-submit-absen');
+    if (btnCapture) btnCapture.classList.remove('hidden');
+    if (btnRetake) btnRetake.classList.add('hidden');
+    if (btnSubmit) btnSubmit.classList.add('hidden');
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showToast('Browser tidak mendukung akses kamera.', 'error');
+        return;
+    }
 
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
         .then(function(stream) {
             Store.set('mediaStream', stream);
-            video.srcObject = stream;
+            if (video) video.srcObject = stream;
         })
         .catch(function(err) {
-            showToast('Gagal mengakses kamera: ' + err.message, 'error');
+            showToast('Gagal mengakses kamera: ' + (err.message || 'Izin ditolak'), 'error');
         });
 }
 
@@ -108,7 +139,8 @@ function captureSelfie() {
     var canvas = document.getElementById('selfie-canvas');
     var preview = document.getElementById('selfie-preview');
     
-    // Batasi resolusi maksimum untuk mempercepat upload
+    if (!video || !canvas || !preview) return;
+
     var maxWidth = 640;
     var maxHeight = 480;
     var width = video.videoWidth || 640;
@@ -133,6 +165,7 @@ function captureSelfie() {
     var mimeType = supportsWebP ? 'image/webp' : 'image/jpeg';
     var quality = supportsWebP ? 0.7 : 0.5;
     var dataUrl = canvas.toDataURL(mimeType, quality);
+    
     preview.src = dataUrl;
 
     video.classList.add('hidden');
@@ -141,19 +174,24 @@ function captureSelfie() {
     document.getElementById('btn-retake').classList.remove('hidden');
     document.getElementById('btn-submit-absen').classList.remove('hidden');
 
-    canvas.toBlob(function(blob) {
-        Store.set('capturedBlob', blob);
-    }, mimeType, quality);
+    // Menggunakan helper sinkron untuk menghindari race condition toBlob
+    var blob = dataURItoBlob(dataUrl);
+    Store.set('capturedBlob', blob);
 }
 
 function retakeSelfie() {
     var video = document.getElementById('selfie-video');
     var preview = document.getElementById('selfie-preview');
-    video.classList.remove('hidden');
-    preview.classList.add('hidden');
-    document.getElementById('btn-capture').classList.remove('hidden');
-    document.getElementById('btn-retake').classList.add('hidden');
-    document.getElementById('btn-submit-absen').classList.add('hidden');
+    if (video) video.classList.remove('hidden');
+    if (preview) preview.classList.add('hidden');
+    
+    var btnCapture = document.getElementById('btn-capture');
+    var btnRetake = document.getElementById('btn-retake');
+    var btnSubmit = document.getElementById('btn-submit-absen');
+    if (btnCapture) btnCapture.classList.remove('hidden');
+    if (btnRetake) btnRetake.classList.add('hidden');
+    if (btnSubmit) btnSubmit.classList.add('hidden');
+    
     Store.set('capturedBlob', null);
 }
 
@@ -164,7 +202,8 @@ function closeSelfieModal() {
         Store.set('mediaStream', null);
     }
     Store.set('capturedBlob', null);
-    document.getElementById('selfie-modal').classList.add('hidden');
+    var modal = document.getElementById('selfie-modal');
+    if (modal) modal.classList.add('hidden');
 }
 
 async function submitAbsenWithSelfie() {
@@ -174,29 +213,25 @@ async function submitAbsenWithSelfie() {
         return;
     }
 
-    var btn = document.getElementById('btn-submit-absen');
-    setButtonLoading(btn, 'Mengunggah foto...');
-
-    var canvas = document.getElementById('selfie-canvas');
     var blob = Store.get('capturedBlob');
-
     if (!blob) {
-        showToast('Foto belum diambil.', 'error');
-        resetButtonLoading(btn);
+        showToast('Foto belum diambil atau belum selesai diproses.', 'error');
         return;
     }
 
-    var selfieUrl = null;
+    var btn = document.getElementById('btn-submit-absen');
+    setButtonLoading(btn, 'Mengunggah foto...');
 
     try {
-        var session = Store.get('activeEmployeeSession');
-        var fileName = CONFIG.STORAGE.FOLDER + '/' + pendingAbsenData.date + '_' + session.id.replace(/[@.]/g, '_') + '_' + Date.now() + '.jpg';
+        var session = Store.get('activeEmployeeSession') || {};
+        var identifier = session.id ? session.id.toString().replace(/[@.]/g, '_') : 'user';
+        var fileName = (CONFIG.STORAGE.FOLDER || 'attendance') + '/' + pendingAbsenData.date + '_' + identifier + '_' + Date.now() + '.jpg';
 
         var uploadResult = await supabaseClient
             .storage
             .from(CONFIG.STORAGE.BUCKET)
             .upload(fileName, blob, {
-                contentType: 'image/jpeg',
+                contentType: blob.type || 'image/jpeg',
                 cacheControl: '3600',
                 upsert: false
             });
@@ -204,58 +239,53 @@ async function submitAbsenWithSelfie() {
         if (uploadResult.error) {
             console.error('Storage upload error:', uploadResult.error);
             showToast('Gagal mengunggah foto ke server.', 'error');
-            resetButtonLoading(btn);
             return;
         }
 
         var urlResult = supabaseClient.storage.from(CONFIG.STORAGE.BUCKET).getPublicUrl(fileName);
-        selfieUrl = urlResult.data.publicUrl;
-    } catch (err) {
-        console.error('Storage exception:', err);
-        showToast('Gagal mengunggah foto.', 'error');
-        resetButtonLoading(btn);
-        return;
-    }
+        var selfieUrl = urlResult.data.publicUrl;
 
-    var now = new Date();
-    var wib = getWIBTimeParts(now);
-    var timeString = wib.h + ':' + wib.m + ':' + wib.s;
-    var dateStr = getWIBDateString(now);
+        var now = new Date();
+        var wib = getWIBTimeParts(now);
+        var timeString = wib.h + ':' + wib.m + ':' + wib.s;
+        var dateStr = getWIBDateString(now);
 
-    var status = 'Tepat Waktu';
-    var lateStr = '-';
-    var limitMaxInSeconds = timeToSeconds(CONFIG.ATTENDANCE.MAX_TIME);
-    var currentS = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
+        var status = 'Tepat Waktu';
+        var lateStr = '-';
+        var limitMaxInSeconds = timeToSeconds(CONFIG.ATTENDANCE.MAX_TIME);
+        var currentS = parseInt(wib.h, 10) * 3600 + parseInt(wib.m, 10) * 60 + parseInt(wib.s, 10);
 
-    if (currentS > limitMaxInSeconds) {
-        status = 'Terlambat';
-        var diff = currentS - limitMaxInSeconds;
-        var dh = Math.floor(diff / 3600);
-        var dm = Math.floor((diff % 3600) / 60);
-        var ds = diff % 60;
-        lateStr = dh + ':' + dm.toString().padStart(2, '0') + ':' + ds.toString().padStart(2, '0');
-    }
+        if (currentS > limitMaxInSeconds) {
+            status = 'Terlambat';
+            var diff = currentS - limitMaxInSeconds;
+            var dh = Math.floor(diff / 3600);
+            var dm = Math.floor((diff % 3600) / 60);
+            var ds = diff % 60;
+            lateStr = dh + ':' + dm.toString().padStart(2, '0') + ':' + ds.toString().padStart(2, '0');
+        }
 
-    var newRekap = {
-        date: dateStr,
-        name: pendingAbsenData.name,
-        basecamp: pendingAbsenData.basecamp,
-        time: timeString,
-        status: status,
-        late: lateStr,
-        selfie_url: selfieUrl,
-        lat: pendingAbsenData.lat,
-        lng: pendingAbsenData.lng,
-        accuracy: pendingAbsenData.accuracy
-    };
+        var newRekap = {
+            date: dateStr,
+            name: pendingAbsenData.name,
+            basecamp: pendingAbsenData.basecamp,
+            time: timeString,
+            status: status,
+            late: lateStr,
+            selfie_url: selfieUrl,
+            lat: pendingAbsenData.lat,
+            lng: pendingAbsenData.lng,
+            accuracy: pendingAbsenData.accuracy
+        };
 
-    try {
         var insertResult = await supabaseClient.from('rekap_list').insert([newRekap]).select();
         if (insertResult.error) throw insertResult.error;
 
-        var rekapList = Store.get('rekapList');
-        if (insertResult.data && insertResult.data.length > 0) rekapList.push(insertResult.data[0]);
-        else rekapList.push(newRekap);
+        var rekapList = Store.get('rekapList') || [];
+        if (insertResult.data && insertResult.data.length > 0) {
+            rekapList.push(insertResult.data[0]);
+        } else {
+            rekapList.push(newRekap);
+        }
         Store.set('rekapList', rekapList.slice());
 
         showToast('Absen berhasil! Jam: ' + timeString + ' WIB', 'success');
@@ -264,12 +294,13 @@ async function submitAbsenWithSelfie() {
         if (jamMasukEl) jamMasukEl.innerText = timeString + ' WIB';
 
         closeSelfieModal();
-        renderRekap();
-        renderMobileMyHistory();
-        updateDashboardStats();
+        if (typeof renderRekap === 'function') renderRekap();
+        if (typeof renderMobileMyHistory === 'function') renderMobileMyHistory();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
+
     } catch (err) {
-        console.error('Error:', err);
-        showToast('Gagal menyimpan absensi.', 'error');
+        console.error('Error saat menyimpan absensi:', err);
+        showToast('Gagal menyimpan absensi: ' + (err.message || 'Kesalahan sistem'), 'error');
     } finally {
         resetButtonLoading(btn);
     }
