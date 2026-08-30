@@ -37,7 +37,7 @@ const rawConfig = {
     },
     ATTENDANCE: {
         OPEN_TIME: '07:45',
-        MAX_TIME: '09:40',
+        MAX_TIME: '09:30',
         WORK_DAYS_PER_MONTH: 26
     },
     GPS: {
