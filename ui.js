@@ -220,13 +220,19 @@ function applyRolePermissions() {
 }
 
 function toggleAuthMode(mode) {
+    var loginStep = document.getElementById('login-step');
+    var regStep1 = document.getElementById('reg-step-1');
+    var regStep2 = document.getElementById('reg-step-2');
+    var forgotStep = document.getElementById('forgot-step');
+
+    if (loginStep) loginStep.classList.add('hidden');
+    if (regStep1) regStep1.classList.add('hidden');
+    if (regStep2) regStep2.classList.add('hidden');
+    if (forgotStep) forgotStep.classList.add('hidden');
+
     if (mode === 'login') {
-        document.getElementById('login-step').classList.remove('hidden');
-        document.getElementById('reg-step-1').classList.add('hidden');
-        document.getElementById('reg-step-2').classList.add('hidden');
-    } else {
-        document.getElementById('login-step').classList.add('hidden');
-        document.getElementById('reg-step-1').classList.remove('hidden');
-        document.getElementById('reg-step-2').classList.add('hidden');
+        if (loginStep) loginStep.classList.remove('hidden');
+    } else if (mode === 'register') {
+        if (regStep1) regStep1.classList.remove('hidden');
     }
 }
