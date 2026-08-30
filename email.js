@@ -91,6 +91,10 @@ function renderEmails() {
     }
 
     var userEmail = session.id;
+    var emailsList = Store.get('emailsList') || []; // Pengaman agar tidak undefined/null
+    var inboxRows = emailsList.filter(function(e) { return e.receiver === userEmail || e.receiver === 'BROADCAST'; });
+    var sentRows = emailsList.filter(function(e) { return e.sender === userEmail; });
+    var readIds = getReadEmailIds();
 
     // Mobile Inbox
     var mInboxList = document.getElementById('mobile-inbox-list');
