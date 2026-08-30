@@ -12,11 +12,23 @@ function closeLiburModal() {
 
 // Menyimpan data libur baru ke Supabase
 async function saveLibur() {
-    var date = document.getElementById('inp-libur-date').value;
-    var desc = document.getElementById('inp-libur-desc').value;
+    var dateEl = document.getElementById('inp-libur-date');
+    var descEl = document.getElementById('inp-libur-desc');
+
+    if (!dateEl || !descEl) {
+        console.error("Elemen input libur tidak ditemukan di DOM!");
+        return;
+    }
+
+    var date = dateEl.value;
+    var desc = descEl.value;
 
     if (!date || !desc) {
-        if (typeof showToast === 'function') showToast('Harap isi tanggal dan keterangan libur!', 'error');
+        if (typeof showToast === 'function') {
+            showToast('Harap isi tanggal dan keterangan libur!', 'error');
+        } else {
+            alert('Harap isi tanggal dan keterangan libur!');
+        }
         return;
     }
 
@@ -26,11 +38,17 @@ async function saveLibur() {
 
     if (error) {
         console.error('Supabase Insert Error:', error);
-        if (typeof showToast === 'function') showToast('Gagal menyimpan: ' + error.message, 'error');
+        if (typeof showToast === 'function') {
+            showToast('Gagal menyimpan: ' + error.message, 'error');
+        } else {
+            alert('Gagal menyimpan: ' + error.message);
+        }
         return;
     }
 
-    if (typeof showToast === 'function') showToast('Hari libur berhasil ditambahkan.', 'success');
+    if (typeof showToast === 'function') {
+        showToast('Hari libur berhasil ditambahkan.', 'success');
+    }
     
     closeLiburModal();
     renderLibur();
