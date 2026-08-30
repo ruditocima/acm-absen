@@ -217,32 +217,11 @@ async function submitAbsenWithSelfie() {
         return;
     }
 
-    var now = new Date();
-    var wib = getWIBTimeParts(now);
-    var timeString = wib.h + ':' + wib.m + ':' + wib.s;
-    var dateStr = getWIBDateString(now);
-
-    var status = 'Tepat Waktu';
-    var lateStr = '-';
-    var limitMaxInSeconds = timeToSeconds(CONFIG.ATTENDANCE.MAX_TIME);
-    var currentS = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
-
-    if (currentS > limitMaxInSeconds) {
-        status = 'Terlambat';
-        var diff = currentS - limitMaxInSeconds;
-        var dh = Math.floor(diff / 3600);
-        var dm = Math.floor((diff % 3600) / 60);
-        var ds = diff % 60;
-        lateStr = dh + ':' + dm.toString().padStart(2, '0') + ':' + ds.toString().padStart(2, '0');
-    }
-
+    // Payload dikirim tanpa tanggal, waktu, status, dan late manual dari HP.
+    // Database Supabase (Trigger SQL) yang akan mengisi data tersebut berdasarkan waktu server WIB yang valid.
     var newRekap = {
-        date: dateStr,
         name: pendingAbsenData.name,
         basecamp: pendingAbsenData.basecamp,
-        time: timeString,
-        status: status,
-        late: lateStr,
         selfie_url: selfieUrl,
         lat: pendingAbsenData.lat,
         lng: pendingAbsenData.lng,
@@ -253,9 +232,11 @@ async function submitAbsenWithSelfie() {
         var insertResult = await supabaseClient.from('rekap_list').insert([newRekap]).select();
         if (insertResult.error) throw insertResult.error;
 
+        var savedRecord = insertResult.data && insertResult.data.length > 0 ? insertResult.data[0] : newRekap;
+        var timeString = savedRecord.time || '00:00:00';
+
         var rekapList = Store.get('rekapList');
-        if (insertResult.data && insertResult.data.length > 0) rekapList.push(insertResult.data[0]);
-        else rekapList.push(newRekap);
+        rekapList.push(savedRecord);
         Store.set('rekapList', rekapList.slice());
 
         showToast('Absen berhasil! Jam: ' + timeString + ' WIB', 'success');
