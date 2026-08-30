@@ -17,16 +17,6 @@ async function handleAbsen() {
         return;
     }
 
-    var now = new Date();
-    var wib = getWIBTimeParts(now);
-    var currentTimeInSeconds = parseInt(wib.h) * 3600 + parseInt(wib.m) * 60 + parseInt(wib.s);
-    var limitOpenInSeconds = timeToSeconds(CONFIG.ATTENDANCE.OPEN_TIME);
-
-    if (currentTimeInSeconds < limitOpenInSeconds) {
-        showToast('Absensi belum dibuka. Mulai ' + CONFIG.ATTENDANCE.OPEN_TIME + ' WIB.', 'warning');
-        return;
-    }
-
     if (!navigator.geolocation) {
         showToast('Browser tidak mendukung GPS.', 'error');
         return;
@@ -217,8 +207,9 @@ async function submitAbsenWithSelfie() {
         return;
     }
 
-    // Hanya mengirim data esensial. Waktu, tanggal, status, dan keterlambatan 
-    // sepenuhnya dihitung dan diisi secara otomatis oleh Trigger SQL Supabase[cite: 3].
+    // Payload dikirim murni tanpa tanggal, waktu, status, dan keterlambatan manual dari HP.
+    // Tombol tetap berfungsi tanpa batasan waktu lokal, dan Trigger SQL Supabase 
+    // akan mencatat waktu server real (misal 23:52:52) serta menghitung durasi keterlambatan secara akurat.
     var newRekap = {
         name: pendingAbsenData.name,
         basecamp: pendingAbsenData.basecamp,
