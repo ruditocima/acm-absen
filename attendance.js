@@ -107,14 +107,31 @@ function captureSelfie() {
     var video = document.getElementById('selfie-video');
     var canvas = document.getElementById('selfie-canvas');
     var preview = document.getElementById('selfie-preview');
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    
+    // Batasi resolusi maksimum untuk mempercepat upload
+    var maxWidth = 640;
+    var maxHeight = 480;
+    var width = video.videoWidth || 640;
+    var height = video.videoHeight || 480;
+
+    if (width > maxWidth) {
+        height = Math.round((height * maxWidth) / width);
+        width = maxWidth;
+    }
+    if (height > maxHeight) {
+        width = Math.round((width * maxHeight) / height);
+        height = maxHeight;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    
     var ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, width, height);
 
     var supportsWebP = canvas.toDataURL('image/webp').startsWith('data:image/webp');
     var mimeType = supportsWebP ? 'image/webp' : 'image/jpeg';
-    var quality = supportsWebP ? 0.75 : 0.6;
+    var quality = supportsWebP ? 0.7 : 0.5;
     var dataUrl = canvas.toDataURL(mimeType, quality);
     preview.src = dataUrl;
 
