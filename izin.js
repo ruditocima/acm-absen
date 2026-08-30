@@ -46,7 +46,7 @@ async function submitMobileIzin() {
     renderAdminIzin();
     renderMobileMyHistory();
     updateDashboardStats();
-    showToast('Permohonan izin berhasil diajukan.', 'success');
+    // showToast('Permohonan izin diajukan.', 'success');
 
     document.getElementById('m-izin-start').value = '';
     document.getElementById('m-izin-end').value = '';
@@ -88,8 +88,8 @@ async function updateIzinStatus(id, newStatus) {
     var updateIzinRes = await supabaseClient.from('izin_list').update({ status: newStatus }).eq('id', id);
     if (updateIzinRes.error) {
         var errMessage = updateIzinRes.error.message || JSON.stringify(updateIzinRes.error);
-        console.error('Supabase Error (izin_list):', errMessage);
-        showToast('Gagal update izin ke Supabase: ' + errMessage, 'error');
+        console.error('Server Error (izin_list):', errMessage);
+        showToast('Gagal update izin ke Server: ' + errMessage, 'error');
         return;
     }
     
