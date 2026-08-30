@@ -14,12 +14,12 @@ const CONFIG = {
     },
     ATTENDANCE: {
         OPEN_TIME: '07:45',
-        MAX_TIME: '09:40',
+        MAX_TIME: '09:30',
         WORK_DAYS_PER_MONTH: 26
     },
     GPS: {
         DEFAULT_RADIUS: 1500,
-        MAX_ACCURACY: 100
+        MAX_ACCURACY: 500
     },
     PAGINATION: {
         REKAP_PER_PAGE: 50
