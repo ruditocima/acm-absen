@@ -13,8 +13,8 @@ const CONFIG = {
         FOLDER: 'selfies'
     },
     ATTENDANCE: {
-        OPEN_TIME: '07:45',
-        MAX_TIME: '09:30',
+        OPEN_TIME: '07:45:00',
+        MAX_TIME: '09:30:00',
         WORK_DAYS_PER_MONTH: 26
     },
     GPS: {
