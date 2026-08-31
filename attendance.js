@@ -225,11 +225,14 @@ async function submitAbsenWithSelfie() {
     try {
         var session = Store.get('activeEmployeeSession') || {};
         var identifier = session.id ? session.id.toString().replace(/[@.]/g, '_') : 'user';
-        var fileName = (CONFIG.STORAGE.FOLDER || 'attendance') + '/' + pendingAbsenData.date + '_' + identifier + '_' + Date.now() + '.jpg';
+        // Pastikan CONFIG.STORAGE.FOLDER dan BUCKET sudah terdefinisi
+        var folderName = (typeof CONFIG !== 'undefined' && CONFIG.STORAGE && CONFIG.STORAGE.FOLDER) ? CONFIG.STORAGE.FOLDER : 'attendance';
+        var fileName = folderName + '/' + pendingAbsenData.date + '_' + identifier + '_' + Date.now() + '.jpg';
 
+        // 1. PROSES UPLOAD STORAGE
         var uploadResult = await supabaseClient
             .storage
-            .from(CONFIG.STORAGE.BUCKET)
+            .from(CONFIG.STORAGE.BUCKET) // Pastikan BUCKET ini ada di Supabase!
             .upload(fileName, blob, {
                 contentType: blob.type || 'image/jpeg',
                 cacheControl: '3600',
@@ -237,9 +240,10 @@ async function submitAbsenWithSelfie() {
             });
 
         if (uploadResult.error) {
-            console.error('Storage upload error:', uploadResult.error);
-            showToast('Gagal mengunggah foto ke server.', 'error');
-            return;
+            console.error('❌ Storage Upload Error:', uploadResult.error);
+            showToast('Gagal mengunggah foto. Cek console untuk detail.', 'error');
+            resetButtonLoading(btn);
+            return; // Hentikan eksekusi jika upload foto gagal
         }
 
         var urlResult = supabaseClient.storage.from(CONFIG.STORAGE.BUCKET).getPublicUrl(fileName);
@@ -277,9 +281,17 @@ async function submitAbsenWithSelfie() {
             accuracy: pendingAbsenData.accuracy
         };
 
+        // 2. PROSES INSERT DATABASE
         var insertResult = await supabaseClient.from('rekap_list').insert([newRekap]).select();
-        if (insertResult.error) throw insertResult.error;
+        
+        if (insertResult.error) {
+            console.error('❌ Database Insert Error:', insertResult.error);
+            showToast('Gagal menyimpan data absensi ke database.', 'error');
+            resetButtonLoading(btn);
+            return;
+        }
 
+        // Jika sukses
         var rekapList = Store.get('rekapList') || [];
         if (insertResult.data && insertResult.data.length > 0) {
             rekapList.push(insertResult.data[0]);
@@ -299,8 +311,8 @@ async function submitAbsenWithSelfie() {
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
 
     } catch (err) {
-        console.error('Error saat menyimpan absensi:', err);
-        showToast('Gagal menyimpan absensi: ' + (err.message || 'Kesalahan sistem'), 'error');
+        console.error('❌ Error sistem (Catch block):', err);
+        showToast('Terjadi kesalahan sistem: ' + (err.message || 'Error tidak diketahui'), 'error');
     } finally {
         resetButtonLoading(btn);
     }
