@@ -15,7 +15,7 @@ function renderRekapDataToTable(dataList) {
             '<td class="p-3 text-white">' + escapeHtml(r.date) + '</td>' +
             '<td class="p-3 font-semibold text-white">' + escapeHtml(r.name) + '</td>' +
             '<td class="p-3 text-slate-300">' + escapeHtml(r.basecamp) + '</td>' +
-            '<td class="p-3 font-mono text-emerald-400">' + formatRekapTime(r.time) + '</td>' +
+            '<td class="p-3 font-mono text-emerald-400">' + escapeHtml(r.time) + ' WIB</td>' +
             '<td class="p-3"><span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold ' + getStatusBadgeClass(r.status) + '">' + escapeHtml(r.status) + '</span></td>' +
             '<td class="p-3 text-rose-400 font-mono">' + escapeHtml(r.late) + '</td>' +
             '<td class="p-3">' + (r.selfie_url ? '<button onclick="openImageZoom(\'' + escapeHtml(r.selfie_url) + '\')" class="px-2 py-1 bg-slate-800 text-gold-400 border border-slate-700 hover:bg-slate-700 rounded text-[11px] font-semibold transition flex items-center gap-1"><i class="fa-solid fa-image"></i> Lihat</button>' : '-') + '</td>' +
