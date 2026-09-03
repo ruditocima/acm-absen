@@ -124,10 +124,16 @@ function openSelfieModal() {
         return;
     }
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
         .then(function(stream) {
             Store.set('mediaStream', stream);
-            if (video) video.srcObject = stream;
+            if (video) {
+                video.srcObject = stream;
+                // Tambahkan perintah play() agar video berjalan di layar HP
+                video.play().catch(function(err) {
+                    console.error("Gagal memutar video:", err);
+                });
+            }
         })
         .catch(function(err) {
             showToast('Gagal mengakses kamera: ' + (err.message || 'Izin ditolak'), 'error');
